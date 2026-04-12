@@ -1,0 +1,98 @@
+:root {
+  --bg: #04050a;
+  --star-color: 200, 215, 255;
+  --nav-width: 220px;
+  --nav-padding: 40px 28px;
+  --nav-gap: 28px;
+  --nav-item-size: 17px;
+  --nav-brand-size: 14px;
+  --nav-transition: 0.5s ease;
+  --name-transition: 0.8s ease;
+  --glitch-transition: 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+  overflow: hidden;
+  cursor: crosshair;
+}
+
+canvas#stars {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+#nameplate {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  pointer-events: none;
+  text-align: center;
+  width: 90%;
+}
+
+#name-text {
+  display: inline-block;
+  transform-origin: center center;
+  will-change: transform, font-size;
+}
+
+nav#menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: var(--nav-width);
+  padding: var(--nav-padding);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--nav-gap);
+  opacity: 0;
+  transition: opacity var(--nav-transition);
+  pointer-events: none;
+  z-index: 10;
+}
+
+nav#menu.visible {
+  opacity: 1;
+  pointer-events: all;
+}
+
+#menu-brand {
+  font-family: 'Courier New', monospace;
+  font-size: var(--nav-brand-size);
+  letter-spacing: 0.15em;
+  color: rgba(255, 255, 255, 0.35);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  min-height: 20px;
+}
+
+nav#menu a {
+  font-family: Georgia, serif;
+  font-size: var(--nav-item-size);
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.75);
+  letter-spacing: 0.04em;
+  transition: color 0.2s;
+  text-decoration: none;
+  display: block;
+}
+
+nav#menu a:hover {
+  color: #fff;
+}
