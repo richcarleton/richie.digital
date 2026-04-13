@@ -4,24 +4,25 @@ const ORIG = 'RICHIE.DIGITAL';
 const GLITCH_CHARS = '!@#$%^&*<>?/\\|[]{}~';
 
 // -- text styles --
-// add/remove/reorder freely. last one always triggers the collapse.
 const styles = [
   () => {
     nameEl.style.cssText = `
-      font-family: 'Courier New', monospace;
-      font-size: clamp(32px, 6vw, 64px);
-      font-weight: 700;
+      font-family: 'Roboto Condensed', sans-serif;
+      font-size: clamp(18px, 8vw, 72px);
+      font-weight: 900;
       letter-spacing: 0.18em;
       color: #00ffe7;
       text-shadow: 0 0 8px #00ffe7, 0 0 30px #00ffe799, 0 0 60px #00ffe744;
       transition: all 0.8s ease;
       display: inline-block;
+      width: 100%;
+      text-align: center;
     `;
   },
   () => {
     nameEl.style.cssText = `
-      font-family: Impact, 'Arial Narrow', sans-serif;
-      font-size: clamp(36px, 7vw, 72px);
+      font-family: 'Roboto Condensed', sans-serif;
+      font-size: clamp(18px, 8vw, 72px);
       font-weight: 900;
       letter-spacing: 0.22em;
       color: transparent;
@@ -29,24 +30,28 @@ const styles = [
       text-shadow: none;
       transition: all 0.8s ease;
       display: inline-block;
+      width: 100%;
+      text-align: center;
     `;
   },
   () => {
     nameEl.style.cssText = `
-      font-family: 'Courier New', monospace;
-      font-size: clamp(30px, 5.5vw, 58px);
+      font-family: 'Roboto Mono', monospace;
+      font-size: clamp(18px, 7vw, 62px);
       font-weight: 400;
       letter-spacing: 0.08em;
       color: #ff2d78;
       text-shadow: 3px 0 0 #00ffe7, -3px 0 0 #ff2d78;
       transition: all 0.8s ease;
       display: inline-block;
+      width: 100%;
+      text-align: center;
     `;
   },
   () => {
     nameEl.style.cssText = `
-      font-family: 'Arial', sans-serif;
-      font-size: clamp(34px, 6.5vw, 68px);
+      font-family: 'Roboto Condensed', sans-serif;
+      font-size: clamp(18px, 8vw, 72px);
       font-weight: 100;
       letter-spacing: 0.35em;
       color: rgba(255,255,255,0.12);
@@ -54,26 +59,30 @@ const styles = [
       text-shadow: none;
       transition: all 0.8s ease;
       display: inline-block;
+      width: 100%;
+      text-align: center;
     `;
   },
   () => {
     nameEl.style.cssText = `
-      font-family: 'Courier New', monospace;
-      font-size: clamp(28px, 5vw, 54px);
+      font-family: 'Roboto Mono', monospace;
+      font-size: clamp(18px, 7vw, 58px);
       font-weight: 700;
       letter-spacing: 0.12em;
       color: #ffb800;
       text-shadow: 0 0 6px #ffb800aa, 0 0 20px #ffb80055;
       transition: all 0.8s ease;
       display: inline-block;
+      width: 100%;
+      text-align: center;
     `;
   },
-  // last style - ice outline - triggers collapse
+  // last — ice outline — triggers collapse
   () => {
     nameEl.style.cssText = `
-      font-family: 'Georgia', serif;
-      font-size: clamp(32px, 6vw, 62px);
-      font-weight: 700;
+      font-family: 'Roboto Condensed', sans-serif;
+      font-size: clamp(18px, 8vw, 72px);
+      font-weight: 900;
       letter-spacing: 0.2em;
       font-style: italic;
       color: transparent;
@@ -81,6 +90,8 @@ const styles = [
       text-shadow: 0 0 20px rgba(160,220,255,0.3);
       transition: all 0.8s ease;
       display: inline-block;
+      width: 100%;
+      text-align: center;
     `;
   }
 ];
@@ -113,27 +124,23 @@ function collapseToNav() {
 
   glitch(() => {
     styles[styles.length - 1]();
-
     setTimeout(() => {
       const slot = document.getElementById('menu-brand').getBoundingClientRect();
       const plate = nameplate.getBoundingClientRect();
-
       const dx = (slot.left + slot.width / 2) - (plate.left + plate.width / 2);
       const dy = (slot.top + slot.height / 2) - (plate.top + plate.height / 2);
-
       nameplate.style.transition = `transform 0.7s cubic-bezier(0.4,0,0.2,1), opacity 0.5s ease`;
       nameplate.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-
       nameEl.style.fontSize = '13px';
       nameEl.style.letterSpacing = '0.15em';
       nameEl.style.fontStyle = 'normal';
-      nameEl.style.fontFamily = "'Courier New', monospace";
+      nameEl.style.fontFamily = "'Roboto Mono', monospace";
       nameEl.style.color = 'rgba(255,255,255,0.35)';
       nameEl.style.webkitTextStroke = '0';
       nameEl.style.textShadow = 'none';
       nameEl.style.fontWeight = '400';
+      nameEl.style.width = 'auto';
       nameEl.textContent = 'richie.digital';
-
       setTimeout(() => {
         nameplate.style.opacity = '0';
         setTimeout(() => {
@@ -159,12 +166,30 @@ function cycle() {
   glitch(() => styles[currentStyle]());
 }
 
-// init
+// breathing + hue sweep on nameplate
+function startAtmosphere() {
+  let t = 0;
+  const el = nameplate;
+  setInterval(() => {
+    t += 0.02;
+    // breath: opacity between 0.82 and 1.0
+    const breath = 0.91 + Math.sin(t * 0.6) * 0.09;
+    // hue sweep: very faint red-orange overlay using a pseudo via box-shadow trick
+    const hue = 12 + Math.sin(t * 0.4) * 8; // 4 to 20deg range — red-orange
+    const sat = 60 + Math.sin(t * 0.3) * 20;
+    const sweepAlpha = 0.04 + Math.sin(t * 0.5) * 0.025; // 0.015 to 0.065 — barely there
+    el.style.opacity = collapsed ? '0' : breath;
+    if (!collapsed) {
+      el.style.filter = `drop-shadow(0 0 40px hsla(${hue}, ${sat}%, 55%, ${sweepAlpha}))`;
+    }
+  }, 30);
+}
+
 styles[0]();
+startAtmosphere();
 setInterval(cycle, 2800);
 setInterval(() => {
   if (!collapsed && !collapsing && Math.random() < 0.4) glitch();
 }, 1800);
 
-// expose for external use if needed
 window.nameplate = { glitch, collapseToNav };
