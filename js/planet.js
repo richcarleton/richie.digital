@@ -15,6 +15,7 @@ uniform vec2  uCometFrom;
 uniform vec2  uCometTo;
 uniform float uCometSize;
 uniform float uDitherDepth;
+uniform float uTintBlend; // -1=midnight purple → 0=neutral → +1=sunset orange
 
 float hash(vec2 p) {
   p = fract(p * vec2(127.1, 311.7));
@@ -42,7 +43,7 @@ float bayer(vec2 p) {
 vec3 planetSurface(vec2 sn, float heat) {
   float z   = sqrt(max(0.0, 1.0 - dot(sn, sn)));
   vec3  n   = vec3(sn, z);
-  float lon = atan(n.y, n.x) / 6.28318 + 0.5;
+  float lon = atan(n.y, n.x) / 6.28318 + 0.75; // +0.25 = 90° Y-axis rotation
   float lat = asin(clamp(n.z, -1.0, 1.0)) / 3.14159 + 0.5;
   vec2  suv = vec2(lon + uTime * 0.014, lat);
 
@@ -52,12 +53,13 @@ vec3 planetSurface(vec2 sn, float heat) {
   float iceMask = smoothstep(0.28, 0.10, abs(lat - 0.5));
   float snowMsk = smoothstep(0.36, 0.18, abs(lat - 0.5));
 
-  vec3 ocean   = mix(vec3(0.03,0.07,0.30), vec3(0.05,0.18,0.50), smoothstep(0.38,0.44,land));
-  vec3 terr    = mix(vec3(0.10,0.34,0.08), vec3(0.52,0.40,0.16), smoothstep(0.45,0.72,elev));
-  terr = mix(terr, vec3(0.90,0.93,1.00), smoothstep(0.70,0.88,elev));
+  // drabbed-down palette — desaturated, earthy
+  vec3 ocean   = mix(vec3(0.04,0.07,0.18), vec3(0.06,0.14,0.28), smoothstep(0.38,0.44,land));
+  vec3 terr    = mix(vec3(0.14,0.18,0.10), vec3(0.34,0.28,0.16), smoothstep(0.45,0.72,elev));
+  terr = mix(terr, vec3(0.55,0.52,0.50), smoothstep(0.70,0.88,elev));
   vec3 surface = mix(ocean, terr, isLand);
-  surface = mix(surface, vec3(0.78,0.86,1.00), iceMask * (1.0 - isLand));
-  surface = mix(surface, vec3(0.90,0.93,1.00), snowMsk * isLand * smoothstep(0.65,0.80,elev));
+  surface = mix(surface, vec3(0.50,0.54,0.60), iceMask * (1.0 - isLand));
+  surface = mix(surface, vec3(0.62,0.62,0.64), snowMsk * isLand * smoothstep(0.65,0.80,elev));
 
   vec3  L    = normalize(vec3(-0.55, 0.65, 0.85));
   float diff = max(dot(n, L), 0.0);
@@ -149,6 +151,15 @@ void main() {
     }
   }
 
+  // ── global desaturate + time-of-day tint ─────────────────────────────────
+  float luma = dot(col, vec3(0.299, 0.587, 0.114));
+  col = mix(col, vec3(luma), 0.30); // drab — pull 30% toward grey
+
+  vec3 tintCol = uTintBlend > 0.0
+    ? mix(vec3(1.0), vec3(1.00, 0.48, 0.10), uTintBlend * 0.30)  // sunset orange
+    : mix(vec3(1.0), vec3(0.42, 0.06, 0.62), -uTintBlend * 0.26); // midnight purple
+  col *= tintCol;
+
   // ── comet flyby ───────────────────────────────────────────────────────────
   if (uCometPhase >= 0.0) {
     vec2  dir     = normalize(uCometTo - uCometFrom);
@@ -216,6 +227,7 @@ const uCometFrom   = gl.getUniformLocation(prog, 'uCometFrom');
 const uCometTo     = gl.getUniformLocation(prog, 'uCometTo');
 const uCometSize   = gl.getUniformLocation(prog, 'uCometSize');
 const uDitherDepth = gl.getUniformLocation(prog, 'uDitherDepth');
+const uTintBlend   = gl.getUniformLocation(prog, 'uTintBlend');
 
 // defaults
 gl.uniform1f(uCometPhase,  -1.0);
@@ -223,6 +235,17 @@ gl.uniform2f(uCometFrom,   -1.0, 0.0);
 gl.uniform2f(uCometTo,      1.0, 0.0);
 gl.uniform1f(uCometSize,    1.0);
 gl.uniform1f(uDitherDepth,  7.0);
+gl.uniform1f(uTintBlend,    getTimeTint());
+
+// time-of-day tint: -1=midnight purple, 0=neutral, +1=sunset orange
+function getTimeTint() {
+  const h = new Date().getHours() + new Date().getMinutes() / 60;
+  const smoothPeak = (x, c, w) => Math.max(0, 1 - Math.abs(x - c) / w);
+  const sunset   = smoothPeak(h, 19, 3.5);
+  const midnight = Math.max(smoothPeak(h, 0, 3.5), smoothPeak(h, 24, 3.5));
+  return sunset >= midnight ? sunset : -midnight;
+}
+setInterval(() => gl.uniform1f(uTintBlend, getTimeTint()), 60000);
 
 // expose for comet.js and midi.js
 window.planetUniforms = {
