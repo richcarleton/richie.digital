@@ -90,9 +90,9 @@ nav#menu.visible {
 
 #menu-brand {
   font-family: 'Roboto Mono', monospace;
-  font-size: var(--nav-brand-size);
+  font-size: calc(var(--nav-brand-size) * 1.4);
   letter-spacing: 0.15em;
-  color: rgba(255, 255, 255, 0.35);
+  color: #ffffff;
   text-transform: uppercase;
   margin-bottom: 8px;
   min-height: 20px;
