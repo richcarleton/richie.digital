@@ -40,10 +40,10 @@ void main() {
   vec2 st = (fc - uRes * 0.5) / min(uRes.x, uRes.y);
 
   // slow approach loop, 40 seconds
-  float T    = 40.0;
+  float T    = 50.0;
   float t    = mod(uTime, T) / T;
   float ease = t * t * (3.0 - 2.0 * t);
-  float scale = 0.05 + ease * 0.22;        // 5% → 27% of half-viewport
+  float scale = 0.04 + ease * 0.176;       // 4% → 21.6% of half-viewport
 
   // fade to dark near the end
   float fade = 1.0 - smoothstep(0.90, 1.0, t);
