@@ -10,6 +10,10 @@ const FS = `
 precision mediump float;
 uniform vec2  uRes;
 uniform float uTime;
+uniform float uCometPhase;
+uniform vec2  uCometFrom;
+uniform vec2  uCometTo;
+uniform float uDitherDepth;
 
 float hash(vec2 p) {
   p = fract(p * vec2(127.1, 311.7));
@@ -144,8 +148,31 @@ void main() {
     }
   }
 
+  // ── comet flyby ───────────────────────────────────────────────────────────
+  if (uCometPhase >= 0.0) {
+    vec2  dir     = normalize(uCometTo - uCometFrom);
+    vec2  pos     = mix(uCometFrom, uCometTo, uCometPhase);
+    vec2  toPixel = st - pos;
+    float along   = dot(toPixel, dir);
+    float across  = dot(toPixel, vec2(-dir.y, dir.x));
+    float nucDist = length(toPixel);
+
+    // nucleus + inner glow
+    col += vec3(1.00, 0.96, 0.88) * smoothstep(0.018, 0.0,  nucDist);
+    col += vec3(0.55, 0.72, 1.00) * smoothstep(0.055, 0.0,  nucDist) * 0.45;
+
+    // tail (behind nucleus)
+    float tailLen = -along;
+    if (tailLen > 0.0 && tailLen < 0.50) {
+      float tf        = tailLen / 0.50;
+      float halfWidth = 0.002 + tailLen * 0.018;
+      float tailGlow  = smoothstep(halfWidth, 0.0, abs(across)) * (1.0 - tf * tf);
+      col += vec3(0.50, 0.75, 1.00) * tailGlow * 0.80;
+    }
+  }
+
   // ── dither ────────────────────────────────────────────────────────────────
-  float depth = 7.0;
+  float depth = uDitherDepth;
   col  = floor(col * depth) / depth;
   col += (bayer(fc) - 0.5) / depth;
   col  = clamp(col, 0.0, 1.0) * fade;
@@ -178,8 +205,26 @@ const aPos = gl.getAttribLocation(prog, 'aPos');
 gl.enableVertexAttribArray(aPos);
 gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
 
-const uRes  = gl.getUniformLocation(prog, 'uRes');
-const uTime = gl.getUniformLocation(prog, 'uTime');
+const uRes        = gl.getUniformLocation(prog, 'uRes');
+const uTime       = gl.getUniformLocation(prog, 'uTime');
+const uCometPhase = gl.getUniformLocation(prog, 'uCometPhase');
+const uCometFrom  = gl.getUniformLocation(prog, 'uCometFrom');
+const uCometTo    = gl.getUniformLocation(prog, 'uCometTo');
+const uDitherDepth = gl.getUniformLocation(prog, 'uDitherDepth');
+
+// defaults
+gl.uniform1f(uCometPhase,  -1.0);
+gl.uniform2f(uCometFrom,   -1.0, 0.0);
+gl.uniform2f(uCometTo,      1.0, 0.0);
+gl.uniform1f(uDitherDepth,  7.0);
+
+// expose for comet.js and midi.js
+window.planetUniforms = {
+  setCometPhase:   v      => gl.uniform1f(uCometPhase, v),
+  setCometFrom:    (x, y) => gl.uniform2f(uCometFrom, x, y),
+  setCometTo:      (x, y) => gl.uniform2f(uCometTo, x, y),
+  setDitherDepth:  v      => gl.uniform1f(uDitherDepth, v),
+};
 
 function resizePlanet() {
   planetCanvas.width  = window.innerWidth;
