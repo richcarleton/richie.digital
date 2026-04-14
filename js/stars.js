@@ -20,8 +20,7 @@ function initStars() {
 }
 
 function draw() {
-  ctx.fillStyle = '#04050a';
-  ctx.fillRect(0, 0, W, H);
+  ctx.clearRect(0, 0, W, H);
 
   const cx = W / 2, cy = H / 2;
 

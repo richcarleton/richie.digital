@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dither Planet</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #000; overflow: hidden; width: 100%; height: 100%; }
+    canvas { display: block; width: 100vw; height: 100vh; image-rendering: pixelated; }
+    #label {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      font-family: monospace; font-size: 0.7rem; letter-spacing: 0.2em;
+      color: rgba(255,255,255,0.25); text-transform: uppercase; pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="label">Bayer Dither &mdash; WebGL</div>
+
+<script>
+const VS = `
+  attribute vec2 aPos;
+  void main() { gl_Position = vec4(aPos, 0.0, 1.0); }
+`;
+
+const FS = `
+precision mediump float;
+uniform vec2  uRes;
+uniform float uTime;
+
+// ── noise ───────────────────────────────────────────────
+float hash(vec2 p) {
+  p = fract(p * vec2(127.1, 311.7));
+  p += dot(p, p + 45.32);
+  return fract(p.x * p.y);
+}
+float noise(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i),           hash(i+vec2(1,0)), f.x),
+             mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), f.x), f.y);
+}
+float fbm(vec2 p) {
+  float v = 0.0, a = 0.5;
+  for (int i = 0; i < 5; i++) { v += a * noise(p); p *= 2.1; a *= 0.5; }
+  return v;
+}
+
+// ── Bayer 4×4 ───────────────────────────────────────────
+float bayer(vec2 p) {
+  int x = int(mod(p.x, 4.0));
+  int y = int(mod(p.y, 4.0));
+  return (float(y * 4 + x) + 0.5) / 16.0;
+}
+
+// ── main ────────────────────────────────────────────────
+void main() {
+  vec2 fc = gl_FragCoord.xy;
+  vec2 st = (fc - uRes * 0.5) / min(uRes.x, uRes.y);
+
+  // approach loop: 0 → 1 every 9s, then snap back
+  float T    = 9.0;
+  float t    = mod(uTime, T) / T;          // 0..1
+  float ease = t * t * (3.0 - 2.0 * t);   // smoothstep
+  float scale = 0.12 + ease * 1.6;        // planet apparent radius
+
+  // fade to black near end (entering atmosphere)
+  float fade = 1.0 - smoothstep(0.82, 1.0, t);
+
+  vec3 col = vec3(0.0);
+
+  // ── starfield (parallax outward) ──────────────────────
+  vec2 starSt = st * (1.0 - ease * 0.25);
+  float cellSize = 0.022;
+  vec2 sc   = floor(starSt / cellSize);
+  vec2 sf   = fract(starSt / cellSize) - 0.5;
+  float sh  = hash(sc);
+  if (sh > 0.965) {
+    float r   = length(sf);
+    float br  = (1.0 - smoothstep(0.0, 0.18, r)) * ((sh - 0.965) / 0.035);
+    br *= 0.5 + 0.5 * sin(uTime * (2.0 + sh * 8.0) + sh * 6.28);
+    col += vec3(br * mix(0.8, 1.0, hash(sc + 1.0)),
+                br * mix(0.8, 1.0, hash(sc + 2.0)),
+                br);
+  }
+
+  // ── speed streaks (grow with approach) ───────────────
+  float streakStr = smoothstep(0.35, 0.78, t);
+  if (streakStr > 0.001 && length(st) > scale * 1.05) {
+    float ang    = atan(st.y, st.x);
+    float sector = floor(ang / 0.11);
+    float srand  = hash(vec2(sector, 3.7));
+    if (srand > 0.55) {
+      float angMid  = (sector + 0.5) * 0.11;
+      float angDiff = abs(mod(ang - angMid + 3.14159, 6.28318) - 3.14159);
+      float radDist = length(st);
+      float streak  = smoothstep(0.055, 0.0, angDiff)
+                    * smoothstep(1.5, scale * 1.1, radDist)
+                    * (1.0 - smoothstep(scale * 1.05, scale * 1.5, radDist))
+                    * streakStr * (0.3 + srand * 0.4);
+      col += vec3(0.55, 0.7, 1.0) * streak;
+    }
+  }
+
+  // ── planet ───────────────────────────────────────────
+  float dist = length(st);
+  if (dist < scale) {
+    vec2  sn = st / scale;
+    float z  = sqrt(max(0.0, 1.0 - dot(sn, sn)));
+    vec3  n  = vec3(sn, z);
+
+    float lon = atan(n.y, n.x) / 6.28318 + 0.5;
+    float lat = asin(clamp(n.z, -1.0, 1.0)) / 3.14159 + 0.5;
+    vec2  suv = vec2(lon + uTime * 0.018, lat);
+
+    // terrain
+    float land   = fbm(suv * 3.5 + 2.3);
+    float isLand = smoothstep(0.44, 0.52, land);
+
+    vec3 deep    = vec3(0.03, 0.08, 0.32);
+    vec3 shallow = vec3(0.06, 0.22, 0.55);
+    vec3 grass   = vec3(0.12, 0.38, 0.08);
+    vec3 desert  = vec3(0.55, 0.42, 0.18);
+    vec3 ice     = vec3(0.82, 0.88, 1.00);
+    vec3 snow    = vec3(0.95, 0.97, 1.00);
+
+    float elev    = fbm(suv * 7.0 + 5.1);
+    float iceMask = smoothstep(0.28, 0.12, abs(lat - 0.5));
+    float snowMsk = smoothstep(0.36, 0.20, abs(lat - 0.5));
+
+    vec3 ocean   = mix(deep, shallow, smoothstep(0.38, 0.44, land));
+    vec3 terr    = mix(grass, desert, smoothstep(0.45, 0.72, elev));
+    terr = mix(terr, snow, smoothstep(0.70, 0.88, elev));
+    vec3 surface = mix(ocean, terr, isLand);
+    surface = mix(surface, ice,  iceMask * (1.0 - isLand));
+    surface = mix(surface, snow, snowMsk * isLand * smoothstep(0.65, 0.80, elev));
+
+    // lighting
+    vec3  L    = normalize(vec3(-0.55, 0.65, 0.85));
+    float diff = max(dot(n, L), 0.0);
+    float amb  = 0.08;
+    float spec = pow(max(dot(reflect(-L, n), vec3(0,0,1)), 0.0), 20.0)
+                 * (1.0 - isLand) * 0.5;
+
+    surface = surface * (diff * 0.82 + amb) + vec3(0.6, 0.75, 1.0) * spec;
+
+    // clouds
+    float cloud = smoothstep(0.56, 0.68,
+                    fbm(suv * 5.5 + vec2(uTime * 0.008, 1.0)));
+    surface = mix(surface, vec3(0.88, 0.91, 1.0) * (diff * 0.6 + 0.35),
+                  cloud * 0.72);
+
+    // limb darkening + thin atmosphere from inside
+    float rim = 1.0 - z;
+    surface  *= 0.65 + 0.35 * z;
+    surface  += vec3(0.15, 0.35, 0.80) * pow(rim, 3.5) * 0.45;
+
+    col = surface;
+  }
+
+  // ── atmosphere halo ───────────────────────────────────
+  float r = dist / scale;
+  if (r > 1.0 && r < 1.22) {
+    float atm = pow(1.0 - (r - 1.0) / 0.22, 2.5);
+    col += vec3(0.18, 0.42, 1.00) * atm * 0.55;
+  }
+
+  // ── dither ────────────────────────────────────────────
+  float depth = 7.0;
+  col = floor(col * depth) / depth;
+  col += (bayer(fc) - 0.5) / depth;
+  col  = clamp(col, 0.0, 1.0) * fade;
+
+  gl_FragColor = vec4(col, 1.0);
+}
+`;
+
+// ── WebGL boilerplate ────────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const gl = canvas.getContext('webgl');
+
+function compile(type, src) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS))
+    console.error(gl.getShaderInfoLog(s));
+  return s;
+}
+
+const prog = gl.createProgram();
+gl.attachShader(prog, compile(gl.VERTEX_SHADER,   VS));
+gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FS));
+gl.linkProgram(prog);
+gl.useProgram(prog);
+
+const buf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+gl.bufferData(gl.ARRAY_BUFFER,
+  new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+const aPos = gl.getAttribLocation(prog, 'aPos');
+gl.enableVertexAttribArray(aPos);
+gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+const uRes  = gl.getUniformLocation(prog, 'uRes');
+const uTime = gl.getUniformLocation(prog, 'uTime');
+
+function resize() {
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  gl.viewport(0, 0, canvas.width, canvas.height);
+}
+window.addEventListener('resize', resize);
+resize();
+
+function loop(t) {
+  gl.uniform2f(uRes, canvas.width, canvas.height);
+  gl.uniform1f(uTime, t * 0.001);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
