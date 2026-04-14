@@ -39,23 +39,27 @@ void main() {
   vec2 fc = gl_FragCoord.xy;
   vec2 st = (fc - uRes * 0.5) / min(uRes.x, uRes.y);
 
-  // slow approach loop, 40 seconds
-  float T    = 50.0;
+  // slow approach loop, 75 seconds
+  float T    = 75.0;
   float t    = mod(uTime, T) / T;
   float ease = t * t * (3.0 - 2.0 * t);
-  float scale = 0.04 + ease * 0.176;       // 4% → 21.6% of half-viewport
+  float scale = 0.04 + ease * 0.176;
 
   // fade to dark near the end
   float fade = 1.0 - smoothstep(0.90, 1.0, t);
 
+  // 30-degree drift: planet starts offset, drifts toward centre as it approaches
+  float ang = radians(30.0);
+  vec2  planetCenter = vec2(cos(ang), sin(ang)) * (1.0 - ease) * 0.18;
+  vec2  sp   = st - planetCenter;   // planet-relative screen coords
+  float dist = length(sp);
+
   // space background — match site --bg #04050a
   vec3 col = vec3(0.016, 0.020, 0.039);
 
-  float dist = length(st);
-
   // ── planet ─────────────────────────────────────────────
   if (dist < scale) {
-    vec2  sn = st / scale;
+    vec2  sn = sp / scale;
     float z  = sqrt(max(0.0, 1.0 - dot(sn, sn)));
     vec3  n  = vec3(sn, z);
 
@@ -108,7 +112,7 @@ void main() {
   }
 
   // ── atmosphere halo ────────────────────────────────────
-  float r = dist / scale;
+  float r = length(sp) / scale;
   if (r > 1.0 && r < 1.24) {
     float atm = pow(1.0 - (r - 1.0) / 0.24, 2.5);
     col += vec3(0.16, 0.40, 1.00) * atm * 0.50;
