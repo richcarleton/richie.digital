@@ -187,7 +187,7 @@ function startAtmosphere() {
 
 styles[0]();
 startAtmosphere();
-setInterval(cycle, 2800);
+setInterval(cycle, 2000);
 setInterval(() => {
   if (!collapsed && !collapsing && Math.random() < 0.4) glitch();
 }, 1800);
