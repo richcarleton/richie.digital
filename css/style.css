@@ -152,7 +152,7 @@ nav#menu a:hover {
   --dp-flk:   5s;
 
   position: absolute;
-  bottom: 0;
+  top: 0;
   right: 0;
   width: 280px;
   max-height: 85vh;
@@ -161,7 +161,7 @@ nav#menu a:hover {
 
   background: rgba(0, 0, 0, 0.5);
   border: 1px solid var(--dp-p);
-  border-bottom: none;
+  border-top: none;
   border-right: none;
 
   font-family: 'Courier New', Courier, monospace;
@@ -171,7 +171,7 @@ nav#menu a:hover {
   padding: 14px 14px 12px;
   pointer-events: all;
 
-  transform: translateY(100%);
+  transform: translateY(-100%);
   transition: transform var(--dp-slide) cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
