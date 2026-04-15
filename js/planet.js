@@ -39,13 +39,26 @@ float bayer(vec2 p) {
   return (float(y * 4 + x) + 0.5) / 16.0;
 }
 
+// ── hue rotation ─────────────────────────────────────────────────────────────
+vec3 hueShift(vec3 c, float h) {
+  float s = sin(h), cs = cos(h);
+  vec3 k = vec3(0.57735);
+  return c * cs + cross(k, c) * s + k * dot(k, c) * (1.0 - cs);
+}
+
 // ── planet surface ────────────────────────────────────────────────────────────
 vec3 planetSurface(vec2 sn, float heat) {
   float z   = sqrt(max(0.0, 1.0 - dot(sn, sn)));
   vec3  n   = vec3(sn, z);
-  float lon = atan(n.y, n.x) / 6.28318 + 0.75; // +0.25 = 90° Y-axis rotation
+  float lon = atan(n.y, n.x) / 6.28318 + 0.75;
   float lat = asin(clamp(n.z, -1.0, 1.0)) / 3.14159 + 0.5;
-  vec2  suv = vec2(lon + uTime * 0.014, lat);
+
+  // acid UV warp — surface writhes
+  vec2 warp = vec2(
+    sin(uTime * 1.4 + lat * 20.0 + lon * 9.0) * 0.025,
+    cos(uTime * 1.1 + lon * 16.0 + lat * 7.0) * 0.020
+  );
+  vec2  suv = vec2(lon + uTime * 0.014, lat) + warp;
 
   float land    = fbm(suv * 3.5 + 2.3);
   float isLand  = smoothstep(0.44, 0.52, land);
@@ -73,9 +86,21 @@ vec3 planetSurface(vec2 sn, float heat) {
   surface  *= 0.65 + 0.35 * z;
   surface  += vec3(0.12, 0.32, 0.80) * pow(rim, 3.5) * 0.45;
 
-  // heat tint: normal → orange → red
+  // plasma acid overlay — always present, intensifies with heat
+  float pl = sin(suv.x * 22.0 + uTime * 2.4)
+           * sin(suv.y * 17.0 + uTime * 1.9)
+           * sin((suv.x + suv.y) * 11.0 + uTime * 1.4);
+  pl = pl * 0.5 + 0.5;
+  vec3 plasmaCol = vec3(
+    sin(pl * 6.28 + uTime * 0.6        ) * 0.5 + 0.5,
+    sin(pl * 6.28 + uTime * 0.8 + 2.09) * 0.5 + 0.5,
+    sin(pl * 6.28 + uTime * 0.4 + 4.19) * 0.5 + 0.5
+  );
+  surface = mix(surface, plasmaCol, 0.18 + heat * 0.35);
+
+  // heat tint
   vec3 heatCol = mix(vec3(1.0, 0.45, 0.0), vec3(1.0, 0.08, 0.0), heat);
-  surface = mix(surface, heatCol * (diff * 0.9 + 0.15), heat * 0.88);
+  surface = mix(surface, heatCol * (diff * 0.9 + 0.15), heat * 0.70);
 
   return surface;
 }
@@ -151,13 +176,29 @@ void main() {
     }
   }
 
-  // ── global desaturate + time-of-day tint ─────────────────────────────────
-  float luma = dot(col, vec3(0.299, 0.587, 0.114));
-  col = mix(col, vec3(luma), 0.30); // drab — pull 30% toward grey
+  // ── chromatic fringe at planet limb ──────────────────────────────────────
+  float distFromEdge = abs(length(sp) / scale - 1.0);
+  if (distFromEdge < 0.12) {
+    float fringe = 1.0 - distFromEdge / 0.12;
+    col.r += sin(uTime * 2.3) * fringe * 0.22;
+    col.b += cos(uTime * 1.8) * fringe * 0.22;
+  }
 
+  // ── space interference shimmer ────────────────────────────────────────────
+  float intf = sin(st.x * 38.0 + uTime * 4.0) * sin(st.y * 29.0 + uTime * 3.1) * 0.025;
+  col += vec3(intf * 0.4, intf * 0.8, intf);
+
+  // ── global hue cycle ─────────────────────────────────────────────────────
+  col = hueShift(col, uTime * 0.14);
+
+  // ── mild desaturate to stop it going full rave ────────────────────────────
+  float luma = dot(col, vec3(0.299, 0.587, 0.114));
+  col = mix(col, vec3(luma), 0.15);
+
+  // ── time-of-day tint ─────────────────────────────────────────────────────
   vec3 tintCol = uTintBlend > 0.0
-    ? mix(vec3(1.0), vec3(1.00, 0.48, 0.10), uTintBlend * 0.30)  // sunset orange
-    : mix(vec3(1.0), vec3(0.42, 0.06, 0.62), -uTintBlend * 0.26); // midnight purple
+    ? mix(vec3(1.0), vec3(1.00, 0.48, 0.10), uTintBlend * 0.30)
+    : mix(vec3(1.0), vec3(0.42, 0.06, 0.62), -uTintBlend * 0.26);
   col *= tintCol;
 
   // ── comet flyby ───────────────────────────────────────────────────────────

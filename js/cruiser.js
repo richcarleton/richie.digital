@@ -57,7 +57,7 @@ S.forEach((row, y) => {
 const particles = [];
 function emitParticles(ex, ey, facingRight) {
   const dir = facingRight ? -1 : 1;
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 8; i++) {
     particles.push({
       x: ex + dir * Math.random() * 12,
       y: ey + (Math.random() - 0.5) * 6,
@@ -66,7 +66,7 @@ function emitParticles(ex, ey, facingRight) {
       life: 1.0,
       decay: 0.035 + Math.random() * 0.04,
       r: Math.random() < 0.5 ? 3 : 2,
-      col: Math.random() < 0.5 ? '#ffdd00' : '#ff6600',
+      col: `hsl(${(Math.random() * 360) | 0},100%,${55 + (Math.random() * 30) | 0}%)`,
     });
   }
   // cap
@@ -99,10 +99,10 @@ function trigger() {
   if (active) return;
   facingRight = Math.random() < 0.5;
   y = window.innerHeight * (0.15 + Math.random() * 0.65) - SH / 2;
-  wobbleAmp  = 4 + Math.random() * 10;
-  wobbleFreq = 0.4 + Math.random() * 0.6;
+  wobbleAmp  = 18 + Math.random() * 32;
+  wobbleFreq = 0.8 + Math.random() * 1.4;
   wobble     = 0;
-  const speed = 55 + Math.random() * 65;
+  const speed = 70 + Math.random() * 110;
 
   if (facingRight) {
     x  = -SW - 20;

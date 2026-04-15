@@ -39,7 +39,7 @@ function randomOrbitalPath() {
   const len = Math.sqrt(cx*cx + cy*cy) || 1;
   const perp = [-cy / len, cx / len];                    // unit perpendicular
   const mid  = [(from[0]+to[0])/2, (from[1]+to[1])/2];
-  const swing = (0.28 + Math.random() * 0.28) * (Math.random() < 0.5 ? 1 : -1);
+  const swing = (0.55 + Math.random() * 0.75) * (Math.random() < 0.5 ? 1 : -1);
   const ctrl  = [mid[0] + perp[0]*swing, mid[1] + perp[1]*swing];
   return { from, ctrl, to };
 }
