@@ -152,17 +152,15 @@ nav#menu a:hover {
   --dp-flk:   5s;
 
   position: absolute;
-  top: 0;
-  right: 0;
-  width: 280px;
-  max-height: 85vh;
+  top: 10px;
+  right: 10px;
+  width: min(360px, calc(100vw - 20px));
+  max-height: calc(100vh - 20px);
   overflow-y: auto;
   overflow-x: hidden;
 
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.88);
   border: 1px solid var(--dp-p);
-  border-top: none;
-  border-right: none;
 
   font-family: 'Courier New', Courier, monospace;
   font-size: 11px;
