@@ -68,6 +68,8 @@ function tick(ts) {
     }
   }
 
+  window._cometActive = cometActive;
+
   if (window.planetUniforms) {
     window.planetUniforms.setCometPhase(cometPhase);
     window.planetUniforms.setCometFrom(cometFrom[0], cometFrom[1]);

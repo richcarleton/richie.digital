@@ -127,3 +127,317 @@ nav#menu a:hover {
     padding: 40px 24px;
   }
 }
+/* devpanel.css — richie.digital CRT dev panel
+   -------------------------------------------- */
+
+#dev-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+#dev-overlay.dp-open {
+  display: block;
+}
+
+#dev-panel {
+  --dp-p:    #e8900a;
+  --dp-pd:   #7a4010;
+  --dp-pl:   #2a1808;
+  --dp-slide: 0.45s;
+  --dp-scn:   4s;
+  --dp-pls:   2s;
+  --dp-flk:   5s;
+
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 280px;
+  max-height: 85vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--dp-p);
+  border-bottom: none;
+  border-right: none;
+
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11px;
+  color: var(--dp-p);
+
+  padding: 14px 14px 12px;
+  pointer-events: all;
+
+  transform: translateY(100%);
+  transition: transform var(--dp-slide) cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+#dev-overlay.dp-open #dev-panel {
+  transform: translateY(0);
+}
+
+/* CRT scanline texture */
+#dev-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.15) 2px,
+    rgba(0, 0, 0, 0.15) 4px
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+#dev-panel > * { position: relative; z-index: 1; }
+
+/* scrolling scanline bar */
+.dp-scanline {
+  position: absolute;
+  left: 0; right: 0;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.04);
+  pointer-events: none;
+  animation: dp-scan var(--dp-scn) linear infinite;
+  z-index: 2;
+}
+
+@keyframes dp-scan {
+  0%   { top: 0;    opacity: 0; }
+  3%   { opacity: 1; }
+  97%  { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+
+/* header */
+.dp-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px;
+  border-bottom: 1px solid var(--dp-p);
+  padding-bottom: 6px;
+  margin-bottom: 12px;
+}
+
+.dp-title {
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-shadow: 0 0 10px var(--dp-p), 0 0 20px var(--dp-p);
+  text-transform: uppercase;
+  color: var(--dp-p);
+}
+
+.dp-subtitle {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: var(--dp-pd);
+  text-transform: uppercase;
+}
+
+.dp-blink {
+  animation: dp-blink 1.1s step-end infinite;
+}
+@keyframes dp-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+.dp-close {
+  background: transparent;
+  border: 1px solid var(--dp-pl);
+  color: var(--dp-pd);
+  font-family: 'Courier New', monospace;
+  font-size: 10px;
+  width: 18px; height: 18px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  border-radius: 1px;
+  margin-left: auto;
+  transition: border-color 0.15s, color 0.15s;
+}
+.dp-close:hover {
+  border-color: var(--dp-p);
+  color: var(--dp-p);
+}
+
+/* section labels */
+.dp-section-label {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: var(--dp-pd);
+  text-transform: uppercase;
+  margin: 12px 0 4px;
+}
+
+/* variable rows */
+.dp-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 1px solid var(--dp-pl);
+  padding: 3px 0;
+}
+
+.dp-key {
+  font-size: 10px;
+  color: var(--dp-pd);
+  letter-spacing: 0.04em;
+}
+
+.dp-val {
+  font-size: 10px;
+  color: var(--dp-p);
+  text-shadow: 0 0 7px var(--dp-p);
+  letter-spacing: 0.04em;
+}
+
+.dp-val.dp-dim {
+  color: var(--dp-pd);
+  text-shadow: none;
+}
+
+.dp-val.dp-live {
+  animation: dp-flicker var(--dp-flk) ease-in-out infinite;
+}
+
+@keyframes dp-flicker {
+  0%, 100% { opacity: 1; }
+  91% { opacity: 1; }
+  92% { opacity: 0.55; }
+  93% { opacity: 1; }
+  97% { opacity: 0.75; }
+  98% { opacity: 1; }
+}
+
+/* divider */
+.dp-divider {
+  border: none;
+  border-top: 1px solid var(--dp-pl);
+  margin: 12px 0 10px;
+}
+
+/* controls */
+.dp-ctrl-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 9px;
+}
+
+.dp-ctrl-lbl {
+  font-size: 9px;
+  color: var(--dp-pd);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  width: 44px;
+  flex-shrink: 0;
+}
+
+.dp-ctrl-val {
+  font-size: 10px;
+  color: var(--dp-p);
+  text-shadow: 0 0 6px var(--dp-p);
+  width: 34px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.dp-ctrl-row input[type=range] {
+  flex: 1;
+  height: 2px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--dp-pl);
+  border-radius: 0;
+  outline: none;
+  cursor: pointer;
+}
+
+.dp-ctrl-row input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 9px; height: 13px;
+  border-radius: 1px;
+  background: var(--dp-p);
+  box-shadow: 0 0 5px var(--dp-p);
+  cursor: pointer;
+}
+
+/* swatches */
+.dp-swatches {
+  display: flex;
+  gap: 5px;
+  flex: 1;
+}
+
+.dp-sw {
+  width: 16px; height: 13px;
+  border-radius: 1px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: transform 0.1s;
+}
+
+.dp-sw.dp-sw-on {
+  border-color: rgba(255, 255, 255, 0.7);
+  transform: scale(1.18);
+}
+
+/* footer */
+.dp-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.dp-status-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dp-status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--dp-p);
+  box-shadow: 0 0 7px var(--dp-p);
+  animation: dp-pulse var(--dp-pls) ease-in-out infinite;
+}
+
+@keyframes dp-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+
+.dp-footer-txt {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: var(--dp-pd);
+  text-transform: uppercase;
+}
+
+.dp-btn {
+  background: transparent;
+  border: 1px solid var(--dp-pd);
+  color: var(--dp-pd);
+  font-family: 'Courier New', monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  cursor: pointer;
+  border-radius: 1px;
+  flex: 1;
+  transition: border-color 0.15s, color 0.15s, text-shadow 0.15s;
+}
+.dp-btn:hover, .dp-btn:active {
+  border-color: var(--dp-p);
+  color: var(--dp-p);
+  text-shadow: 0 0 6px var(--dp-p);
+}

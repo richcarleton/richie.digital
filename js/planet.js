@@ -267,8 +267,10 @@ resizePlanet();
 let start = null;
 function loop(ts) {
   if (!start) start = ts;
+  const elapsed = (ts - start) * 0.001;
+  window._planetPhase = (elapsed % 75) / 75;
   gl.uniform2f(uRes, planetCanvas.width, planetCanvas.height);
-  gl.uniform1f(uTime, (ts - start) * 0.001);
+  gl.uniform1f(uTime, elapsed);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   requestAnimationFrame(loop);
 }
