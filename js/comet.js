@@ -34,11 +34,13 @@ function randomOrbitalPath() {
     from = [(Math.random() - 0.5) * 1.2, -margin];
     to   = [(Math.random() - 0.5) * 1.2,  margin];
   }
-  // Control point near planet centre — pulls path into an orbital arc
-  const ctrl = [
-    (Math.random() - 0.5) * 0.20,
-    (Math.random() - 0.5) * 0.20
-  ];
+  // Control point perpendicular to the chord — bows path around the planet
+  const cx = to[0] - from[0], cy = to[1] - from[1];
+  const len = Math.sqrt(cx*cx + cy*cy) || 1;
+  const perp = [-cy / len, cx / len];                    // unit perpendicular
+  const mid  = [(from[0]+to[0])/2, (from[1]+to[1])/2];
+  const swing = (0.28 + Math.random() * 0.28) * (Math.random() < 0.5 ? 1 : -1);
+  const ctrl  = [mid[0] + perp[0]*swing, mid[1] + perp[1]*swing];
   return { from, ctrl, to };
 }
 
