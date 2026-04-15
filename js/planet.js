@@ -11,8 +11,8 @@ precision mediump float;
 uniform vec2  uRes;
 uniform float uTime;
 uniform float uCometPhase;
-uniform vec2  uCometFrom;
-uniform vec2  uCometTo;
+uniform vec2  uCometPos;
+uniform vec2  uCometDir;
 uniform float uCometSize;
 uniform float uDitherDepth;
 uniform float uTintBlend; // -1=midnight purple → 0=neutral → +1=sunset orange
@@ -162,11 +162,9 @@ void main() {
 
   // ── comet flyby ───────────────────────────────────────────────────────────
   if (uCometPhase >= 0.0) {
-    vec2  dir     = normalize(uCometTo - uCometFrom);
-    vec2  pos     = mix(uCometFrom, uCometTo, uCometPhase);
-    vec2  toPixel = st - pos;
-    float along   = dot(toPixel, dir);
-    float across  = dot(toPixel, vec2(-dir.y, dir.x));
+    vec2  toPixel = st - uCometPos;
+    float along   = dot(toPixel, uCometDir);
+    float across  = dot(toPixel, vec2(-uCometDir.y, uCometDir.x));
     float nucDist = length(toPixel);
 
     // nucleus + inner glow — scaled by uCometSize
@@ -223,16 +221,16 @@ gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
 const uRes        = gl.getUniformLocation(prog, 'uRes');
 const uTime       = gl.getUniformLocation(prog, 'uTime');
 const uCometPhase  = gl.getUniformLocation(prog, 'uCometPhase');
-const uCometFrom   = gl.getUniformLocation(prog, 'uCometFrom');
-const uCometTo     = gl.getUniformLocation(prog, 'uCometTo');
+const uCometPos    = gl.getUniformLocation(prog, 'uCometPos');
+const uCometDir    = gl.getUniformLocation(prog, 'uCometDir');
 const uCometSize   = gl.getUniformLocation(prog, 'uCometSize');
 const uDitherDepth = gl.getUniformLocation(prog, 'uDitherDepth');
 const uTintBlend   = gl.getUniformLocation(prog, 'uTintBlend');
 
 // defaults
 gl.uniform1f(uCometPhase,  -1.0);
-gl.uniform2f(uCometFrom,   -1.0, 0.0);
-gl.uniform2f(uCometTo,      1.0, 0.0);
+gl.uniform2f(uCometPos,     0.0, 0.0);
+gl.uniform2f(uCometDir,     1.0, 0.0);
 gl.uniform1f(uCometSize,    1.0);
 gl.uniform1f(uDitherDepth,  7.0);
 gl.uniform1f(uTintBlend,    getTimeTint());
@@ -250,8 +248,8 @@ setInterval(() => gl.uniform1f(uTintBlend, getTimeTint()), 60000);
 // expose for comet.js and midi.js
 window.planetUniforms = {
   setCometPhase:  v      => gl.uniform1f(uCometPhase, v),
-  setCometFrom:   (x, y) => gl.uniform2f(uCometFrom, x, y),
-  setCometTo:     (x, y) => gl.uniform2f(uCometTo, x, y),
+  setCometPos:    (x, y) => gl.uniform2f(uCometPos, x, y),
+  setCometDir:    (x, y) => gl.uniform2f(uCometDir, x, y),
   setCometSize:   v      => gl.uniform1f(uCometSize, v),
   setDitherDepth: v      => gl.uniform1f(uDitherDepth, v),
 };

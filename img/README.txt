@@ -1,0 +1,1 @@
+drop sticker.png here

@@ -1,16 +1,23 @@
 // ── Comet controller ──────────────────────────────────────────────────────────
-// Trigger: spacebar, any MIDI note-on (via midi.js), or auto after idle.
+// Orbital Bézier trajectories — curves around the planet at screen centre.
 
-let cometActive = false;
-let cometPhase  = -1.0;
-let cometSpeed  = 0.192; // 40% slower than original 0.32
-let cometSize   = 1.0;   // set fresh each trigger
-let cometFrom   = [-1, 0];
-let cometTo     = [ 1, 0];
+// ── Bézier helpers ────────────────────────────────────────────────────────────
+function bzPos(p0, p1, p2, t) {
+  const m = 1 - t;
+  return [
+    m*m*p0[0] + 2*m*t*p1[0] + t*t*p2[0],
+    m*m*p0[1] + 2*m*t*p1[1] + t*t*p2[1]
+  ];
+}
+function bzTan(p0, p1, p2, t) {
+  const dx = 2*(1-t)*(p1[0]-p0[0]) + 2*t*(p2[0]-p1[0]);
+  const dy = 2*(1-t)*(p1[1]-p0[1]) + 2*t*(p2[1]-p1[1]);
+  const len = Math.sqrt(dx*dx + dy*dy) || 1;
+  return [dx/len, dy/len];
+}
 
-let idleTimer = null;
-
-function randomCometPath() {
+// ── orbital path generation ───────────────────────────────────────────────────
+function randomOrbitalPath() {
   const edge   = Math.floor(Math.random() * 4);
   const margin = 0.95;
   let from, to;
@@ -27,34 +34,44 @@ function randomCometPath() {
     from = [(Math.random() - 0.5) * 1.2, -margin];
     to   = [(Math.random() - 0.5) * 1.2,  margin];
   }
-  return { from, to };
+  // Control point near planet centre — pulls path into an orbital arc
+  const ctrl = [
+    (Math.random() - 0.5) * 0.20,
+    (Math.random() - 0.5) * 0.20
+  ];
+  return { from, ctrl, to };
 }
+
+// ── state ─────────────────────────────────────────────────────────────────────
+let cometActive = false;
+let cometPhase  = -1.0;
+let cometSpeed  = 0.192;
+let cometSize   = 1.0;
+let cometFrom, cometCtrl, cometTo;
+
+let idleTimer = null;
 
 function triggerComet() {
   if (cometActive) return;
-  const { from, to } = randomCometPath();
+  const { from, ctrl, to } = randomOrbitalPath();
   cometFrom  = from;
+  cometCtrl  = ctrl;
   cometTo    = to;
   cometPhase = 0.0;
-  cometSize  = 0.4 + Math.random() * 1.6; // 0.4× tiny to 2.0× large
-  cometSpeed = 0.12 + Math.random() * 0.15; // vary speed too for depth feel
+  cometSize  = 0.4 + Math.random() * 1.6;
+  cometSpeed = 0.12 + Math.random() * 0.15;
   cometActive = true;
   scheduleIdle();
 }
 
 function scheduleIdle() {
   clearTimeout(idleTimer);
-  // 40% less frequent than before: 28–70s idle window
   idleTimer = setTimeout(triggerComet, 28000 + Math.random() * 42000);
 }
-
-function resetIdle() {
-  scheduleIdle();
-}
+function resetIdle() { scheduleIdle(); }
 
 // ── update loop ───────────────────────────────────────────────────────────────
 let lastTs = null;
-
 function tick(ts) {
   if (lastTs === null) lastTs = ts;
   const dt = (ts - lastTs) * 0.001;
@@ -72,30 +89,32 @@ function tick(ts) {
 
   if (window.planetUniforms) {
     window.planetUniforms.setCometPhase(cometPhase);
-    window.planetUniforms.setCometFrom(cometFrom[0], cometFrom[1]);
-    window.planetUniforms.setCometTo(cometTo[0], cometTo[1]);
 
-    // size pulses gently as it moves — parallax shimmer
-    const pulsedSize = cometActive
-      ? cometSize * (1.0 + 0.18 * Math.sin(cometPhase * Math.PI * 5))
-      : 1.0;
-    window.planetUniforms.setCometSize(pulsedSize);
+    if (cometActive) {
+      const pos  = bzPos(cometFrom, cometCtrl, cometTo, cometPhase);
+      const dir  = bzTan(cometFrom, cometCtrl, cometTo, cometPhase);
+      const size = cometSize * (1.0 + 0.18 * Math.sin(cometPhase * Math.PI * 5));
+      window.planetUniforms.setCometPos(pos[0], pos[1]);
+      window.planetUniforms.setCometDir(dir[0], dir[1]);
+      window.planetUniforms.setCometSize(size);
+    }
   }
 
   requestAnimationFrame(tick);
 }
 requestAnimationFrame(tick);
 
-// ── keyboard trigger ──────────────────────────────────────────────────────────
+// ── keyboard ──────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
   resetIdle();
-  if (e.code === 'Space') {
-    e.preventDefault();
-    triggerComet();
-  }
+  if (e.code === 'Space') { e.preventDefault(); triggerComet(); }
 });
 
 scheduleIdle();
 
 window.triggerComet   = triggerComet;
 window.resetCometIdle = resetIdle;
+// expose path helpers for sticker.js
+window.randomOrbitalPath = randomOrbitalPath;
+window.bzPos = bzPos;
+window.bzTan = bzTan;
