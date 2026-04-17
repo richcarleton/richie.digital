@@ -1,8 +1,65 @@
-.menu-brand,
-nav#menu a {
-    font-family: 'Roboto Condensed', sans-serif;
+/* Reset styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
-/* Other styles unchanged */
+/* Full-height body */
+body {
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.9);
+}
 
-/* Lines 92-103 replaced */
+/* Canvas positioning */
+.canvas {
+    position: absolute;
+}
+
+.planet {
+    z-index: 1;
+}
+
+.stars {
+    z-index: 0;
+}
+
+/* Nameplate */
+.nameplate {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+}
+
+/* Navigation menu */
+.nav-menu {
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 250px;
+    background: linear-gradient(to bottom, rgba(0, 255, 255, 0.8), rgba(0, 128, 128, 0.8));
+    z-index: 20;
+}
+
+.nav-menu.visible {
+    opacity: 1;
+}
+
+.nav-menu.hidden {
+    opacity: 0;
+}
+
+/* Menu brand and link styling */
+.nav-menu .brand, .nav-menu a {
+    color: rgba(255, 255, 255, 0.8);
+    text-decoration: none;
+    transition: all 0.3s;
+}
+
+.nav-menu a:hover {
+    text-shadow: 0 0 10px cyan;
+    color: rgba(255, 255, 255, 1);
+}
