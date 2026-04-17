@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <radialGradient id="headGrad" cx="38%" cy="32%" r="68%">
+      <stop offset="0%"   stop-color="#cdd0dc"/>
+      <stop offset="100%" stop-color="#515468"/>
+    </radialGradient>
+    <radialGradient id="eyeGradL" cx="30%" cy="25%" r="70%">
+      <stop offset="0%"   stop-color="#ffd020"/>
+      <stop offset="100%" stop-color="#c07800"/>
+    </radialGradient>
+    <radialGradient id="eyeGradR" cx="30%" cy="25%" r="70%">
+      <stop offset="0%"   stop-color="#ffd020"/>
+      <stop offset="100%" stop-color="#c07800"/>
+    </radialGradient>
+  </defs>
+
+  <!-- ears (drawn first so head overlaps bases) -->
+  <polygon points="4,16 10,3 16,14"  fill="#7b7e92"/>
+  <polygon points="16,14 22,3 28,16" fill="#7b7e92"/>
+  <!-- inner ear blush -->
+  <polygon points="6,15 10,5.5 15,14"  fill="#b86070"/>
+  <polygon points="17,14 22,5.5 26,15" fill="#b86070"/>
+
+  <!-- head -->
+  <circle cx="16" cy="21" r="11" fill="url(#headGrad)"/>
+
+  <!-- left eye -->
+  <rect x="9.5" y="16.5" width="5"   height="8" rx="1.4" fill="url(#eyeGradL)"/>
+  <!-- right eye -->
+  <rect x="17.5" y="16.5" width="5"  height="8" rx="1.4" fill="url(#eyeGradR)"/>
+
+  <!-- pupils (dark vertical slit) -->
+  <rect x="11.5" y="16.5" width="1.2" height="8" rx="0.6" fill="#090610"/>
+  <rect x="19.5" y="16.5" width="1.2" height="8" rx="0.6" fill="#090610"/>
+
+  <!-- eye specular highlight -->
+  <ellipse cx="10.8" cy="18.5" rx="1.1" ry="0.7" fill="rgba(255,245,180,0.65)" transform="rotate(-15,10.8,18.5)"/>
+  <ellipse cx="18.8" cy="18.5" rx="1.1" ry="0.7" fill="rgba(255,245,180,0.65)" transform="rotate(-15,18.8,18.5)"/>
+</svg>
