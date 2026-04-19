@@ -277,10 +277,6 @@ void main() {
     col *= mix(1.0, scanDim, glitchPow * 0.80);
   }
 
-  // ── space interference shimmer ────────────────────────────────────────────
-  float intf = sin(st.x * 38.0 + uTime * 4.0) * sin(st.y * 29.0 + uTime * 3.1) * 0.025;
-  col += vec3(intf * 0.4, intf * 0.8, intf);
-
   // ── global hue cycle ─────────────────────────────────────────────────────
   col = hueShift(col, uTime * 0.14);
 
