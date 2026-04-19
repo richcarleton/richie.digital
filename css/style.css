@@ -1,65 +1,92 @@
-/* Reset styles */
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@100;400;700;900&family=Roboto+Mono:wght@400;700&display=swap');
+
+/* ── reset ───────────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-/* Full-height body */
-body {
-    height: 100vh;
-    background-color: rgba(0, 0, 0, 0.9);
+/* ── full-screen lockdown — no scroll, no bleed ──────────────────────────────── */
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #080b14;
+  font-family: 'Roboto Condensed', Arial, sans-serif;
 }
 
-/* Canvas positioning */
-.canvas {
-    position: absolute;
+/* ── canvas layers ───────────────────────────────────────────────────────────── */
+#planet, #stars {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+#planet { z-index: 0; }
+#stars  { z-index: 1; }
+
+/* ── nameplate — centred on screen ──────────────────────────────────────────── */
+#nameplate {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  text-align: center;
+  pointer-events: none;
+  width: 90vw;
 }
 
-.planet {
-    z-index: 1;
+/* ── nav menu — slides in from left half of screen ───────────────────────────── */
+#menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  padding: 22px 28px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
 }
 
-.stars {
-    z-index: 0;
+#menu.visible {
+  opacity: 1;
+  pointer-events: auto;
 }
 
-/* Nameplate */
-.nameplate {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 10;
+/* brand slot — filled by nameplate.js collapse animation */
+#menu-brand {
+  font-family: 'Roboto Condensed', sans-serif;
+  font-weight: 900;
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  color: rgba(255, 255, 255, 0.35);
+  margin-bottom: 6px;
+  min-height: 18px;
+  text-transform: lowercase;
 }
 
-/* Navigation menu */
-.nav-menu {
-    position: fixed;
-    left: 0;
-    top: 0;
-    height: 100%;
-    width: 250px;
-    background: linear-gradient(to bottom, rgba(0, 255, 255, 0.8), rgba(0, 128, 128, 0.8));
-    z-index: 20;
+/* nav links */
+#menu a {
+  font-family: 'Roboto Condensed', sans-serif;
+  font-weight: 900;
+  font-size: clamp(20px, 2.8vw, 32px);
+  color: #ffffff;
+  text-decoration: none;
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+  line-height: 1.1;
+  transition: color 0.18s ease, text-shadow 0.18s ease;
 }
 
-.nav-menu.visible {
-    opacity: 1;
-}
-
-.nav-menu.hidden {
-    opacity: 0;
-}
-
-/* Menu brand and link styling */
-.nav-menu .brand, .nav-menu a {
-    color: rgba(255, 255, 255, 0.8);
-    text-decoration: none;
-    transition: all 0.3s;
-}
-
-.nav-menu a:hover {
-    text-shadow: 0 0 10px cyan;
-    color: rgba(255, 255, 255, 1);
+#menu a:hover {
+  color: #00ffe7;
+  text-shadow: 0 0 14px rgba(0, 255, 231, 0.65);
 }
