@@ -134,11 +134,11 @@ function collapseToNav() {
       nameEl.style.fontSize = '13px';
       nameEl.style.letterSpacing = '0.15em';
       nameEl.style.fontStyle = 'normal';
-      nameEl.style.fontFamily = "'Roboto Mono', monospace";
+      nameEl.style.fontFamily = "'Roboto Condensed', 'Arial Narrow', Arial, Helvetica, sans-serif";
       nameEl.style.color = 'rgba(255,255,255,0.35)';
       nameEl.style.webkitTextStroke = '0';
       nameEl.style.textShadow = 'none';
-      nameEl.style.fontWeight = '400';
+      nameEl.style.fontWeight = '900';
       nameEl.style.width = 'auto';
       nameEl.textContent = 'richie.digital';
       setTimeout(() => {

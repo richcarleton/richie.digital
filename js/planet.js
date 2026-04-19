@@ -7,7 +7,7 @@ const VS = `
 `;
 
 const FS = `
-precision mediump float;
+precision highp float;
 uniform vec2  uRes;
 uniform float uTime;
 uniform float uCometPhase;
@@ -32,11 +32,6 @@ float fbm(vec2 p) {
   float v = 0.0, a = 0.5;
   for (int i = 0; i < 4; i++) { v += a * noise(p); p *= 2.1; a *= 0.5; }
   return v;
-}
-float bayer(vec2 p) {
-  int x = int(mod(p.x, 4.0));
-  int y = int(mod(p.y, 4.0));
-  return (float(y * 4 + x) + 0.5) / 16.0;
 }
 vec3 hueShift(vec3 c, float h) {
   float s = sin(h), cs = cos(h);
