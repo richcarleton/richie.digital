@@ -38,71 +38,122 @@ float bayer(vec2 p) {
   int y = int(mod(p.y, 4.0));
   return (float(y * 4 + x) + 0.5) / 16.0;
 }
-
-// ── hue rotation ─────────────────────────────────────────────────────────────
 vec3 hueShift(vec3 c, float h) {
   float s = sin(h), cs = cos(h);
   vec3 k = vec3(0.57735);
   return c * cs + cross(k, c) * s + k * dot(k, c) * (1.0 - cs);
 }
 
-// ── planet surface ────────────────────────────────────────────────────────────
-vec3 planetSurface(vec2 sn, float heat) {
-  float z   = sqrt(max(0.0, 1.0 - dot(sn, sn)));
-  vec3  n   = vec3(sn, z);
-  float lon = atan(n.y, n.x) / 6.28318 + 0.75;
-  float lat = asin(clamp(n.z, -1.0, 1.0)) / 3.14159 + 0.5;
+// ── SDF primitives ────────────────────────────────────────────────────────────
+float sdCircle(vec2 p, float r) { return length(p) - r; }
+float sdBox(vec2 p, vec2 b) {
+  vec2 d = abs(p) - b;
+  return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
+}
+// signed: negative = inside triangle
+float sdTri(vec2 p, vec2 a, vec2 b, vec2 c) {
+  vec2 e0 = b-a, e1 = c-b, e2 = a-c;
+  vec2 v0 = p-a, v1 = p-b, v2 = p-c;
+  vec2 pq0 = v0 - e0*clamp(dot(v0,e0)/dot(e0,e0), 0.0, 1.0);
+  vec2 pq1 = v1 - e1*clamp(dot(v1,e1)/dot(e1,e1), 0.0, 1.0);
+  vec2 pq2 = v2 - e2*clamp(dot(v2,e2)/dot(e2,e2), 0.0, 1.0);
+  float s = sign(e0.x*e2.y - e0.y*e2.x);
+  vec2 d = min(min(vec2(dot(pq0,pq0), s*(v0.x*e0.y-v0.y*e0.x)),
+                   vec2(dot(pq1,pq1), s*(v1.x*e1.y-v1.y*e1.x))),
+                   vec2(dot(pq2,pq2), s*(v2.x*e2.y-v2.y*e2.x)));
+  return -sqrt(d.x) * sign(d.y);
+}
 
-  // acid UV warp — surface writhes
+// ── intermittent burst helper — returns 0..1, peaks once per period ──────────
+float burst(float t, float period, float rise, float hold) {
+  float p = mod(t, period) / period;
+  return smoothstep(0.0, rise, p) * (1.0 - smoothstep(hold, hold + rise, p));
+}
+
+// ── cat face — p in local space (head circle radius = 1.0) ───────────────────
+// warpSurge 0..1 = extra UV distortion; phasePow 0..1 = eyes drift apart
+vec3 catFace(vec2 p, float heat, float dHead, float dEarL, float dEarR,
+             float warpSurge, float phasePow) {
+  float dCat = min(min(dHead, dEarL), dEarR);
+
+  // base UV warp — always present; surges during warp event
+  float warpAmp = 0.04 + warpSurge * 0.28;
   vec2 warp = vec2(
-    sin(uTime * 1.4 + lat * 20.0 + lon * 9.0) * 0.025,
-    cos(uTime * 1.1 + lon * 16.0 + lat * 7.0) * 0.020
+    sin(uTime*1.4 + p.y*8.0  + p.x*5.0) * warpAmp,
+    cos(uTime*1.1 + p.x*6.0  + p.y*7.0) * warpAmp * 0.75
   );
-  vec2  suv = vec2(lon + uTime * 0.014, lat) + warp;
+  // warp surge adds a polar spiral twist
+  float pR = length(p);
+  float pA = atan(p.y, p.x) + uTime * warpSurge * 9.0;
+  warp += vec2(cos(pA), sin(pA)) * pR * warpSurge * 0.35;
+  vec2 wp = p + warp;
 
-  float land    = fbm(suv * 3.5 + 2.3);
-  float isLand  = smoothstep(0.44, 0.52, land);
-  float elev    = fbm(suv * 7.0 + 5.1);
-  float iceMask = smoothstep(0.28, 0.10, abs(lat - 0.5));
-  float snowMsk = smoothstep(0.36, 0.18, abs(lat - 0.5));
-
-  // drabbed-down palette — desaturated, earthy
-  vec3 ocean   = mix(vec3(0.04,0.07,0.18), vec3(0.06,0.14,0.28), smoothstep(0.38,0.44,land));
-  vec3 terr    = mix(vec3(0.14,0.18,0.10), vec3(0.34,0.28,0.16), smoothstep(0.45,0.72,elev));
-  terr = mix(terr, vec3(0.55,0.52,0.50), smoothstep(0.70,0.88,elev));
-  vec3 surface = mix(ocean, terr, isLand);
-  surface = mix(surface, vec3(0.50,0.54,0.60), iceMask * (1.0 - isLand));
-  surface = mix(surface, vec3(0.62,0.62,0.64), snowMsk * isLand * smoothstep(0.65,0.80,elev));
-
-  vec3  L    = normalize(vec3(-0.55, 0.65, 0.85));
+  // hemisphere shading
+  float z = sqrt(max(0.0, 1.0 - dot(p, p) * 0.65));
+  vec3 L = normalize(vec3(-0.55, 0.65, 0.85));
+  vec3 n = normalize(vec3(p.x*0.8, p.y*0.8, z));
   float diff = max(dot(n, L), 0.0);
-  float spec = pow(max(dot(reflect(-L, n), vec3(0,0,1)), 0.0), 20.0) * (1.0-isLand) * 0.45;
-  surface = surface * (diff * 0.80 + 0.10) + vec3(0.55,0.72,1.0) * spec;
 
-  float cloud = smoothstep(0.55, 0.68, fbm(suv * 5.5 + vec2(uTime * 0.007, 1.0)));
-  surface = mix(surface, vec3(0.86,0.90,1.0) * (diff * 0.55 + 0.32), cloud * 0.70);
+  // fur texture — silver-grey base
+  float fur = fbm(wp * 4.5 + vec2(uTime*0.007, 1.5));
+  vec3 furCol = mix(vec3(0.46, 0.48, 0.53), vec3(0.72, 0.74, 0.78), fur);
+  furCol *= diff * 0.78 + 0.22;
+  furCol *= 0.62 + 0.38 * z;
+  furCol += vec3(0.10, 0.28, 0.75) * pow(max(0.0, 1.0-z), 3.5) * 0.40;
 
-  float rim = 1.0 - z;
-  surface  *= 0.65 + 0.35 * z;
-  surface  += vec3(0.12, 0.32, 0.80) * pow(rim, 3.5) * 0.45;
+  // inner ear pink
+  float earMask = step(0.0, dHead) * step(dCat, 0.0);
+  furCol = mix(furCol, vec3(0.82, 0.55, 0.62), earMask * 0.58);
 
-  // plasma acid overlay — always present, intensifies with heat
-  float pl = sin(suv.x * 22.0 + uTime * 2.4)
-           * sin(suv.y * 17.0 + uTime * 1.9)
-           * sin((suv.x + suv.y) * 11.0 + uTime * 1.4);
-  pl = pl * 0.5 + 0.5;
+  // eyes drift apart during phase event
+  float eyeDrift = phasePow * 0.30;
+  vec2 eyeOffL = vec2(-0.30 - eyeDrift, 0.09 + sin(uTime*3.5) * phasePow * 0.18);
+  vec2 eyeOffR = vec2( 0.30 + eyeDrift, 0.09 + cos(uTime*2.9) * phasePow * 0.18);
+
+  // pupil squeezes open during phase, slits thin normally
+  float pupilW = 0.024 + phasePow * 0.11;
+  // eye height grows during warp surge (wide-eyed horror)
+  float eyeH = 0.24 + warpSurge * 0.14;
+
+  float dEyeL  = sdBox(p - eyeOffL, vec2(0.13, eyeH));
+  float dEyeR  = sdBox(p - eyeOffR, vec2(0.13, eyeH));
+  float dEyes  = min(dEyeL, dEyeR);
+  float eyeMask = step(dEyes, 0.0);
+
+  float dPupilL  = sdBox(p - eyeOffL, vec2(pupilW, eyeH));
+  float dPupilR  = sdBox(p - eyeOffR, vec2(pupilW, eyeH));
+  float pupilMask = step(min(dPupilL, dPupilR), 0.0);
+
+  vec3 eyeCol = vec3(0.96, 0.72, 0.05);
+  eyeCol *= 1.0 + 0.28 * sin(uTime*2.8);
+  // eyes flash colour during phase event
+  eyeCol = mix(eyeCol, vec3(
+    sin(uTime*4.1)*0.5+0.5,
+    sin(uTime*3.3+2.1)*0.5+0.5,
+    0.9), phasePow * 0.85);
+  eyeCol = mix(eyeCol, vec3(0.03, 0.02, 0.05), pupilMask);
+  float eyeRimGlow = smoothstep(0.0, -0.025, dEyes) * (1.0 - pupilMask);
+  eyeCol += vec3(1.0, 0.85, 0.20) * eyeRimGlow * (0.35 + warpSurge * 0.60);
+
+  // plasma acid overlay
+  float pl = sin(wp.x*22.0 + uTime*2.4)
+           * sin(wp.y*17.0 + uTime*1.9)
+           * sin((wp.x+wp.y)*11.0 + uTime*1.4);
+  pl = pl*0.5+0.5;
   vec3 plasmaCol = vec3(
-    sin(pl * 6.28 + uTime * 0.6        ) * 0.5 + 0.5,
-    sin(pl * 6.28 + uTime * 0.8 + 2.09) * 0.5 + 0.5,
-    sin(pl * 6.28 + uTime * 0.4 + 4.19) * 0.5 + 0.5
+    sin(pl*6.28 + uTime*0.6       )*0.5+0.5,
+    sin(pl*6.28 + uTime*0.8 + 2.09)*0.5+0.5,
+    sin(pl*6.28 + uTime*0.4 + 4.19)*0.5+0.5
   );
-  surface = mix(surface, plasmaCol, 0.18 + heat * 0.35);
+  furCol = mix(furCol, plasmaCol, 0.18 + heat*0.35 + warpSurge*0.30);
+  eyeCol = mix(eyeCol, plasmaCol, 0.07 + heat*0.18);
 
   // heat tint
-  vec3 heatCol = mix(vec3(1.0, 0.45, 0.0), vec3(1.0, 0.08, 0.0), heat);
-  surface = mix(surface, heatCol * (diff * 0.9 + 0.15), heat * 0.70);
+  vec3 heatCol = mix(vec3(1.0,0.45,0.0), vec3(1.0,0.08,0.0), heat);
+  furCol = mix(furCol, heatCol*(diff*0.9+0.15), heat*0.70);
+  eyeCol = mix(eyeCol, heatCol, heat*0.50);
 
-  return surface;
+  return mix(furCol, eyeCol, eyeMask);
 }
 
 void main() {
@@ -114,36 +165,63 @@ void main() {
   float ease = t * t * (3.0 - 2.0 * t);
   float scale = 0.04 + ease * 0.176;
 
-  // randomise start position each cycle
   float cid      = mod(floor(uTime / T), 97.0);
   float randAng  = hash(vec2(cid, 7.3)) * 6.28318;
   float randDist = 0.10 + hash(vec2(cid, 3.1)) * 0.10;
   vec2  planetCenter = vec2(cos(randAng), sin(randAng)) * randDist * (1.0 - ease);
   vec2  sp   = st - planetCenter;
+  vec2  cp   = sp / scale;
 
-  // heat ramps up in final third of approach
+  // ── intermittent effect bursts ────────────────────────────────────────────
+  // spin: period ~19s, active ~18% — whole cat rotates
+  float spinPow  = burst(uTime, 19.0, 0.08, 0.10);
+  float spinAng  = spinPow * uTime * 16.0;
+  float sa = sin(spinAng);
+  float ca = cos(spinAng);
+  vec2 cpSpin = vec2(cp.x*ca - cp.y*sa, cp.x*sa + cp.y*ca);
+  vec2 cpA = mix(cp, cpSpin, spinPow);   // active cat-local coords
+
+  // warp surge: period ~13s, active ~20% — UV goes haywire
+  float warpSurge = burst(uTime, 13.0, 0.10, 0.16);
+
+  // phase/dissolve: period ~31s, active ~14% — noise holes + eye drift
+  float phasePow  = burst(uTime, 31.0, 0.07, 0.07);
+
+  // glitch: period ~7s, very brief — channel-swap scanlines
+  float glitchPow = burst(uTime, 7.0, 0.03, 0.05);
+
+  // cat SDFs using (possibly spun) coords
+  float dHead = sdCircle(cpA, 1.0);
+  float dEarL = sdTri(cpA, vec2(-0.68, 0.72), vec2(-0.25, 1.46), vec2(0.02, 0.79));
+  float dEarR = sdTri(cpA, vec2(-0.02, 0.79), vec2( 0.25, 1.46), vec2(0.68, 0.72));
+  float dCat  = min(min(dHead, dEarL), dEarR);
+
   float heat = smoothstep(0.55, 0.95, ease);
 
-  // explosion: starts at 88% through cycle
   float expStart  = 0.88;
   float exploding = smoothstep(expStart, expStart + 0.025, t);
   float ep        = max(0.0, (t - expStart) / (1.0 - expStart));
 
-  // fade: in over first 6%, out over last 3%
   float fadeIn  = smoothstep(0.0,  0.06, t);
   float fadeOut = 1.0 - smoothstep(0.97, 1.0, t);
   float fade    = fadeIn * fadeOut;
 
   vec3 col = vec3(0.016, 0.020, 0.039);
-
-  // ── normal planet ─────────────────────────────────────────────────────────
   float dist = length(sp);
-  if (dist < scale && exploding < 0.99) {
-    vec3 surface = planetSurface(sp / scale, heat);
-    col = mix(col, surface, 1.0 - exploding);
+
+  // ── cat body ──────────────────────────────────────────────────────────────
+  if (dCat < 0.0 && exploding < 0.99) {
+    vec3 surface = catFace(cpA, heat, dHead, dEarL, dEarR, warpSurge, phasePow);
+
+    // phase dissolve — noise punches holes on high-frequency patches
+    float phaseNoise  = noise(cpA * 7.0 + uTime * 3.5);
+    float dissolve    = step(phaseNoise, phasePow * 0.80);
+    float catAlpha    = (1.0 - dissolve) * (1.0 - exploding);
+
+    col = mix(col, surface, catAlpha);
   }
 
-  // ── atmosphere halo ───────────────────────────────────────────────────────
+  // ── atmosphere halo (around head circle) ─────────────────────────────────
   if (exploding < 0.99) {
     float r = dist / scale;
     if (r > 1.0 && r < 1.24) {
@@ -169,19 +247,34 @@ void main() {
       if (fragR > 0.0 && fdist < fragR) {
         float intensity = pow(1.0 - fdist / fragR, 1.5);
         float fragFade  = (1.0 - ep * 0.85) * exploding;
-        // core white-hot → orange → red at edge
         vec3  fragCol   = mix(vec3(1.0, 0.9, 0.6), vec3(1.0, 0.08, 0.0), fdist / fragR);
         col = mix(col, fragCol, intensity * fragFade);
       }
     }
   }
 
-  // ── chromatic fringe at planet limb ──────────────────────────────────────
+  // ── chromatic fringe at head limb ─────────────────────────────────────────
   float distFromEdge = abs(length(sp) / scale - 1.0);
   if (distFromEdge < 0.12) {
     float fringe = 1.0 - distFromEdge / 0.12;
     col.r += sin(uTime * 2.3) * fringe * 0.22;
     col.b += cos(uTime * 1.8) * fringe * 0.22;
+  }
+
+  // ── glitch burst — channel-swap scanlines ─────────────────────────────────
+  if (glitchPow > 0.01) {
+    float rowNoise  = hash(vec2(floor(fc.y / 6.0), floor(uTime * 14.0)));
+    float rowNoise2 = hash(vec2(floor(fc.y / 3.0), floor(uTime * 9.0)));
+    // random rows get R↔B swap
+    float swapMask  = step(0.68, rowNoise) * glitchPow;
+    vec3 swapped    = vec3(col.b, col.g, col.r);
+    col = mix(col, swapped, swapMask);
+    // random rows get horizontal pixel offset (UV shift)
+    float offsetMask = step(0.75, rowNoise2) * glitchPow;
+    col += (hash(vec2(fc.x * 0.01 + uTime, fc.y)) - 0.5) * offsetMask * 0.45;
+    // scanline dimming on alternate 2-pixel bands
+    float scanDim = 0.65 + 0.35 * step(1.0, mod(fc.y, 4.0));
+    col *= mix(1.0, scanDim, glitchPow * 0.80);
   }
 
   // ── space interference shimmer ────────────────────────────────────────────
@@ -208,14 +301,12 @@ void main() {
     float across  = dot(toPixel, vec2(-uCometDir.y, uCometDir.x));
     float nucDist = length(toPixel);
 
-    // nucleus + inner glow — scaled by uCometSize
     float nucCore = 0.018 * uCometSize;
     float nucHalo = 0.055 * uCometSize;
     col += vec3(1.00, 0.96, 0.88) * smoothstep(nucCore, 0.0, nucDist);
     col += vec3(0.55, 0.72, 1.00) * smoothstep(nucHalo, 0.0, nucDist) * 0.45;
 
-    // tail (behind nucleus) — length and width scale with size
-    float tailMax = 0.50 * uCometSize;
+    float tailMax = 0.16 * uCometSize;
     float tailLen = -along;
     if (tailLen > 0.0 && tailLen < tailMax) {
       float tf        = tailLen / tailMax;
@@ -225,11 +316,7 @@ void main() {
     }
   }
 
-  // ── dither ────────────────────────────────────────────────────────────────
-  float depth = uDitherDepth;
-  col  = floor(col * depth) / depth;
-  col += (bayer(fc) - 0.5) / depth;
-  col  = clamp(col, 0.0, 1.0) * fade;
+  col = clamp(col, 0.0, 1.0) * fade;
 
   gl_FragColor = vec4(col, 1.0);
 }

@@ -3,7 +3,7 @@
 // Loads img/sticker.png — falls back to 🐱 emoji if not found.
 // Triggered randomly; spacebar also fires one alongside a comet.
 
-const STICKER_SRC = 'img/sticker.png';
+const STICKER_SRC = 'icon/android-chrome-192x192.png';
 
 // ── shader-space → CSS pixel conversion ──────────────────────────────────────
 function toCss(sx, sy) {
