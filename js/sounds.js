@@ -1,21 +1,32 @@
-// ── sounds.js — random smurf sounds on cat click ─────────────────────────────
-// Drop any audio files into smurf/ and list them here.
+// ── sounds.js — random cat-click sounds ──────────────────────────────────────
+// Priority order: numbered files (00.wav, 01.wav, …) then any extras below.
+// All samples are capped at 1 second of playback.
+// To add sounds: drop files in snd/ and extend the lists below.
 
 (function () {
 
-const SAMPLES = [
+const MAX_MS = 1000;   // hard playback cap
+
+// ── numbered bank — highest priority, add 01.wav, 02.wav … as needed ─────────
+const NUMBERED = [
+  'snd/00.wav',
+  // 'snd/01.wav',
+  // 'snd/02.wav',
+];
+
+// ── named extras ──────────────────────────────────────────────────────────────
+const EXTRAS = [
   'snd/00loop.wav',
   'snd/Big Pot 1.wav',
   'snd/Simple Hat 3.wav',
 ];
 
-// Preload all, silently drop any that fail to load
+// Build pool — numbered first, then extras; silently skip missing files
 const pool = [];
-SAMPLES.forEach(src => {
+[...NUMBERED, ...EXTRAS].forEach(src => {
   const a = new Audio(src);
   a.preload = 'auto';
   a.addEventListener('canplaythrough', () => { if (!pool.includes(a)) pool.push(a); }, { once: true });
-  a.addEventListener('error', () => {/* missing file — skip */});
   a.load();
 });
 
@@ -23,7 +34,8 @@ function playRandom() {
   if (!pool.length) return;
   const a = pool[(Math.random() * pool.length) | 0];
   a.currentTime = 0;
-  a.play().catch(() => {});   // swallow autoplay-policy rejections
+  a.play().catch(() => {});
+  setTimeout(() => { a.pause(); a.currentTime = 0; }, MAX_MS);
 }
 
 window.playCatSound = playRandom;
