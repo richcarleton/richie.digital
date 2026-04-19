@@ -12,13 +12,21 @@ canvas.height = SIZE * DPR;
 canvas.style.cssText = [
   'position:fixed',
   'top:0', 'left:0',
-  'pointer-events:none',
+  'pointer-events:auto',
   'z-index:2',
+  'cursor:pointer',
   'will-change:transform',
   `width:${SIZE}px`,
   `height:${SIZE}px`,
   'filter:drop-shadow(0 0 7px rgba(220,160,10,0.55)) drop-shadow(0 0 18px rgba(80,120,255,0.25))',
 ].join(';');
+
+canvas.addEventListener('click', () => {
+  if (typeof window.playCatSound === 'function') window.playCatSound();
+  // little startle — briefly boost drift speed
+  vx = (Math.abs(vx) + 60) * Math.sign(vx || 1) * (Math.random() < 0.5 ? 1 : -1);
+  vy = (Math.random() - 0.5) * 80;
+});
 document.body.appendChild(canvas);
 
 const ctx = canvas.getContext('2d');
