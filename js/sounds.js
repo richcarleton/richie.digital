@@ -4,12 +4,9 @@
 (function () {
 
 const SAMPLES = [
-  'smurf/1.mp3',
-  'smurf/2.mp3',
-  'smurf/3.mp3',
-  'smurf/4.mp3',
-  'smurf/5.mp3',
-  'smurf/6.mp3',
+  'snd/00loop.wav',
+  'snd/Big Pot 1.wav',
+  'snd/Simple Hat 3.wav',
 ];
 
 // Preload all, silently drop any that fail to load
