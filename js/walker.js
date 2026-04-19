@@ -1,78 +1,77 @@
-// ── walker.js — Larry Laffer moonwalking across the screen ───────────────────
+// ── walker.js — Larry Laffer moonwalking ──────────────────────────────────────
 // Faces RIGHT, always moves LEFT. That's the whole joke.
+// 3/4 view: body front-on, legs in profile so moonwalk actually reads.
 
 (function () {
 
 const P = [
   null,       // 0  transparent
-  '#f5c8a8',  // 1  skin (warm peach, not jaundice)
+  '#f5c8a8',  // 1  skin
   '#c88860',  // 2  shadow skin
   '#5c3010',  // 3  hair
-  '#f8f4e8',  // 4  suit cream-white
-  '#c8b880',  // 5  suit shadow / lapel
+  '#f8f4e8',  // 4  suit cream (front-facing surfaces)
+  '#c0aa70',  // 5  suit shadow (back arm, back leg)
   '#ffffff',  // 6  shirt white
   '#180c04',  // 7  shoe
   '#9a6820',  // 8  belt
   '#180808',  // 9  eye
 ];
 
-// Body rows 0-10 — static across all frames
-// Arms are explicit at cols 0-1 and 7-8 in rows 7-9
+// Body rows 0-10 — 3/4 view, eye toward right (front of face)
 const BODY = [
-  [0,0,0,3,1,1,3,0,0,0],   // bald crown, wispy fringe
-  [0,0,3,1,1,1,1,3,0,0],   // head
-  [0,0,3,1,2,9,1,3,0,0],   // eye (col 5), nose shadow (col 4)
-  [0,0,0,2,1,1,2,0,0,0],   // jowly chin
+  [0,0,3,1,1,3,0,0,0,0],   // bald crown, fringe
+  [0,0,3,1,1,1,1,0,0,0],   // head
+  [0,0,3,1,2,9,1,0,0,0],   // nose shadow col 4, eye col 5
+  [0,0,0,2,1,1,0,0,0,0],   // jowly chin
   [0,0,0,0,1,1,0,0,0,0],   // neck
-  [0,0,4,5,6,6,5,4,0,0],   // open collar — shirt peek
-  [0,4,4,4,4,4,4,4,4,0],   // wide suit shoulders
-  [4,4,5,5,6,5,5,4,4,0],   // arms + V-lapels + shirt strip
-  [4,4,5,4,4,4,5,4,4,0],   // arms + suit body
-  [4,4,5,4,4,4,5,4,4,0],   // forearms + suit body
-  [0,0,8,8,8,8,8,8,0,0],   // belt
+  [0,0,0,4,6,6,4,0,0,0],   // open collar / shirt peek
+  [0,0,4,4,4,4,4,4,0,0],   // wide shoulders
+  [0,5,4,5,6,5,4,4,0,0],   // back arm (5 col 1) + V-lapels + front arm (4 col 7)
+  [0,5,4,4,4,4,4,0,0,0],   // arms + torso
+  [0,0,5,4,4,4,0,0,0,0],   // lower torso narrowing
+  [0,0,0,8,8,8,8,0,0,0],   // belt
 ];
 
-// 4 moonwalk frames (rows 11-15)
-// Left leg = cols 1-3, right leg = cols 5-7, gap at col 4
-// One foot flat (full shoe), other on tiptoe (heel up, toe only)
+// 4 moonwalk frames (rows 11-15) — side-profile legs
+// Back leg = cols 1-2 (color 5 = darker), Front leg = cols 3-5 (color 4)
+// Moonwalk: back leg on tiptoe while front leg glides flat, then swap
 const LEGS = [
-  // F0: left flat, right tiptoe
+  // F0: front leg flat, back leg on tiptoe
   [
-    [0,4,4,0,0,4,4,0,0,0],
-    [0,5,4,0,0,5,4,0,0,0],
-    [0,5,4,0,0,5,4,0,0,0],
-    [0,7,7,7,0,0,5,7,0,0],   // left shoe flat; right heel-shadow, toe down
-    [0,0,0,0,0,0,0,7,0,0],   // right tiptoe only
+    [0,5,5,4,4,4,0,0,0,0],   // thighs: back (5) left, front (4) right
+    [0,5,5,4,4,0,0,0,0,0],   // knees separate
+    [0,5,0,4,4,0,0,0,0,0],   // back shin kicks up — heel raising
+    [0,7,0,7,7,7,0,0,0,0],   // back toe only (col 1), front flat shoe (cols 3-5)
+    [0,7,0,0,0,0,0,0,0,0],   // back leg tiptoe: only toe on ground
   ],
-  // F1: mid-slide transition
+  // F1: mid-transition, weight shifting
   [
-    [0,4,4,0,0,4,4,0,0,0],
-    [0,5,4,0,0,5,4,0,0,0],
-    [0,5,4,0,0,4,5,0,0,0],
-    [0,7,7,0,0,5,7,7,0,0],
-    [0,0,0,0,0,7,0,0,0,0],
+    [0,5,5,4,4,4,0,0,0,0],
+    [0,5,5,4,4,0,0,0,0,0],
+    [0,5,5,4,4,0,0,0,0,0],
+    [0,7,7,7,7,7,0,0,0,0],   // both feet touching ground
+    [0,0,0,0,0,0,0,0,0,0],
   ],
-  // F2: right flat, left tiptoe
+  // F2: back leg now flat, front leg on tiptoe (weight shifted)
   [
-    [0,4,4,0,0,4,4,0,0,0],
-    [0,5,4,0,0,5,4,0,0,0],
-    [0,4,5,0,0,5,4,0,0,0],
-    [0,7,5,0,0,7,7,7,0,0],   // left toe down, heel-shadow; right flat
-    [0,7,0,0,0,0,0,0,0,0],   // left tiptoe only
+    [0,5,5,4,4,4,0,0,0,0],
+    [0,5,5,4,4,0,0,0,0,0],
+    [0,5,5,0,4,0,0,0,0,0],   // front shin kicks — front heel raising
+    [0,7,7,7,0,7,0,0,0,0],   // back flat shoe (cols 1-3), front toe only (col 5)
+    [0,0,0,0,0,7,0,0,0,0],   // front leg tiptoe
   ],
-  // F3: mid-slide transition (opposite)
+  // F3: mid-transition back
   [
-    [0,4,4,0,0,4,4,0,0,0],
-    [0,5,4,0,0,5,4,0,0,0],
-    [0,4,5,0,0,5,4,0,0,0],
-    [0,5,7,0,0,7,7,7,0,0],
-    [0,7,7,0,0,0,0,0,0,0],
+    [0,5,5,4,4,4,0,0,0,0],
+    [0,5,5,4,4,0,0,0,0,0],
+    [0,5,5,4,4,0,0,0,0,0],
+    [0,7,7,7,7,7,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0],
   ],
 ];
 
 const SW = 10, SH = 16;
 
-// Pre-render 4 colour frames + 4 shadow frames
 const frames  = [];
 const shadows = [];
 for (let f = 0; f < 4; f++) {
@@ -99,7 +98,6 @@ for (let f = 0; f < 4; f++) {
   shadows.push(sc);
 }
 
-// Main canvas
 const canvas = document.createElement('canvas');
 canvas.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:3;';
 document.body.appendChild(canvas);
@@ -110,7 +108,6 @@ function resize() { canvas.width = window.innerWidth; canvas.height = window.inn
 window.addEventListener('resize', resize);
 resize();
 
-// State
 let active     = false;
 let x          = 0;
 let y          = 0;
