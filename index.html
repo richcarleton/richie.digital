@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>richie.digital</title>
-  <!-- favicons — all variants from /icon/ -->
   <link rel="icon" type="image/svg+xml"     href="img/favicon.svg">
   <link rel="icon" type="image/png" sizes="32x32"   href="icon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16"   href="icon/favicon-16x16.png">
@@ -13,27 +12,22 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <canvas id="planet"></canvas>
   <canvas id="stars"></canvas>
 
-  <div id="nameplate">
-    <span id="name-text">RICHIE.DIGITAL</span>
+  <div id="terminal">
+    <span id="terminal-prompt">&gt;</span>
+    <input id="terminal-input" type="text" autocomplete="off" spellcheck="false" placeholder="...">
   </div>
 
-  <nav id="menu">
-    <div id="menu-brand"></div>
-    <a href="#work">work</a>
-    <a href="#music">music</a>
-    <a href="#about">about</a>
-    <a href="#contact">contact</a>
-  </nav>
+  <script src="js/stars.js"></script>
+  <script src="js/terminal.js"></script>
 
+  <!-- shelved — bring back individually as needed
   <script src="js/planet.js"></script>
   <script src="js/comet.js"></script>
   <script src="js/sticker.js"></script>
   <script src="js/cruiser.js"></script>
   <script src="js/midi.js"></script>
-  <script src="js/stars.js"></script>
   <script src="js/nameplate.js"></script>
   <script src="js/nav.js"></script>
   <script src="js/satellites.js"></script>
@@ -41,5 +35,6 @@
   <script src="js/sounds.js"></script>
   <script src="js/catfloat.js"></script>
   <script src="js/walker.js"></script>
+  -->
 </body>
 </html>
