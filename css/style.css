@@ -35,6 +35,18 @@ html, body {
   gap: 8px;
   z-index: 10;
   white-space: nowrap;
+  background: rgba(3, 7, 18, 0.82);
+  border: 1px solid rgba(0, 255, 231, 0.13);
+  padding: 9px 18px;
+  border-radius: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+#terminal.visible {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 #terminal-prompt {
