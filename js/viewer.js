@@ -20,6 +20,8 @@ const capLabel = document.getElementById('viewer-label');
 const capSub   = document.getElementById('viewer-sub');
 
 function show(entry) {
+  if (entry.type === 'zod') { showZod(entry); return; }
+
   media.innerHTML = '';
   capLabel.textContent = entry.label || '';
   capSub.textContent   = entry.sub   || '';
@@ -58,6 +60,28 @@ overlay.addEventListener('click', hide);
 
 window.showViewer = show;
 window.hideViewer = hide;
+
+// ── Zod mode — stretched favicon drifting through space ───────────────────────
+const zodWrap  = document.createElement('div');
+zodWrap.id     = 'zod-wrap';
+zodWrap.innerHTML = '<div id="zod-inner"><img id="zod-img"></div>';
+document.body.appendChild(zodWrap);
+
+const zodImg = document.getElementById('zod-img');
+
+function showZod(entry) {
+  zodImg.src = entry.src;
+  zodWrap.classList.remove('active');
+  void zodWrap.offsetWidth;
+  zodWrap.classList.add('active');
+}
+
+function hideZod() {
+  zodWrap.classList.remove('active');
+}
+
+zodWrap.addEventListener('click', hideZod);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') hideZod(); });
 
 // ── text fly-through ──────────────────────────────────────────────────────────
 const flywrap = document.createElement('div');

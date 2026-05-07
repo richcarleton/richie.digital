@@ -54,6 +54,11 @@ window.SITE_MEDIA = {
     sub:   '',
   },
 
+  cat: {
+    type: 'zod',
+    src:  'img/favicon.svg',
+  },
+
   // example image entry — swap src / label / sub for real content:
   // poster: {
   //   type:  'image',

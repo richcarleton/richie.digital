@@ -259,6 +259,46 @@ html, body {
   animation: text-flythrough 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
+/* ── Zod mode ────────────────────────────────────────────────────────────────── */
+#zod-wrap {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  z-index: 11;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+  cursor: pointer;
+}
+
+#zod-wrap.active {
+  opacity: 1;
+}
+
+#zod-inner {
+  animation: zod-drift 18s ease-in-out infinite;
+}
+
+#zod-img {
+  display: block;
+  width: clamp(90px, 16vmin, 180px);
+  height: auto;
+  transform: scaleX(0.28);
+  filter:
+    drop-shadow(0 0 10px rgba(140, 230, 255, 1))
+    drop-shadow(0 0 35px rgba(80, 170, 255, 0.65))
+    drop-shadow(0 0 90px rgba(40, 100, 255, 0.3));
+}
+
+@keyframes zod-drift {
+  0%   { transform: perspective(700px) rotateY(-20deg) translate(-35px,  12px); }
+  22%  { transform: perspective(700px) rotateY(  6deg) translate( 18px, -22px); }
+  47%  { transform: perspective(700px) rotateY( 24deg) translate( 44px,   6px); }
+  73%  { transform: perspective(700px) rotateY( -4deg) translate( -8px,  28px); }
+  100% { transform: perspective(700px) rotateY(-20deg) translate(-35px,  12px); }
+}
+
 @keyframes text-flythrough {
   0%   { transform: scale(0.01); opacity: 0; }
   12%  { opacity: 1; }
