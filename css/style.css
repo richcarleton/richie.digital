@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap');
-
 *, *::before, *::after {
   margin: 0;
   padding: 0;
@@ -11,7 +9,7 @@ html, body {
   height: 100%;
   overflow: hidden;
   background: #080b14;
-  font-family: 'Roboto Mono', 'Courier New', monospace;
+  font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
 }
 
 #stars {
@@ -62,7 +60,7 @@ html, body {
   border: none;
   border-bottom: 1px solid rgba(0, 255, 231, 0.18);
   color: #00ffe7;
-  font-family: 'Roboto Mono', 'Courier New', monospace;
+  font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
   font-size: 13px;
   width: 220px;
   outline: none;
