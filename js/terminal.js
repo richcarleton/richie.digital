@@ -1,4 +1,4 @@
-// ── terminal.js — appears on keypress, fades on idle ─────────────────────────
+// ── terminal.js — appears on keypress, routes commands to panels ──────────────
 (function () {
 
 const terminal = document.getElementById('terminal');
@@ -22,9 +22,12 @@ function resetHide() {
   hideTimer = setTimeout(hide, 5000);
 }
 
-// any key reveals it; printable chars land in the input naturally via focus
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { hide(); return; }
+  if (e.key === 'Escape') {
+    hide();
+    if (window.hidePanel) window.hidePanel();
+    return;
+  }
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   show();
 });
@@ -37,8 +40,14 @@ input.addEventListener('keydown', e => {
   input.value = '';
   resetHide();
   if (!cmd) return;
-  // commands wired up here later
-  console.log('cmd:', cmd);
+
+  if (window.SITE_CONTENT && window.SITE_CONTENT[cmd]) {
+    window.showPanel(cmd);
+  } else {
+    // unknown command — brief flash of the prompt, nothing else
+    terminal.classList.add('error');
+    setTimeout(() => terminal.classList.remove('error'), 400);
+  }
 });
 
 })();
