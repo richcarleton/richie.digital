@@ -41,7 +41,9 @@ input.addEventListener('keydown', e => {
   resetHide();
   if (!cmd) return;
 
-  if (window.SITE_CONTENT && window.SITE_CONTENT[cmd]) {
+  if (window.SITE_MEDIA && window.SITE_MEDIA[cmd]) {
+    window.showViewer(window.SITE_MEDIA[cmd]);
+  } else if (window.SITE_CONTENT && window.SITE_CONTENT[cmd]) {
     window.showPanel(cmd);
   } else {
     // unknown command — brief flash of the prompt, nothing else
