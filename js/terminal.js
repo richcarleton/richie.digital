@@ -45,10 +45,8 @@ input.addEventListener('keydown', e => {
     window.showViewer(window.SITE_MEDIA[cmd]);
   } else if (window.SITE_CONTENT && window.SITE_CONTENT[cmd]) {
     window.showPanel(cmd);
-  } else {
-    // unknown command — brief flash of the prompt, nothing else
-    terminal.classList.add('error');
-    setTimeout(() => terminal.classList.remove('error'), 400);
+  } else if (cmd && window.showTextFlythrough) {
+    window.showTextFlythrough(cmd);
   }
 });
 

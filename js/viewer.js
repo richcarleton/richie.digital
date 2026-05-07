@@ -59,4 +59,21 @@ overlay.addEventListener('click', hide);
 window.showViewer = show;
 window.hideViewer = hide;
 
+// ── text fly-through ──────────────────────────────────────────────────────────
+const flywrap = document.createElement('div');
+flywrap.id = 'flytext-wrap';
+flywrap.innerHTML = '<div id="flytext"></div>';
+document.body.appendChild(flywrap);
+
+const flytext = document.getElementById('flytext');
+
+flytext.addEventListener('animationend', () => flytext.classList.remove('flying'));
+
+window.showTextFlythrough = function (text) {
+  flytext.textContent = text.toUpperCase();
+  flytext.classList.remove('flying');
+  void flytext.offsetWidth;
+  flytext.classList.add('flying');
+};
+
 })();
