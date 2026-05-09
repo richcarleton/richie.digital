@@ -148,6 +148,20 @@ html, body {
   text-transform: uppercase;
 }
 
+/* ── center-stage typeface cycler ────────────────────────────────────────────── */
+#name-stage {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 15;
+  pointer-events: none;
+  text-align: center;
+  width: 90%;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 /* ── nameplate ───────────────────────────────────────────────────────────────── */
 #nameplate {
   position: fixed;

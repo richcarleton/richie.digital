@@ -73,7 +73,7 @@ vec3 planetSurface(vec2 sn, float heat) {
   float iceMask = smoothstep(0.28, 0.10, abs(lat - 0.5));
   float snowMsk = smoothstep(0.36, 0.18, abs(lat - 0.5));
 
-  vec3 ocean   = mix(vec3(0.04,0.07,0.18), vec3(0.06,0.14,0.28), smoothstep(0.38,0.44,land));
+  vec3 ocean   = mix(vec3(0.03,0.07,0.22), vec3(0.05,0.18,0.40), smoothstep(0.38,0.44,land));
   vec3 terr    = mix(vec3(0.14,0.18,0.10), vec3(0.34,0.28,0.16), smoothstep(0.45,0.72,elev));
   terr = mix(terr, vec3(0.55,0.52,0.50), smoothstep(0.70,0.88,elev));
   vec3 surface = mix(ocean, terr, isLand);
@@ -90,7 +90,7 @@ vec3 planetSurface(vec2 sn, float heat) {
 
   float rim = 1.0 - z;
   surface  *= 0.65 + 0.35 * z;
-  surface  += vec3(0.12, 0.32, 0.80) * pow(rim, 3.5) * 0.45;
+  surface  += vec3(0.15, 0.40, 1.00) * pow(rim, 3.0) * 0.65;
 
   float pl = sin(suv.x * 22.0 + uTime * 2.4)
            * sin(suv.y * 17.0 + uTime * 1.9)
@@ -116,7 +116,7 @@ void main() {
   float T    = 75.0;
   float t    = mod(uTime, T) / T;
   float ease = t * t * (3.0 - 2.0 * t);
-  float scale = 0.04 + ease * 0.176;
+  float scale = 0.05 + ease * 0.22;
 
   float cid      = mod(floor(uTime / T), 97.0);
   float randAng  = hash(vec2(cid, 7.3)) * 6.28318;
@@ -147,7 +147,7 @@ void main() {
     if (r > 1.0 && r < 1.24) {
       float atm    = pow(1.0 - (r - 1.0) / 0.24, 2.5);
       vec3  atmCol = mix(vec3(0.16,0.40,1.00), vec3(1.0,0.25,0.0), heat);
-      col += atmCol * atm * 0.50 * (1.0 - exploding);
+      col += atmCol * atm * 0.80 * (1.0 - exploding);
     }
   }
 

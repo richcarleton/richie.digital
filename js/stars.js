@@ -4,8 +4,8 @@ const ctx = canvas.getContext('2d');
 let W, H, t = 0;
 let speed = 0.6;
 
-const LINE_COUNT = 24;
-const STAR_COUNT = 110;
+const LINE_COUNT = 28;
+const STAR_COUNT = 160;
 
 // deep blue, site cyan, electric blue, mid blue, warm accent (rare)
 const COLORS = [
@@ -56,8 +56,8 @@ function buildStars() {
   stars = Array.from({ length: STAR_COUNT }, () => ({
     x: Math.random() * W,
     y: Math.random() * H * 0.68,
-    r: Math.random() * 0.9 + 0.15,
-    a: Math.random() * 0.35 + 0.05,
+    r: Math.random() * 1.2 + 0.2,
+    a: Math.random() * 0.55 + 0.12,
     phase: Math.random() * Math.PI * 2,
     rate: 0.4 + Math.random() * 0.8,
   }));
@@ -83,9 +83,9 @@ function draw() {
 
   // horizon atmosphere glow
   const vpx = W / 2, vpy = H * 0.36;
-  const hgr = ctx.createRadialGradient(vpx, vpy, 0, vpx, vpy, W * 0.55);
-  hgr.addColorStop(0,   'rgba(0,80,200,0.055)');
-  hgr.addColorStop(0.5, 'rgba(0,40,140,0.025)');
+  const hgr = ctx.createRadialGradient(vpx, vpy, 0, vpx, vpy, W * 0.6);
+  hgr.addColorStop(0,   'rgba(0,100,230,0.09)');
+  hgr.addColorStop(0.5, 'rgba(0,50,160,0.04)');
   hgr.addColorStop(1,   'rgba(0,0,0,0)');
   ctx.fillStyle = hgr;
   ctx.fillRect(0, 0, W, H);
@@ -122,13 +122,13 @@ function draw() {
         const w        = lerp(0.2, ln.thick * 2.8, Math.max(0, p1));
 
         // outer haze
-        ctx.lineWidth   = w * 6;
-        ctx.strokeStyle = `rgba(${ln.r},${ln.g},${ln.b},${alpha * 0.055})`;
+        ctx.lineWidth   = w * 7;
+        ctx.strokeStyle = `rgba(${ln.r},${ln.g},${ln.b},${alpha * 0.09})`;
         ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
 
         // bright core
-        ctx.lineWidth   = Math.max(0.3, w * 0.55);
-        ctx.strokeStyle = `rgba(${ln.r},${ln.g},${ln.b},${alpha * 0.85})`;
+        ctx.lineWidth   = Math.max(0.4, w * 0.65);
+        ctx.strokeStyle = `rgba(${ln.r},${ln.g},${ln.b},${alpha * 1.0})`;
         ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
       }
 
@@ -136,9 +136,9 @@ function draw() {
       if (pulse.p > 0.01 && pulse.p < 1.02) {
         const hx = lerp(ln.vpx, ln.bx, pulse.p);
         const hy = lerp(ln.vpy, ln.by, pulse.p);
-        const dr = lerp(1, ln.thick * 5.5, Math.min(1, pulse.p)) * pulse.bright;
-        const rg = ctx.createRadialGradient(hx, hy, 0, hx, hy, dr * 5);
-        rg.addColorStop(0, `rgba(${ln.r},${ln.g},${ln.b},${0.65 * pulse.bright})`);
+        const dr = lerp(1, ln.thick * 6.5, Math.min(1, pulse.p)) * pulse.bright;
+        const rg = ctx.createRadialGradient(hx, hy, 0, hx, hy, dr * 6);
+        rg.addColorStop(0, `rgba(${ln.r},${ln.g},${ln.b},${0.85 * pulse.bright})`);
         rg.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.beginPath();
         ctx.arc(hx, hy, dr * 5, 0, Math.PI * 2);
