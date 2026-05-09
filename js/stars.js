@@ -1,62 +1,159 @@
 const canvas = document.getElementById('stars');
 const ctx = canvas.getContext('2d');
 
-let W, H, stars = [];
+let W, H, t = 0;
 let speed = 0.6;
+
+const LINE_COUNT = 24;
+const STAR_COUNT = 110;
+
+// deep blue, site cyan, electric blue, mid blue, warm accent (rare)
+const COLORS = [
+  [0, 140, 255],
+  [0, 255, 231],
+  [0, 75, 210],
+  [55, 165, 255],
+  [255, 95, 25],
+];
+
+let lines = [], stars = [];
 
 function resize() {
   W = canvas.width = window.innerWidth;
   H = canvas.height = window.innerHeight;
-  initStars();
+  buildLines();
+  buildStars();
 }
 
-function initStars() {
-  stars = Array.from({ length: 280 }, () => ({
-    x: Math.random() * W - W / 2,
-    y: Math.random() * H - H / 2,
-    z: Math.random() * W,
-    pz: Math.random() * W
+function buildLines() {
+  lines = [];
+  const vpx = W / 2;
+  const vpy = H * 0.36;
+
+  for (let i = 0; i < LINE_COUNT; i++) {
+    const norm = i / (LINE_COUNT - 1);
+    // non-linear spread: denser near center, sparser at edges
+    const curved = Math.sign(norm - 0.5) * Math.pow(Math.abs(norm - 0.5) * 2, 1.3) * 0.5 + 0.5;
+    const bx = (curved - 0.5) * W * 1.7 + W / 2;
+
+    const cIdx = Math.random() < 0.07 ? 4 : Math.floor(Math.random() * 4);
+    const [r, g, b] = COLORS[cIdx];
+    const thick = 0.5 + Math.random() * 1.3;
+
+    const pulseCount = Math.random() < 0.38 ? 2 : 1;
+    const pulses = Array.from({ length: pulseCount }, () => ({
+      p: Math.random(),
+      spd: 0.007 + Math.random() * 0.016,
+      tail: 0.10 + Math.random() * 0.20,
+      bright: 0.45 + Math.random() * 0.55,
+    }));
+
+    lines.push({ vpx, vpy, bx, by: H + 24, r, g, b, thick, pulses });
+  }
+}
+
+function buildStars() {
+  stars = Array.from({ length: STAR_COUNT }, () => ({
+    x: Math.random() * W,
+    y: Math.random() * H * 0.68,
+    r: Math.random() * 0.9 + 0.15,
+    a: Math.random() * 0.35 + 0.05,
+    phase: Math.random() * Math.PI * 2,
+    rate: 0.4 + Math.random() * 0.8,
   }));
 }
 
+function lerp(a, b, t) { return a + (b - a) * t; }
+
 function draw() {
+  t += 0.016;
+
   ctx.clearRect(0, 0, W, H);
+  ctx.globalCompositeOperation = 'source-over';
 
-  const cx = W / 2, cy = H / 2;
+  // background
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0,    '#020812');
+  bg.addColorStop(0.36, '#03091c');
+  bg.addColorStop(1,    '#040c1f');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
 
+  ctx.globalCompositeOperation = 'lighter';
+
+  // horizon atmosphere glow
+  const vpx = W / 2, vpy = H * 0.36;
+  const hgr = ctx.createRadialGradient(vpx, vpy, 0, vpx, vpy, W * 0.55);
+  hgr.addColorStop(0,   'rgba(0,80,200,0.055)');
+  hgr.addColorStop(0.5, 'rgba(0,40,140,0.025)');
+  hgr.addColorStop(1,   'rgba(0,0,0,0)');
+  ctx.fillStyle = hgr;
+  ctx.fillRect(0, 0, W, H);
+
+  // stars
   for (const s of stars) {
-    s.pz = s.z;
-    s.z -= speed;
-
-    if (s.z <= 0) {
-      s.x = Math.random() * W - W / 2;
-      s.y = Math.random() * H - H / 2;
-      s.z = W;
-      s.pz = W;
-    }
-
-    const sx = (s.x / s.z) * W + cx;
-    const sy = (s.y / s.z) * H + cy;
-    const px = (s.x / s.pz) * W + cx;
-    const py = (s.y / s.pz) * H + cy;
-    const size = Math.max(0.3, (1 - s.z / W) * 2.2);
-    const alpha = Math.min(1, (1 - s.z / W) * 1.4);
-
+    const a = s.a * (0.55 + 0.45 * Math.sin(t * s.rate + s.phase));
     ctx.beginPath();
-    ctx.strokeStyle = `rgba(200, 215, 255, ${alpha * 0.85})`;
-    ctx.lineWidth = size;
-    ctx.moveTo(px, py);
-    ctx.lineTo(sx, sy);
-    ctx.stroke();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(170,205,255,${a})`;
+    ctx.fill();
   }
 
+  // light trails
+  const SEGS = 14;
+  for (const ln of lines) {
+    for (const pulse of ln.pulses) {
+      pulse.p += pulse.spd * (speed / 0.6);
+      if (pulse.p > 1.1) pulse.p = -0.04;
+
+      for (let s = 0; s < SEGS; s++) {
+        const p1 = pulse.p - pulse.tail * (s / SEGS);
+        const p0 = pulse.p - pulse.tail * ((s + 1) / SEGS);
+        if (p1 <= 0 || p0 < 0) continue;
+
+        const x0 = lerp(ln.vpx, ln.bx, p0);
+        const y0 = lerp(ln.vpy, ln.by, p0);
+        const x1 = lerp(ln.vpx, ln.bx, p1);
+        const y1 = lerp(ln.vpy, ln.by, p1);
+
+        const tailFade = 1 - s / SEGS;
+        const depth    = Math.pow(Math.max(0, p1), 0.55);
+        const alpha    = tailFade * depth * pulse.bright;
+        const w        = lerp(0.2, ln.thick * 2.8, Math.max(0, p1));
+
+        // outer haze
+        ctx.lineWidth   = w * 6;
+        ctx.strokeStyle = `rgba(${ln.r},${ln.g},${ln.b},${alpha * 0.055})`;
+        ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+
+        // bright core
+        ctx.lineWidth   = Math.max(0.3, w * 0.55);
+        ctx.strokeStyle = `rgba(${ln.r},${ln.g},${ln.b},${alpha * 0.85})`;
+        ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+      }
+
+      // head dot
+      if (pulse.p > 0.01 && pulse.p < 1.02) {
+        const hx = lerp(ln.vpx, ln.bx, pulse.p);
+        const hy = lerp(ln.vpy, ln.by, pulse.p);
+        const dr = lerp(1, ln.thick * 5.5, Math.min(1, pulse.p)) * pulse.bright;
+        const rg = ctx.createRadialGradient(hx, hy, 0, hx, hy, dr * 5);
+        rg.addColorStop(0, `rgba(${ln.r},${ln.g},${ln.b},${0.65 * pulse.bright})`);
+        rg.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.beginPath();
+        ctx.arc(hx, hy, dr * 5, 0, Math.PI * 2);
+        ctx.fillStyle = rg;
+        ctx.fill();
+      }
+    }
+  }
+
+  ctx.globalCompositeOperation = 'source-over';
   requestAnimationFrame(draw);
 }
 
 window.addEventListener('resize', resize);
-
-// expose speed setter for nav.js to hook into
-window.setWarpSpeed = val => { speed = val; };
+window.setWarpSpeed  = v => { speed = v; };
 window.resetWarpSpeed = () => { speed = 0.6; };
 
 resize();
