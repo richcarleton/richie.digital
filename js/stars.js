@@ -2,7 +2,7 @@ const canvas = document.getElementById('stars');
 const ctx = canvas.getContext('2d');
 
 let W, H, t = 0;
-let speed = 0.6;
+let speed = 0.35;
 
 const LINE_COUNT = 28;
 const STAR_COUNT = 160;
@@ -28,13 +28,14 @@ function resize() {
 function buildLines() {
   lines = [];
   const vpx = W / 2;
-  const vpy = H * 0.36;
+  const vpy = H / 2;
+  const reach = Math.hypot(W, H) * 0.62;
 
   for (let i = 0; i < LINE_COUNT; i++) {
-    const norm = i / (LINE_COUNT - 1);
-    // non-linear spread: denser near center, sparser at edges
-    const curved = Math.sign(norm - 0.5) * Math.pow(Math.abs(norm - 0.5) * 2, 1.3) * 0.5 + 0.5;
-    const bx = (curved - 0.5) * W * 1.7 + W / 2;
+    // evenly spaced angles around 360°, small per-line jitter
+    const angle = (i / LINE_COUNT) * Math.PI * 2 + (Math.random() - 0.5) * 0.28;
+    const bx = vpx + Math.cos(angle) * reach;
+    const by = vpy + Math.sin(angle) * reach;
 
     const cIdx = Math.random() < 0.07 ? 4 : Math.floor(Math.random() * 4);
     const [r, g, b] = COLORS[cIdx];
@@ -43,19 +44,19 @@ function buildLines() {
     const pulseCount = Math.random() < 0.38 ? 2 : 1;
     const pulses = Array.from({ length: pulseCount }, () => ({
       p: Math.random(),
-      spd: 0.007 + Math.random() * 0.016,
+      spd: 0.004 + Math.random() * 0.007,
       tail: 0.10 + Math.random() * 0.20,
       bright: 0.45 + Math.random() * 0.55,
     }));
 
-    lines.push({ vpx, vpy, bx, by: H + 24, r, g, b, thick, pulses });
+    lines.push({ vpx, vpy, bx, by, r, g, b, thick, pulses });
   }
 }
 
 function buildStars() {
   stars = Array.from({ length: STAR_COUNT }, () => ({
     x: Math.random() * W,
-    y: Math.random() * H * 0.68,
+    y: Math.random() * H,
     r: Math.random() * 1.2 + 0.2,
     a: Math.random() * 0.55 + 0.12,
     phase: Math.random() * Math.PI * 2,
@@ -81,9 +82,9 @@ function draw() {
 
   ctx.globalCompositeOperation = 'lighter';
 
-  // horizon atmosphere glow
-  const vpx = W / 2, vpy = H * 0.36;
-  const hgr = ctx.createRadialGradient(vpx, vpy, 0, vpx, vpy, W * 0.6);
+  // center glow
+  const vpx = W / 2, vpy = H / 2;
+  const hgr = ctx.createRadialGradient(vpx, vpy, 0, vpx, vpy, Math.min(W, H) * 0.55);
   hgr.addColorStop(0,   'rgba(0,100,230,0.09)');
   hgr.addColorStop(0.5, 'rgba(0,50,160,0.04)');
   hgr.addColorStop(1,   'rgba(0,0,0,0)');
@@ -154,7 +155,7 @@ function draw() {
 
 window.addEventListener('resize', resize);
 window.setWarpSpeed  = v => { speed = v; };
-window.resetWarpSpeed = () => { speed = 0.6; };
+window.resetWarpSpeed = () => { speed = 0.35; };
 
 resize();
 draw();
