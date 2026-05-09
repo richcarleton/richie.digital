@@ -6,7 +6,9 @@
       "Bash(git push *)",
       "Bash(git commit *)",
       "Bash(git pull *)",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(python -m http.server 8080)",
+      "WebFetch(domain:127.0.0.1)"
     ]
   }
 }

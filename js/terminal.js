@@ -41,7 +41,9 @@ input.addEventListener('keydown', e => {
   resetHide();
   if (!cmd) return;
 
-  if (window.SITE_MEDIA && window.SITE_MEDIA[cmd]) {
+  if (cmd === 'menu' || cmd === 'help' || cmd === '?') {
+    if (window.showMenu) window.showMenu();
+  } else if (window.SITE_MEDIA && window.SITE_MEDIA[cmd]) {
     window.showViewer(window.SITE_MEDIA[cmd]);
   } else if (window.SITE_CONTENT && window.SITE_CONTENT[cmd]) {
     window.showPanel(cmd);

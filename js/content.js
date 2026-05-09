@@ -59,6 +59,10 @@ window.SITE_MEDIA = {
     src:  'img/favicon.svg',
   },
 
+  planet: {
+    type: 'planet',
+  },
+
   // example image entry — swap src / label / sub for real content:
   // poster: {
   //   type:  'image',

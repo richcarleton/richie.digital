@@ -20,7 +20,8 @@ const capLabel = document.getElementById('viewer-label');
 const capSub   = document.getElementById('viewer-sub');
 
 function show(entry) {
-  if (entry.type === 'zod') { showZod(entry); return; }
+  if (entry.type === 'zod')    { showZod(entry); return; }
+  if (entry.type === 'planet') { if (window.showPlanet) window.showPlanet(); return; }
 
   media.innerHTML = '';
   capLabel.textContent = entry.label || '';
