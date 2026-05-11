@@ -1,6 +1,8 @@
 {
   "permissions": {
     "allow": [
+      "Edit",
+      "Write",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
@@ -8,7 +10,10 @@
       "Bash(git pull *)",
       "Bash(git stash *)",
       "Bash(python -m http.server 8080)",
-      "WebFetch(domain:127.0.0.1)"
+      "WebFetch(domain:127.0.0.1)",
+      "PowerShell(Start-Process \"https://richie.digital\")",
+      "PowerShell(Get-Process *)",
+      "Bash(python3 *)"
     ]
   }
 }
