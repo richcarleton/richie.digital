@@ -132,9 +132,12 @@ function cycle() {
   glitch(() => styles[currentStyle]());
 }
 
-styles[0]();
-setInterval(cycle, 2800);
-setInterval(() => { if (!done && Math.random() < 0.4) glitch(); }, 1800);
+// delay start so the vector face has the stage first on page load
+setTimeout(() => {
+  styles[0]();
+  setInterval(cycle, 2800);
+  setInterval(() => { if (!done && Math.random() < 0.4) glitch(); }, 1800);
+}, 1500);
 
 // ── hide / restore small plate when terminal is active ────────────────────────
 const terminal = document.getElementById('terminal');

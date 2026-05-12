@@ -13,7 +13,9 @@
       "WebFetch(domain:127.0.0.1)",
       "PowerShell(Start-Process \"https://richie.digital\")",
       "PowerShell(Get-Process *)",
-      "Bash(python3 *)"
+      "Bash(python3 *)",
+      "Bash(powershell *)",
+      "Bash(node *)"
     ]
   }
 }
