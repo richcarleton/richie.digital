@@ -153,9 +153,16 @@ function draw() {
   requestAnimationFrame(draw);
 }
 
+let _starsHideTimer = null;
+
 window.addEventListener('resize', resize);
-window.setWarpSpeed  = v => { speed = v; };
+window.setWarpSpeed   = v => { speed = v; };
 window.resetWarpSpeed = () => { speed = 0.35; };
+window.showStars      = () => {
+  canvas.style.opacity = '1';
+  clearTimeout(_starsHideTimer);
+  _starsHideTimer = setTimeout(() => { canvas.style.opacity = '0'; }, 2000);
+};
 
 resize();
 draw();
