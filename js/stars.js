@@ -46,7 +46,7 @@ function buildLines() {
       p: Math.random(),
       spd: 0.004 + Math.random() * 0.007,
       tail: 0.10 + Math.random() * 0.20,
-      binset-inline-end: 0.45 + Math.random() * 0.55,
+      bright: 0.45 + Math.random() * 0.55,
     }));
 
     lines.push({ vpx, vpy, bx, by, r, g, b, thick, pulses });
