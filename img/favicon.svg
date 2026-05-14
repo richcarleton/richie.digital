@@ -1,39 +1,176 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <defs>
-    <radialGradient id="headGrad" cx="38%" cy="32%" r="68%">
-      <stop offset="0%"   stop-color="#cdd0dc"/>
-      <stop offset="100%" stop-color="#515468"/>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   viewBox="0 0 32 32"
+   version="1.1"
+   id="svg13"
+   sodipodi:docname="favicon.svg"
+   inkscape:version="1.4.3 (0d15f75, 2025-12-25)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview13"
+     pagecolor="#505050"
+     bordercolor="#eeeeee"
+     borderopacity="1"
+     inkscape:showpageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#505050"
+     inkscape:zoom="23.625"
+     inkscape:cx="16.021164"
+     inkscape:cy="16"
+     inkscape:window-width="1920"
+     inkscape:window-height="1006"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg13" />
+  <defs
+     id="defs6">
+    <radialGradient
+       id="headGrad"
+       cx="13.36"
+       cy="17.04"
+       r="14.96"
+       fx="13.36"
+       fy="17.04"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="matrix(1.2385762,0,0,0.95240437,-3.8172198,0.898721)">
+      <stop
+         offset="0%"
+         stop-color="#cdd0dc"
+         id="stop1" />
+      <stop
+         offset="100%"
+         stop-color="#515468"
+         id="stop2" />
     </radialGradient>
-    <radialGradient id="eyeGradL" cx="30%" cy="25%" r="70%">
-      <stop offset="0%"   stop-color="#ffd020"/>
-      <stop offset="100%" stop-color="#c07800"/>
+    <radialGradient
+       id="eyeGradL"
+       cx="13.914022"
+       cy="14.625534"
+       r="4.4271886"
+       gradientTransform="matrix(0.97918047,0,0,0.91263106,-3.8172198,7.56254)"
+       fx="13.914022"
+       fy="14.625534"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0%"
+         stop-color="#ffd020"
+         id="stop3" />
+      <stop
+         offset="100%"
+         stop-color="#c07800"
+         id="stop4" />
     </radialGradient>
-    <radialGradient id="eyeGradR" cx="30%" cy="25%" r="70%">
-      <stop offset="0%"   stop-color="#ffd020"/>
-      <stop offset="100%" stop-color="#c07800"/>
+    <radialGradient
+       id="eyeGradR"
+       cx="24.03331"
+       cy="14.625534"
+       r="4.4271886"
+       gradientTransform="matrix(0.97918047,0,0,0.91263106,-3.8172198,7.56254)"
+       fx="24.03331"
+       fy="14.625534"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0%"
+         stop-color="#ffd020"
+         id="stop5" />
+      <stop
+         offset="100%"
+         stop-color="#c07800"
+         id="stop6" />
     </radialGradient>
   </defs>
-
   <!-- ears (drawn first so head overlaps bases) -->
-  <polygon points="4,16 10,3 16,14"  fill="#7b7e92"/>
-  <polygon points="16,14 22,3 28,16" fill="#7b7e92"/>
+  <polygon
+     points="16,14 4,16 10,3 "
+     fill="#7b7e92"
+     id="polygon6"
+     transform="matrix(1.0157636,0,0,1.3914607,-0.30464386,-3.491843)" />
+  <polygon
+     points="28,16 16,14 22,3 "
+     fill="#7b7e92"
+     id="polygon7"
+     transform="matrix(1.0157636,0,0,1.3914607,-0.30464386,-3.491843)" />
   <!-- inner ear blush -->
-  <polygon points="6,15 10,5.5 15,14"  fill="#b86070"/>
-  <polygon points="17,14 22,5.5 26,15" fill="#b86070"/>
-
+  <polygon
+     points="15,14 6,15 10,5.5 "
+     fill="#b86070"
+     id="polygon8"
+     transform="matrix(1.0157636,0,0,1.3914607,-0.30464386,-3.491843)" />
+  <polygon
+     points="26,15 17,14 22,5.5 "
+     fill="#b86070"
+     id="polygon9"
+     transform="matrix(1.0157636,0,0,1.3914607,-0.30464386,-3.491843)" />
   <!-- head -->
-  <circle cx="16" cy="21" r="11" fill="url(#headGrad)"/>
-
+  <ellipse
+     cx="16"
+     cy="20.899212"
+     fill="url(#headGrad)"
+     id="circle9"
+     style="fill:url(#headGrad);stroke-width:1.0861"
+     rx="13.624338"
+     ry="10.476448" />
   <!-- left eye -->
-  <rect x="9.5" y="16.5" width="5"   height="8" rx="1.4" fill="url(#eyeGradL)"/>
+  <rect
+     x="7.9492545"
+     y="19.467262"
+     width="6.1928811"
+     height="5.7719855"
+     rx="1.7340068"
+     fill="url(#eyeGradL)"
+     id="rect9"
+     style="fill:url(#eyeGradL);stroke-width:0.94532" />
   <!-- right eye -->
-  <rect x="17.5" y="16.5" width="5"  height="8" rx="1.4" fill="url(#eyeGradR)"/>
-
+  <rect
+     x="17.857864"
+     y="19.467262"
+     width="6.1928811"
+     height="5.7719855"
+     rx="1.7340068"
+     fill="url(#eyeGradR)"
+     id="rect10"
+     style="fill:url(#eyeGradR);stroke-width:0.94532" />
   <!-- pupils (dark vertical slit) -->
-  <rect x="11.5" y="16.5" width="1.2" height="8" rx="0.6" fill="#090610"/>
-  <rect x="19.5" y="16.5" width="1.2" height="8" rx="0.6" fill="#090610"/>
-
+  <rect
+     x="10.426407"
+     y="19.467262"
+     width="1.4862915"
+     height="5.7719855"
+     rx="0.74314576"
+     fill="#090610"
+     id="rect11"
+     style="stroke-width:0.94532" />
+  <rect
+     x="20.335016"
+     y="19.467262"
+     width="1.4862915"
+     height="5.7719855"
+     rx="0.74314576"
+     fill="#090610"
+     id="rect12"
+     style="stroke-width:0.94532" />
   <!-- eye specular highlight -->
-  <ellipse cx="10.8" cy="18.5" rx="1.1" ry="0.7" fill="rgba(255,245,180,0.65)" transform="rotate(-15,10.8,18.5)"/>
-  <ellipse cx="18.8" cy="18.5" rx="1.1" ry="0.7" fill="rgba(255,245,180,0.65)" transform="rotate(-15,18.8,18.5)"/>
+  <ellipse
+     cx="0.6841085"
+     cy="24.645147"
+     rx="1.3319446"
+     ry="0.53697443"
+     fill="rgba(255,245,180,0.65)"
+     transform="matrix(0.98803668,-0.15421905,0.41789141,0.90849698,0,0)"
+     id="ellipse12"
+     style="stroke-width:0.963772" />
+  <ellipse
+     cx="10.040904"
+     cy="26.233484"
+     rx="1.3319446"
+     ry="0.53697443"
+     fill="rgba(255,245,180,0.65)"
+     transform="matrix(0.98803668,-0.15421905,0.41789141,0.90849698,0,0)"
+     id="ellipse13"
+     style="stroke-width:0.963772" />
 </svg>
