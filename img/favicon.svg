@@ -37,7 +37,7 @@
        fx="13.36"
        fy="17.04"
        gradientUnits="userSpaceOnUse"
-       gradientTransform="matrix(1.2385762,0,0,0.95240437,-3.8172198,0.898721)">
+       gradientTransform="matrix(1.2385762,0,0,0.53210524,-3.8172198,7.575806)">
       <stop
          offset="0%"
          stop-color="#cdd0dc"
@@ -52,7 +52,7 @@
        cx="13.914022"
        cy="14.625534"
        r="4.4271886"
-       gradientTransform="matrix(0.97918047,0,0,0.91263106,-3.8172198,7.56254)"
+       gradientTransform="matrix(0.97918047,0,0,0.50988402,-3.8172198,11.29886)"
        fx="13.914022"
        fy="14.625534"
        gradientUnits="userSpaceOnUse">
@@ -70,7 +70,7 @@
        cx="24.03331"
        cy="14.625534"
        r="4.4271886"
-       gradientTransform="matrix(0.97918047,0,0,0.91263106,-3.8172198,7.56254)"
+       gradientTransform="matrix(0.97918047,0,0,0.50988402,-3.8172198,11.29886)"
        fx="24.03331"
        fy="14.625534"
        gradientUnits="userSpaceOnUse">
@@ -86,91 +86,91 @@
   </defs>
   <!-- ears (drawn first so head overlaps bases) -->
   <polygon
-     points="16,14 4,16 10,3 "
+     points="4,16 10,3 16,14 "
      fill="#7b7e92"
      id="polygon6"
-     transform="matrix(1.0157636,0,0,1.3914607,-0.30464386,-3.491843)" />
+     transform="matrix(1.0157636,0,0,0.77740459,-0.30464386,5.1228121)" />
   <polygon
-     points="28,16 16,14 22,3 "
+     points="16,14 22,3 28,16 "
      fill="#7b7e92"
      id="polygon7"
-     transform="matrix(1.0157636,0,0,1.3914607,-0.30464386,-3.491843)" />
+     transform="matrix(1.0157636,0,0,0.77740459,-0.30464386,5.1228121)" />
   <!-- inner ear blush -->
   <polygon
-     points="15,14 6,15 10,5.5 "
+     points="6,15 10,5.5 15,14 "
      fill="#b86070"
      id="polygon8"
-     transform="matrix(1.0157636,0,0,1.3914607,-0.30464386,-3.491843)" />
+     transform="matrix(1.0157636,0,0,0.77740459,-0.30464386,5.1228121)" />
   <polygon
-     points="26,15 17,14 22,5.5 "
+     points="17,14 22,5.5 26,15 "
      fill="#b86070"
      id="polygon9"
-     transform="matrix(1.0157636,0,0,1.3914607,-0.30464386,-3.491843)" />
+     transform="matrix(1.0157636,0,0,0.77740459,-0.30464386,5.1228121)" />
   <!-- head -->
   <ellipse
      cx="16"
-     cy="20.899212"
+     cy="18.750015"
      fill="url(#headGrad)"
      id="circle9"
-     style="fill:url(#headGrad);stroke-width:1.0861"
+     style="fill:url(#headGrad);stroke-width:0.811817"
      rx="13.624338"
-     ry="10.476448" />
+     ry="5.8531575" />
   <!-- left eye -->
   <rect
      x="7.9492545"
-     y="19.467262"
+     y="17.949989"
      width="6.1928811"
-     height="5.7719855"
+     height="3.2247896"
      rx="1.7340068"
      fill="url(#eyeGradL)"
      id="rect9"
-     style="fill:url(#eyeGradL);stroke-width:0.94532" />
+     style="fill:url(#eyeGradL);stroke-width:0.706589" />
   <!-- right eye -->
   <rect
      x="17.857864"
-     y="19.467262"
+     y="17.949989"
      width="6.1928811"
-     height="5.7719855"
+     height="3.2247896"
      rx="1.7340068"
      fill="url(#eyeGradR)"
      id="rect10"
-     style="fill:url(#eyeGradR);stroke-width:0.94532" />
+     style="fill:url(#eyeGradR);stroke-width:0.706589" />
   <!-- pupils (dark vertical slit) -->
   <rect
      x="10.426407"
-     y="19.467262"
+     y="17.949989"
      width="1.4862915"
-     height="5.7719855"
+     height="3.2247896"
      rx="0.74314576"
      fill="#090610"
      id="rect11"
-     style="stroke-width:0.94532" />
+     style="stroke-width:0.706589" />
   <rect
      x="20.335016"
-     y="19.467262"
+     y="17.949989"
      width="1.4862915"
-     height="5.7719855"
+     height="3.2247896"
      rx="0.74314576"
      fill="#090610"
      id="rect12"
-     style="stroke-width:0.94532" />
+     style="stroke-width:0.706589" />
   <!-- eye specular highlight -->
   <ellipse
-     cx="0.6841085"
-     cy="24.645147"
-     rx="1.3319446"
-     ry="0.53697443"
+     cx="-4.7758565"
+     cy="24.752289"
+     rx="1.3210045"
+     ry="0.35304382"
      fill="rgba(255,245,180,0.65)"
-     transform="matrix(0.98803668,-0.15421905,0.41789141,0.90849698,0,0)"
+     transform="matrix(0.9962192,-0.08687524,0.63560667,0.77201306,0,0)"
      id="ellipse12"
-     style="stroke-width:0.963772" />
+     style="stroke-width:0.778253" />
   <ellipse
-     cx="10.040904"
-     cy="26.233484"
-     rx="1.3319446"
-     ry="0.53697443"
+     cx="4.5040865"
+     cy="25.79657"
+     rx="1.3210045"
+     ry="0.35304382"
      fill="rgba(255,245,180,0.65)"
-     transform="matrix(0.98803668,-0.15421905,0.41789141,0.90849698,0,0)"
+     transform="matrix(0.9962192,-0.08687524,0.63560667,0.77201306,0,0)"
      id="ellipse13"
-     style="stroke-width:0.963772" />
+     style="stroke-width:0.778253" />
 </svg>
