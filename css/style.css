@@ -463,3 +463,120 @@ html, body {
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
+
+
+/* ── devpanel ────────────────────────────────────────────────────────────── */
+#dev-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  z-index: 9999;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(2px);
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 40px;
+  overflow-y: auto;
+}
+#dev-overlay.dp-open { display: flex; }
+
+#dev-panel {
+  --dp-p:  #e8900a;
+  --dp-pd: rgb(104,64,7);
+  --dp-pl: rgb(31,19,2);
+  position: relative;
+  background: #0a0a0a;
+  border: 1px solid var(--dp-p);
+  border-radius: 4px;
+  padding: 16px 20px 20px;
+  width: min(440px, 92vw);
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  color: var(--dp-p);
+  box-shadow: 0 0 30px rgba(232,144,10,0.15), inset 0 0 60px rgba(0,0,0,0.8);
+}
+
+.dp-scanline {
+  position: absolute; inset: 0; pointer-events: none; border-radius: 4px;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.12) 2px, rgba(0,0,0,0.12) 4px);
+}
+
+.dp-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
+.dp-title  { font-size: 13px; font-weight: bold; letter-spacing: 0.1em; text-shadow: 0 0 10px var(--dp-p); }
+.dp-subtitle { font-size: 9px; opacity: 0.5; }
+.dp-blink  { animation: dp-blink 1s step-end infinite; }
+@keyframes dp-blink { 50% { opacity: 0; } }
+
+.dp-close {
+  background: none; border: 1px solid var(--dp-pd); color: var(--dp-p);
+  cursor: pointer; padding: 2px 6px; font-family: inherit; font-size: 11px;
+  border-radius: 2px;
+}
+.dp-close:hover { background: var(--dp-pl); }
+
+.dp-section-label {
+  font-size: 9px; opacity: 0.45; letter-spacing: 0.08em;
+  margin: 12px 0 4px; text-transform: uppercase;
+}
+
+.dp-row { display: flex; gap: 8px; margin: 3px 0; }
+.dp-key { opacity: 0.45; min-width: 110px; }
+.dp-val { color: var(--dp-p); }
+.dp-dim { opacity: 0.35; }
+.dp-live { text-shadow: 0 0 6px var(--dp-p); }
+
+.dp-divider { border: none; border-top: 1px solid var(--dp-pd); margin: 12px 0; }
+
+.dp-ctrl-row {
+  display: flex; align-items: center; gap: 8px;
+  margin: 5px 0;
+}
+.dp-ctrl-lbl { min-width: 72px; opacity: 0.6; font-size: 10px; }
+.dp-ctrl-val { min-width: 36px; text-align: right; font-size: 10px; opacity: 0.8; }
+
+.dp-ctrl-row input[type=range] {
+  flex: 1; accent-color: var(--dp-p);
+  height: 3px; cursor: pointer;
+}
+
+.dp-swatches { display: flex; gap: 6px; }
+.dp-sw {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid transparent; cursor: pointer;
+  transition: transform 0.15s;
+}
+.dp-sw:hover { transform: scale(1.15); }
+.dp-sw-on { border-color: white; box-shadow: 0 0 6px currentColor; }
+
+/* pill toggle */
+.dp-toggle { position: relative; display: inline-block; width: 32px; height: 17px; cursor: pointer; }
+.dp-toggle input { opacity: 0; width: 0; height: 0; }
+.dp-toggle span {
+  position: absolute; inset: 0;
+  background: var(--dp-pl); border: 1px solid var(--dp-pd);
+  border-radius: 17px; transition: background 0.2s;
+}
+.dp-toggle span::before {
+  content: ''; position: absolute;
+  width: 11px; height: 11px; left: 2px; top: 2px;
+  background: var(--dp-pd); border-radius: 50%;
+  transition: transform 0.2s, background 0.2s;
+}
+.dp-toggle input:checked + span { background: var(--dp-pl); border-color: var(--dp-p); }
+.dp-toggle input:checked + span::before { transform: translateX(15px); background: var(--dp-p); }
+
+.dp-footer { display: flex; justify-content: space-between; align-items: center; }
+.dp-status-row { display: flex; align-items: center; gap: 6px; }
+.dp-status-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--dp-p);
+  animation: dp-pulse 2s ease-in-out infinite;
+}
+@keyframes dp-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.2; } }
+.dp-footer-txt { font-size: 9px; opacity: 0.45; }
+
+.dp-btn {
+  background: var(--dp-pl); border: 1px solid var(--dp-pd);
+  color: var(--dp-p); font-family: inherit; font-size: 10px;
+  padding: 4px 10px; cursor: pointer; border-radius: 2px; letter-spacing: 0.05em;
+}
+.dp-btn:hover { border-color: var(--dp-p); }
