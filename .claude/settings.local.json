@@ -15,7 +15,8 @@
       "PowerShell(Get-Process *)",
       "Bash(python3 *)",
       "Bash(powershell *)",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(claude doctor *)"
     ]
   }
 }
