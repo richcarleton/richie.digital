@@ -71,18 +71,30 @@
         <span class="dp-ctrl-lbl">FLICKER</span>
         <input type="range" id="dp-flicker" min="2" max="12"  step="0.5"  value="5"    />
         <span class="dp-ctrl-val" id="dp-flicker-val">5.0s</span>
+      </div>
 
       <div class="dp-section-label">// Face Mesh</div>
       <div class="dp-ctrl-row">
-        <span class="dp-ctrl-lbl">FACE SPD</span>
-        <input type="range" id="dp-face-speed" min="0.05" max="3.0" step="0.05" value="1.0" />
-        <span class="dp-ctrl-val" id="dp-face-speed-val">1.0×</span>
+        <span class="dp-ctrl-lbl">ENABLED</span>
+        <label class="dp-toggle"><input type="checkbox" id="dp-face-on" checked /><span></span></label>
+      </div>
+      <div class="dp-ctrl-row">
+        <span class="dp-ctrl-lbl">SPEED</span>
+        <input type="range" id="dp-face-speed" min="0.02" max="2.0" step="0.02" value="0.18" />
+        <span class="dp-ctrl-val" id="dp-face-speed-val">0.18×</span>
       </div>
       <div class="dp-ctrl-row">
         <span class="dp-ctrl-lbl">TRAIL</span>
-        <input type="range" id="dp-face-trail" min="0" max="0.30" step="0.01" value="0.06" />
-        <span class="dp-ctrl-val" id="dp-face-trail-val">0.06</span>
+        <input type="range" id="dp-face-trail" min="0" max="0.30" step="0.01" value="0.08" />
+        <span class="dp-ctrl-val" id="dp-face-trail-val">0.08</span>
       </div>
+      <div class="dp-ctrl-row">
+        <span class="dp-ctrl-lbl">PULSE</span>
+        <label class="dp-toggle"><input type="checkbox" id="dp-face-pulse" checked /><span></span></label>
+      </div>
+      <div class="dp-ctrl-row">
+        <span class="dp-ctrl-lbl">SCANLINE</span>
+        <label class="dp-toggle"><input type="checkbox" id="dp-face-scan" checked /><span></span></label>
       </div>
 
       <hr class="dp-divider" />
@@ -149,24 +161,28 @@
   wireSlider('dp-flicker', 'dp-flicker-val', '--dp-flk',   's');
 
   // ── face mesh controls ──────────────────────────────────────────────────────
-  const faceSpeedSl  = document.getElementById('dp-face-speed');
-  const faceSpeedVal = document.getElementById('dp-face-speed-val');
-  const faceTrailSl  = document.getElementById('dp-face-trail');
-  const faceTrailVal = document.getElementById('dp-face-trail-val');
-  if (faceSpeedSl) {
-    faceSpeedSl.addEventListener('input', () => {
-      const v = parseFloat(faceSpeedSl.value);
-      faceSpeedVal.textContent = v.toFixed(2) + '×';
-      window.FACE_SPEED = v;
+  function wireToggle(id, globalKey) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.checked = window[globalKey];
+    el.addEventListener('change', () => { window[globalKey] = el.checked; });
+  }
+  function wireFaceSlider(id, valId, globalKey, fmt) {
+    const sl = document.getElementById(id);
+    const vl = document.getElementById(valId);
+    if (!sl) return;
+    sl.addEventListener('input', () => {
+      const v = parseFloat(sl.value);
+      vl.textContent = fmt(v);
+      window[globalKey] = v;
     });
   }
-  if (faceTrailSl) {
-    faceTrailSl.addEventListener('input', () => {
-      const v = parseFloat(faceTrailSl.value);
-      faceTrailVal.textContent = v.toFixed(2);
-      window.FACE_TRAIL = v;
-    });
-  }
+
+  wireToggle('dp-face-on',    'FACE_ENABLED');
+  wireToggle('dp-face-pulse', 'FACE_PULSE');
+  wireToggle('dp-face-scan',  'FACE_SCAN');
+  wireFaceSlider('dp-face-speed', 'dp-face-speed-val', 'FACE_SPEED', v => v.toFixed(2) + '×');
+  wireFaceSlider('dp-face-trail', 'dp-face-trail-val', 'FACE_TRAIL', v => v.toFixed(2));
 
   // ── tap zone demo dots ──────────────────────────────────────────────────────
   const dotsEl  = document.getElementById('dp-dots');
