@@ -1,4 +1,4 @@
-// ── face.js — mocap wireframe face, interpolated + ghost trails ───────────────
+// ── face.js — mocap wireframe face ───────────────────────────────────────────
 (function () {
 
 const canvas = document.createElement('canvas');
@@ -12,11 +12,12 @@ window.addEventListener('resize', resize);
 
 const DEG = Math.PI / 180;
 
-// ── global speed knob (devpanel or console: window.FACE_SPEED = 0.1..3.0) ──
-window.FACE_SPEED = window.FACE_SPEED || 1.0;
-
-// ── trail persistence: 0=no trail, 1=freeze. sweet spot ~0.04–0.12 ──────────
-window.FACE_TRAIL = window.FACE_TRAIL !== undefined ? window.FACE_TRAIL : 0.06;
+// ── tunables (devpanel writes these) ─────────────────────────────────────────
+window.FACE_SPEED   = window.FACE_SPEED   !== undefined ? window.FACE_SPEED   : 0.18;
+window.FACE_TRAIL   = window.FACE_TRAIL   !== undefined ? window.FACE_TRAIL   : 0.08;
+window.FACE_PULSE   = window.FACE_PULSE   !== undefined ? window.FACE_PULSE   : true;
+window.FACE_SCAN    = window.FACE_SCAN    !== undefined ? window.FACE_SCAN    : true;
+window.FACE_ENABLED = window.FACE_ENABLED !== undefined ? window.FACE_ENABLED : true;
 
 function rotXYZ(x, y, z, rx, ry, rz) {
   const cxr = Math.cos(rx), sxr = Math.sin(rx);
@@ -29,7 +30,6 @@ function rotXYZ(x, y, z, rx, ry, rz) {
 }
 
 function lerpAngle(a, b, t) {
-  // shortest-path lerp through the rotation values
   let d = b - a;
   if (d >  Math.PI) d -= Math.PI * 2;
   if (d < -Math.PI) d += Math.PI * 2;
@@ -43,13 +43,11 @@ Promise.all([
   const { pos: rawPos, indices } = mesh.meshGeometry[0];
   const poses = poseData.facePoseList;
 
-  // center on centroid
   let sx = 0, sy = 0, sz = 0;
   for (const v of rawPos) { sx += v.x; sy += v.y; sz += v.z; }
   const n = rawPos.length;
   const verts = rawPos.map(v => [v.x - sx/n, v.y - sy/n, v.z - sz/n]);
 
-  // deduplicate edges
   const seen = new Set(), edges = [];
   for (let i = 0; i < indices.length; i += 3) {
     const a = indices[i], b = indices[i+1], c = indices[i+2];
@@ -59,23 +57,17 @@ Promise.all([
     }
   }
 
-  // ── fractional frame position for smooth interpolation ──────────────────
-  let fiFrac = 0;        // 0.0 → poses.length, fractional
-  let lastTs  = null;
-
-  // ── scanline shimmer state ───────────────────────────────────────────────
-  let scanY = 0;
-
+  let fiFrac = 0, lastTs = null, scanY = 0;
   const t0 = performance.now();
 
   function draw(ts) {
     requestAnimationFrame(draw);
+    if (!window.FACE_ENABLED) { ctx.clearRect(0, 0, canvas.width, canvas.height); lastTs = null; return; }
 
     if (lastTs === null) lastTs = ts;
-    const dt = Math.min(ts - lastTs, 64); // cap at 64ms so tab-blur doesn't warp
+    const dt = Math.min(ts - lastTs, 64);
     lastTs = ts;
 
-    // advance fractional frame at speed-scaled rate (30fps baseline)
     fiFrac = (fiFrac + (dt / 33.333) * window.FACE_SPEED) % poses.length;
 
     const fi0 = Math.floor(fiFrac) % poses.length;
@@ -87,13 +79,12 @@ Promise.all([
     const ry = lerpAngle(r0.y * DEG, r1.y * DEG, t);
     const rz = lerpAngle(r0.z * DEG, r1.z * DEG, t);
 
-    const alpha = Math.min(1, (ts - t0) * 0.00125); // ~0.8s fade-in
-
+    const alpha = Math.min(1, (ts - t0) * 0.00125);
     const W = canvas.width, H = canvas.height;
     const scale = Math.min(W, H) * 4.0;
     const ox = W / 2, oy = H / 2;
 
-    // ── ghost trail: paint semi-transparent black over previous frame ────
+    // trail or clear
     const trail = Math.max(0, Math.min(0.35, window.FACE_TRAIL));
     if (trail > 0.001) {
       ctx.fillStyle = `rgba(0,0,0,${trail})`;
@@ -107,7 +98,6 @@ Promise.all([
       return [ox + px * scale, oy - py * scale, pz];
     });
 
-    // depth-sort into 3 tiers
     let minZ = proj[0][2], maxZ = proj[0][2];
     for (const p of proj) { if (p[2] < minZ) minZ = p[2]; if (p[2] > maxZ) maxZ = p[2]; }
     const zRange = maxZ - minZ || 1;
@@ -118,11 +108,10 @@ Promise.all([
       tiers[d > 0.66 ? 2 : d > 0.33 ? 1 : 0].push([a, b]);
     }
 
-    // ── subtle depth-pulse on front tier ────────────────────────────────
-    const pulse = 0.85 + 0.15 * Math.sin(ts * 0.0008);
-
+    const pulse = window.FACE_PULSE ? (0.85 + 0.15 * Math.sin(ts * 0.0008)) : 1.0;
     const opacities = [0.05, 0.13, 0.28 * pulse];
     const widths    = [0.45, 0.55, 0.7];
+
     for (let t2 = 0; t2 < 3; t2++) {
       ctx.strokeStyle = `rgba(0,255,231,${(alpha * opacities[t2]).toFixed(3)})`;
       ctx.lineWidth   = widths[t2];
@@ -134,16 +123,17 @@ Promise.all([
       ctx.stroke();
     }
 
-    // ── scanline shimmer (CRT horizontal band) ───────────────────────────
-    const scanSpeed = 0.04 * (window.FACE_SPEED > 0 ? 1 : 0);
-    scanY = (scanY + scanSpeed) % 1.0;
-    const sy2 = scanY * H;
-    const grad = ctx.createLinearGradient(0, sy2 - 40, 0, sy2 + 40);
-    grad.addColorStop(0,   'rgba(0,255,231,0)');
-    grad.addColorStop(0.5, `rgba(0,255,231,${(alpha * 0.04).toFixed(3)})`);
-    grad.addColorStop(1,   'rgba(0,255,231,0)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, sy2 - 40, W, 80);
+    // scanline — independent of face speed
+    if (window.FACE_SCAN) {
+      scanY = (scanY + 0.004) % 1.0;
+      const sy2 = scanY * H;
+      const grad = ctx.createLinearGradient(0, sy2 - 40, 0, sy2 + 40);
+      grad.addColorStop(0,   'rgba(0,255,231,0)');
+      grad.addColorStop(0.5, `rgba(0,255,231,${(alpha * 0.04).toFixed(3)})`);
+      grad.addColorStop(1,   'rgba(0,255,231,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, sy2 - 40, W, 80);
+    }
   }
 
   requestAnimationFrame(draw);
