@@ -211,7 +211,7 @@
         // vertical move w/ collision
         let ny = p.y + p.vy * dt;
         if (p.vy < 0 && rectSolid(p.x, ny, PW, PH, p)) ny = p.y;
-        if (p.vy > 0 && rectSolid(p.x, ny, PW, PH, p)) { ny = p.y; p.climbing = tileAt(cx, cy) !== T.EMPTY; }
+        if (p.vy > 0 && rectSolid(p.x, ny, PW, PH, p)) { ny = p.y; p.climbing = false; p.grounded = true; p.vy = 0; }
         p.y = ny;
         p.fallPeak = p.y;
         p.anim += Math.abs(p.vy) * dt;
