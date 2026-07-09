@@ -19,7 +19,8 @@
       "Bash(claude doctor *)",
       "Bash(git apply *)",
       "Bash(echo \"EXIT:$?\")",
-      "Bash(git restore *)"
+      "Bash(git restore *)",
+      "mcp__plugin_claude-mem_mcp-search__get_observations"
     ]
   }
 }
