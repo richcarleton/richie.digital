@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RICARDO builder — richie.digital</title>
+  <link rel="stylesheet" href="css/ricardo.css">
+</head>
+<body class="builder">
+  <main class="builder">
+    <h1>RICARDO'S RETURN // LEVEL BUILDER <a href="index.html">▶ play</a></h1>
+
+    <div class="room-bar">
+      <select id="room-sel"></select>
+      <input id="room-id" type="text" title="room id">
+      <input id="room-name" type="text" title="display name" placeholder="DISPLAY NAME">
+      <label class="chk"><input type="checkbox" id="start-room"> start</label>
+      <button class="b-btn" id="room-new">+ ROOM</button>
+      <button class="b-btn" id="room-del">✕ ROOM</button>
+    </div>
+
+    <div class="exit-bar">
+      EXITS →
+      L <select id="exit-left"></select>
+      R <select id="exit-right"></select>
+      U <select id="exit-up"></select>
+      D <select id="exit-down"></select>
+      <span style="color:#684104">(edges must be open '.' tiles on both sides)</span>
+    </div>
+
+    <div id="palette"></div>
+    <canvas id="grid"></canvas>
+
+    <div class="io-bar">
+      <button class="b-btn" id="btn-save">SAVE (browser)</button>
+      <button class="b-btn" id="btn-test">TEST ▶</button>
+      <button class="b-btn" id="btn-export">EXPORT ⤓</button>
+      <button class="b-btn" id="btn-import">IMPORT ⤒</button>
+      <button class="b-btn" id="btn-revert">REVERT</button>
+      <span id="status"></span>
+    </div>
+    <textarea id="io" spellcheck="false" placeholder="EXPORT fills this — copy into levels/pack.json (and js/levels.js to keep the fallback in sync). Or paste a pack here and IMPORT."></textarea>
+  </main>
+
+  <script src="js/schema.js"></script>
+  <script src="js/sprites.js"></script>
+  <script src="js/levels.js"></script>
+  <script src="js/builder.js"></script>
+</body>
+</html>

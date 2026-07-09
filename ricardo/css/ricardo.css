@@ -1,0 +1,172 @@
+/* ── ricardo/css/ricardo.css — game + builder + panel ──────────────────────── */
+/* House style: #080b14 space, monospace, amber CRT panel accents. */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  background: #080b14;
+  color: #e8e8f0;
+  font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  overflow: hidden;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* ── game page ──────────────────────────────────────────────────────────────── */
+#game {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+}
+
+/* CRT overlay (toggled via body.crt) */
+body.crt::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0)      0px,
+    rgba(0, 0, 0, 0)      2px,
+    rgba(0, 0, 0, 0.14)   3px
+  );
+  mix-blend-mode: multiply;
+  z-index: 40;
+}
+
+/* ── touch controls ─────────────────────────────────────────────────────────── */
+#touch-controls {
+  position: fixed;
+  inset: auto 0 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 0 14px calc(14px + env(safe-area-inset-bottom, 0px));
+  pointer-events: none;
+  z-index: 50;
+}
+.tc-pad { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.tc-mid { display: flex; gap: 40px; }
+.tc-btn {
+  pointer-events: auto;
+  width: 56px; height: 56px;
+  border-radius: 12px;
+  border: 1px solid rgba(138, 10, 232, 0.6);
+  background: rgba(20, 29, 51, 0.55);
+  color: #8a0ae8;
+  font-size: 20px;
+  font-family: inherit;
+  backdrop-filter: blur(2px);
+}
+.tc-btn.tc-on { background: rgba(138, 10, 232, 0.35); color: #e8e8f0; }
+.tc-jump {
+  width: 72px; height: 72px;
+  border-radius: 50%;
+  border-color: rgba(232, 10, 120, 0.7);
+  color: #e80a78;
+  font-size: 26px;
+}
+@media (min-width: 900px) and (pointer: fine) { #touch-controls { display: none; } }
+
+/* ── devpanel (RICARDO.SYS) — amber CRT, same family as homepage panel ─────── */
+#rdev-overlay {
+  position: fixed; inset: 0;
+  display: none;
+  align-items: center; justify-content: center;
+  background: rgba(3, 7, 18, 0.6);
+  z-index: 100;
+}
+#rdev-overlay.dp-open { display: flex; }
+#rdev-panel {
+  --dp-p:  #e8900a;
+  --dp-pd: #684104;
+  --dp-pl: #211502;
+  width: min(340px, 92vw);
+  background: rgba(8, 11, 20, 0.96);
+  border: 1px solid var(--dp-pd);
+  box-shadow: 0 0 24px rgba(232, 144, 10, 0.15), inset 0 0 60px rgba(232, 144, 10, 0.04);
+  padding: 14px 16px 16px;
+  color: var(--dp-p);
+  font-size: 12px;
+}
+.dp-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.dp-title { letter-spacing: 2px; text-shadow: 0 0 6px var(--dp-p); }
+.dp-blink { animation: rdp-blink 1s steps(1) infinite; }
+@keyframes rdp-blink { 50% { opacity: 0; } }
+.dp-close {
+  background: none; border: 1px solid var(--dp-pd); color: var(--dp-p);
+  width: 22px; height: 22px; cursor: pointer; font-family: inherit;
+}
+.dp-section-label { color: var(--dp-pd); margin: 10px 0 6px; letter-spacing: 1px; }
+.dp-ctrl-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+.dp-ctrl-lbl { width: 62px; flex: none; }
+.dp-ctrl-val { width: 58px; flex: none; text-align: right; color: #e8e8f0; }
+.dp-ctrl-row input[type='range'] { flex: 1; accent-color: var(--dp-p); min-width: 0; }
+.dp-toggle input { display: none; }
+.dp-toggle span {
+  display: inline-block; width: 34px; height: 16px;
+  border: 1px solid var(--dp-pd); position: relative; cursor: pointer;
+}
+.dp-toggle span::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 10px; height: 10px; background: var(--dp-pd); transition: left 0.12s, background 0.12s;
+}
+.dp-toggle input:checked + span::after { left: 20px; background: var(--dp-p); box-shadow: 0 0 6px var(--dp-p); }
+.dp-btn {
+  flex: 1;
+  background: var(--dp-pl); border: 1px solid var(--dp-pd); color: var(--dp-p);
+  font-family: inherit; font-size: 11px; letter-spacing: 1px;
+  padding: 6px 8px; cursor: pointer;
+}
+.dp-btn:active { background: var(--dp-pd); }
+.dp-footer-txt { color: var(--dp-pd); font-size: 10px; text-align: center; }
+
+/* ── builder page ───────────────────────────────────────────────────────────── */
+body.builder { overflow: auto; touch-action: auto; -webkit-user-select: auto; user-select: auto; }
+.builder main {
+  max-width: 900px; margin: 0 auto; padding: 12px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.builder h1 { font-size: 14px; color: #e8900a; letter-spacing: 2px; }
+.builder h1 a { color: #8a0ae8; text-decoration: none; }
+#grid {
+  width: 100%; border: 1px solid #2a1a4a;
+  image-rendering: pixelated; touch-action: none; display: block;
+}
+#palette { display: flex; flex-wrap: wrap; gap: 4px; }
+.tile-btn {
+  display: flex; align-items: center; gap: 5px;
+  background: #141d33; border: 1px solid #2a1a4a; color: #e8e8f0;
+  font-family: inherit; font-size: 10px; padding: 4px 7px; cursor: pointer;
+}
+.tile-btn canvas { width: 18px; height: 18px; image-rendering: pixelated; }
+.tile-btn.on { border-color: #e8900a; color: #e8900a; box-shadow: 0 0 6px rgba(232, 144, 10, 0.4); }
+.room-bar, .exit-bar, .io-bar {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 11px;
+}
+.room-bar select, .room-bar input[type='text'], .exit-bar select {
+  background: #141d33; border: 1px solid #2a1a4a; color: #e8e8f0;
+  font-family: inherit; font-size: 11px; padding: 4px 6px;
+}
+.room-bar input[type='text'] { width: 90px; }
+.b-btn {
+  background: #211502; border: 1px solid #684104; color: #e8900a;
+  font-family: inherit; font-size: 11px; letter-spacing: 1px;
+  padding: 5px 10px; cursor: pointer;
+}
+.b-btn:active { background: #684104; }
+#io {
+  width: 100%; height: 130px;
+  background: #0c101d; border: 1px solid #2a1a4a; color: #0ae87a;
+  font-family: inherit; font-size: 10px; padding: 6px;
+}
+#status { font-size: 11px; min-height: 15px; }
+#status.good { color: #0ae87a; }
+#status.bad  { color: #e80a78; }
+label.chk { display: flex; align-items: center; gap: 4px; }

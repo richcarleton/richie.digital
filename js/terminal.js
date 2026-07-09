@@ -43,6 +43,8 @@ input.addEventListener('keydown', e => {
 
   if (cmd === 'menu' || cmd === 'help' || cmd === '?') {
     if (window.showMenu) window.showMenu();
+  } else if (cmd === 'ricardo') {
+    window.location.href = 'ricardo/';   // 🐈 the pyramid awaits
   } else if (window.SITE_MEDIA && window.SITE_MEDIA[cmd]) {
     window.showViewer(window.SITE_MEDIA[cmd]);
   } else if (window.SITE_CONTENT && window.SITE_CONTENT[cmd]) {
