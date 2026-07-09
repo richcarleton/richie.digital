@@ -16,7 +16,10 @@
       "Bash(python3 *)",
       "Bash(powershell *)",
       "Bash(node *)",
-      "Bash(claude doctor *)"
+      "Bash(claude doctor *)",
+      "Bash(git apply *)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(git restore *)"
     ]
   }
 }
