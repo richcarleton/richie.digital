@@ -110,6 +110,29 @@
     '........',
     '........',
   ];
+  const EXCLAIM = [   // the universal symbol for "airborne cat detected"
+    '55',
+    '55',
+    '55',
+    '..',
+    '55',
+  ];
+  const ASH = [       // former skull, current pile
+    '........',
+    '...97...',
+    '..7979..',
+    '.797997.',
+  ];
+
+  // draw every non-transparent pixel in a single color (ghosts, panic tints)
+  function drawBitmapMono(ctx, bmp, x, y, color) {
+    ctx.fillStyle = color;
+    for (let r = 0; r < bmp.length; r++) {
+      const row = bmp[r];
+      for (let c = 0; c < row.length; c++)
+        if (row[c] !== '.') ctx.fillRect(x + c, y + r, 1, 1);
+    }
+  }
 
   function drawBitmap(ctx, bmp, x, y, tint) {
     for (let r = 0; r < bmp.length; r++) {
@@ -192,7 +215,7 @@
   }
 
   window.RicardoSprites = {
-    PAL, TINT, drawBitmap, drawTile,
-    CAT_STAND, CAT_WALK, CAT_CLIMB, CAT_JUMP, SKULL, GEM, KEY,
+    PAL, TINT, drawBitmap, drawBitmapMono, drawTile,
+    CAT_STAND, CAT_WALK, CAT_CLIMB, CAT_JUMP, SKULL, GEM, KEY, EXCLAIM, ASH,
   };
 })();

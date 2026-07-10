@@ -14,7 +14,10 @@
     EFFECT_RICARDO_SKULL:   2.5,
     EFFECT_RICARDO_FALL:    4.75,  // tiles survivable; carries across down exits
     EFFECT_RICARDO_VINE:    0.9,   // vine-grab magnet reach (tiles)
+    EFFECT_RICARDO_SHAKE:   1,     // camera shake multiplier
     EFFECT_RICARDO_SOUND:   true,
+    EFFECT_RICARDO_MUSIC:   true,  // FM techno loop
+    EFFECT_RICARDO_FILL:    true,  // fill screen vs integer pixel-fit
     EFFECT_RICARDO_CRT:     true,
   };
 
@@ -71,8 +74,21 @@
         <span class="dp-ctrl-val" id="rd-vine-val"></span>
       </div>
       <div class="dp-ctrl-row">
+        <span class="dp-ctrl-lbl">SHAKE</span>
+        <input type="range" id="rd-shake" min="0" max="2" step="0.1" />
+        <span class="dp-ctrl-val" id="rd-shake-val"></span>
+      </div>
+      <div class="dp-ctrl-row">
         <span class="dp-ctrl-lbl">SOUND</span>
         <label class="dp-toggle"><input type="checkbox" id="rd-sound" /><span></span></label>
+      </div>
+      <div class="dp-ctrl-row">
+        <span class="dp-ctrl-lbl">MUSIC</span>
+        <label class="dp-toggle"><input type="checkbox" id="rd-music" /><span></span></label>
+      </div>
+      <div class="dp-ctrl-row">
+        <span class="dp-ctrl-lbl">FILL SCREEN</span>
+        <label class="dp-toggle"><input type="checkbox" id="rd-fill" /><span></span></label>
       </div>
       <div class="dp-ctrl-row">
         <span class="dp-ctrl-lbl">CRT</span>
@@ -108,7 +124,10 @@
   wireSlider('rd-skull', 'EFFECT_RICARDO_SKULL',   v => v.toFixed(2) + 't/s');
   wireSlider('rd-fall',  'EFFECT_RICARDO_FALL',    v => v.toFixed(2) + 't');
   wireSlider('rd-vine',  'EFFECT_RICARDO_VINE',    v => v.toFixed(2) + 't');
+  wireSlider('rd-shake', 'EFFECT_RICARDO_SHAKE',   v => v.toFixed(1) + '×');
   wireToggle('rd-sound', 'EFFECT_RICARDO_SOUND');
+  wireToggle('rd-music', 'EFFECT_RICARDO_MUSIC');
+  wireToggle('rd-fill',  'EFFECT_RICARDO_FILL');
   wireToggle('rd-crt',   'EFFECT_RICARDO_CRT', () =>
     document.body.classList.toggle('crt', !!window.EFFECT_RICARDO_CRT));
 
@@ -121,6 +140,9 @@
     wireSlider('rd-skull', 'EFFECT_RICARDO_SKULL',   v => v.toFixed(2) + 't/s');
     wireSlider('rd-fall',  'EFFECT_RICARDO_FALL',    v => v.toFixed(2) + 't');
     wireSlider('rd-vine',  'EFFECT_RICARDO_VINE',    v => v.toFixed(2) + 't');
+    wireSlider('rd-shake', 'EFFECT_RICARDO_SHAKE',   v => v.toFixed(1) + '×');
+    document.getElementById('rd-music').checked = DEFAULTS.EFFECT_RICARDO_MUSIC;
+    document.getElementById('rd-fill').checked  = DEFAULTS.EFFECT_RICARDO_FILL;
     document.getElementById('rd-sound').checked = DEFAULTS.EFFECT_RICARDO_SOUND;
     document.getElementById('rd-crt').checked   = DEFAULTS.EFFECT_RICARDO_CRT;
     document.body.classList.toggle('crt', DEFAULTS.EFFECT_RICARDO_CRT);
