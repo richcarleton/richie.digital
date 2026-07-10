@@ -20,7 +20,16 @@
       "Bash(git apply *)",
       "Bash(echo \"EXIT:$?\")",
       "Bash(git restore *)",
-      "mcp__plugin_claude-mem_mcp-search__get_observations"
+      "mcp__plugin_claude-mem_mcp-search__get_observations",
+      "mcp__plugin_claude-mem_mcp-search__search",
+      "Bash(git -C \"C:\\\\Users\\\\richa\\\\Documents\\\\GitHub\\\\richie.digital\" log --oneline -5)",
+      "Bash(git -C \"C:\\\\Users\\\\richa\\\\Documents\\\\GitHub\\\\richie.digital\" status)",
+      "Bash(git -C \"C:\\\\Users\\\\richa\\\\Documents\\\\GitHub\\\\richie.digital\" log origin/main..main --oneline)",
+      "Bash(claude mcp *)",
+      "Bash(python -m http.server 8791)",
+      "Bash(curl -sI http://localhost:8791/ricardo/index.html)",
+      "Bash(taskkill //F //IM python.exe)",
+      "Bash(git *)"
     ]
   }
 }
