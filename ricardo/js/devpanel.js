@@ -12,6 +12,8 @@
     EFFECT_RICARDO_SPEED:   6,
     EFFECT_RICARDO_JUMP:    13.5,
     EFFECT_RICARDO_SKULL:   2.5,
+    EFFECT_RICARDO_FALL:    4.75,  // tiles survivable; carries across down exits
+    EFFECT_RICARDO_VINE:    0.9,   // vine-grab magnet reach (tiles)
     EFFECT_RICARDO_SOUND:   true,
     EFFECT_RICARDO_CRT:     true,
   };
@@ -59,6 +61,16 @@
         <span class="dp-ctrl-val" id="rd-skull-val"></span>
       </div>
       <div class="dp-ctrl-row">
+        <span class="dp-ctrl-lbl">FALL TOL</span>
+        <input type="range" id="rd-fall" min="3" max="8" step="0.25" />
+        <span class="dp-ctrl-val" id="rd-fall-val"></span>
+      </div>
+      <div class="dp-ctrl-row">
+        <span class="dp-ctrl-lbl">VINE GRAB</span>
+        <input type="range" id="rd-vine" min="0" max="1.5" step="0.05" />
+        <span class="dp-ctrl-val" id="rd-vine-val"></span>
+      </div>
+      <div class="dp-ctrl-row">
         <span class="dp-ctrl-lbl">SOUND</span>
         <label class="dp-toggle"><input type="checkbox" id="rd-sound" /><span></span></label>
       </div>
@@ -94,6 +106,8 @@
   wireSlider('rd-speed', 'EFFECT_RICARDO_SPEED',   v => v.toFixed(2) + 't/s');
   wireSlider('rd-jump',  'EFFECT_RICARDO_JUMP',    v => v.toFixed(2));
   wireSlider('rd-skull', 'EFFECT_RICARDO_SKULL',   v => v.toFixed(2) + 't/s');
+  wireSlider('rd-fall',  'EFFECT_RICARDO_FALL',    v => v.toFixed(2) + 't');
+  wireSlider('rd-vine',  'EFFECT_RICARDO_VINE',    v => v.toFixed(2) + 't');
   wireToggle('rd-sound', 'EFFECT_RICARDO_SOUND');
   wireToggle('rd-crt',   'EFFECT_RICARDO_CRT', () =>
     document.body.classList.toggle('crt', !!window.EFFECT_RICARDO_CRT));
@@ -105,6 +119,8 @@
     wireSlider('rd-speed', 'EFFECT_RICARDO_SPEED',   v => v.toFixed(2) + 't/s');
     wireSlider('rd-jump',  'EFFECT_RICARDO_JUMP',    v => v.toFixed(2));
     wireSlider('rd-skull', 'EFFECT_RICARDO_SKULL',   v => v.toFixed(2) + 't/s');
+    wireSlider('rd-fall',  'EFFECT_RICARDO_FALL',    v => v.toFixed(2) + 't');
+    wireSlider('rd-vine',  'EFFECT_RICARDO_VINE',    v => v.toFixed(2) + 't');
     document.getElementById('rd-sound').checked = DEFAULTS.EFFECT_RICARDO_SOUND;
     document.getElementById('rd-crt').checked   = DEFAULTS.EFFECT_RICARDO_CRT;
     document.body.classList.toggle('crt', DEFAULTS.EFFECT_RICARDO_CRT);

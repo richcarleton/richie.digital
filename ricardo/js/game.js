@@ -15,13 +15,14 @@
   window.EFFECT_RICARDO_SKULL   ??= 2.5;   // tiles/s
   window.EFFECT_RICARDO_SOUND   ??= true;
   window.EFFECT_RICARDO_CRT     ??= true;
+  window.EFFECT_RICARDO_FALL    ??= 4.75;  // tiles of fall before death (was hardcoded 5.2)
+  window.EFFECT_RICARDO_VINE    ??= 0.9;   // vine-grab magnet reach, tiles
 
   const CLIMB = 4.2;        // tiles/s on ladders/ropes
   const CONV  = 2.6;        // conveyor push, tiles/s
-  const FALL_TILES = 5.2;   // falls beyond this = death (the Coleco tax)
   const VANISH_PERIOD = 2.4, VANISH_DUTY = 0.62;
   const STEP = 1 / 120;     // simulation step, s
-  const PW = 0.66, PH = 0.94; // player AABB in tiles
+  const PW = 0.833, PH = 0.94; // player AABB in tiles (10px wide — Duke mode)
 
   // ── canvas setup ─────────────────────────────────────────────────────────────
   const buf = document.createElement('canvas');
@@ -63,6 +64,7 @@
     door:     () => blip(180, 0.2, 'sawtooth'),
     gem:      () => { blip(880, 0.08); setTimeout(() => blip(1175, 0.08), 70); setTimeout(() => blip(1568, 0.12), 140); },
     die:      () => blip(90, 0.5, 'sawtooth', 0.09),
+    grab:     () => { blip(520, 0.06, 'triangle', 0.07); setTimeout(() => blip(390, 0.1, 'triangle', 0.05), 50); },
     step:     () => blip(140, 0.03, 'square', 0.02),
     win:      () => [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => blip(f, 0.18), i * 130)),
   };
@@ -125,7 +127,9 @@
     return G.mut[id];
   }
 
-  function enterRoom(id, px, py) {
+  // carry = { fall, vy } — momentum through a down exit. Pits remember.
+  // A negative carry.fall (respawn grace) forgives the first landing.
+  function enterRoom(id, px, py, carry) {
     const room = G.roomsById[id];
     if (!room) return;
     G.room = room;
@@ -139,9 +143,9 @@
       if (ch === T.SPAWN) { G.grid[y][x] = T.EMPTY; if (px == null) { px = x + 0.17; py = y + 0.03; } }
     }
     G.player = {
-      x: px, y: py, vx: 0, vy: 0,
-      grounded: false, climbing: false, airVX: 0,
-      fallPeak: py, face: 1, anim: 0,
+      x: px, y: py, vx: 0, vy: carry ? (carry.vy || 0) : 0,
+      grounded: false, climbing: false, airVX: 0, slideV: 0,
+      fallPeak: py - (carry ? carry.fall : 0), face: 1, anim: 0,
     };
     G.entry = { x: px, y: py };
     G.roomFlash = 0.5;
@@ -200,14 +204,39 @@
 
     // enter climb
     if (!p.climbing && onClimbable && (keys.up || (keys.down && !p.grounded)) ) {
-      p.climbing = true; p.vx = 0; p.vy = 0; p.airVX = 0;
+      p.climbing = true; p.vx = 0; p.vy = 0; p.airVX = 0; p.slideV = 0;
       p.x = cx + 0.5 - PW / 2; // snap to rail
+    }
+
+    // VINE CATCH: falling + holding ▲ = grab a passing rope, even off-center.
+    // Magnet reach is tunable (EFFECT_RICARDO_VINE). Resets fall distance —
+    // this is the one mercy the pyramid offers. You slide a bit first (physics
+    // is a suggestion, friction is a negotiation).
+    if (!p.climbing && !p.grounded && p.vy > 2 && keys.up) {
+      const reach = window.EFFECT_RICARDO_VINE;
+      const pcx = p.x + PW / 2;
+      const ty0 = Math.floor(p.y + 0.2), ty1 = Math.floor(p.y + PH * 0.7);
+      outer:
+      for (let ty = ty0; ty <= ty1; ty++) {
+        for (let tx = Math.floor(pcx - reach); tx <= Math.floor(pcx + reach); tx++) {
+          if (tileAt(tx, ty) === T.ROPE && Math.abs(tx + 0.5 - pcx) <= reach) {
+            p.climbing = true;
+            p.slideV = Math.min(p.vy * 0.55, 9); // burn off momentum down the vine
+            p.vx = 0; p.airVX = 0;
+            p.x = tx + 0.5 - PW / 2;
+            p.fallPeak = p.y;
+            sfx.grab();
+            break outer;
+          }
+        }
+      }
     }
 
     if (p.climbing) {
       if (!onClimbable) { p.climbing = false; }
       else {
-        p.vy = (keys.up ? -CLIMB : 0) + (keys.down ? CLIMB : 0);
+        p.vy = (keys.up ? -CLIMB : 0) + (keys.down ? CLIMB : 0) + p.slideV;
+        if (p.slideV > 0) p.slideV = Math.max(0, p.slideV - 32 * dt);
         p.vx = 0;
         if (jumpQueued) { p.climbing = false; p.vy = -JUMP * 0.6; p.airVX = (keys.left ? -1 : keys.right ? 1 : 0) * SPEED; sfx.jump(); }
         jumpQueued = false;
@@ -276,8 +305,8 @@
                   ladderTopSolid(Math.floor(p.x + PW / 2), fy, p);
       if (hit) {
         ny = fy - PH;
-        // fall damage
-        if (ny - p.fallPeak > FALL_TILES) { kill(); return; }
+        // fall damage (tunable; distance may include the room above — see exits)
+        if (ny - p.fallPeak > window.EFFECT_RICARDO_FALL) { kill(); return; }
         p.vy = 0; p.grounded = true; p.airVX = 0;
       }
     } else if (p.vy < 0 && rectSolid(p.x, ny, PW, PH, p)) {
@@ -293,7 +322,10 @@
     const ex = G.room.exits || {};
     if (p.x + PW < 0.05 && ex.left)   return enterRoom(ex.left,  W - PW - 0.1, p.y);
     if (p.x > W - 0.05 && ex.right)   return enterRoom(ex.right, 0.1, p.y);
-    if (p.y > H && ex.down)           return enterRoom(ex.down,  p.x, 0.1);
+    // down exits carry fall distance AND velocity — the pit in the next screen
+    // still counts everything since your last solid ground. Catch a vine.
+    if (p.y > H && ex.down)           return enterRoom(ex.down,  p.x, 0.1,
+                                        { fall: p.y - p.fallPeak, vy: p.vy });
     if (p.y + PH < 0 && ex.up)        return enterRoom(ex.up,    p.x, H - PH - 0.1);
     // fell out of world with no exit
     if (p.y > H + 2) { kill(); return; }
@@ -368,10 +400,10 @@
       if (p.climbing) bmp = ((p.anim * 2 | 0) % 2) ? SP.CAT_CLIMB : SP.CAT_STAND;
       else if (!p.grounded) bmp = SP.CAT_JUMP;
       else if (Math.abs(p.vx) > 0.1) bmp = ((p.anim | 0) % 2) ? SP.CAT_WALK : SP.CAT_STAND;
-      const px = Math.round(p.x * TP - 1), py = Math.round(p.y * TP);
+      const px = Math.round(p.x * TP), py = Math.round(p.y * TP); // 10px sprite = AABB
       if (p.face < 0) {
-        ctx.save(); ctx.translate(px + 8, py); ctx.scale(-1, 1);
-        SP.drawBitmap(ctx, bmp, -4, 0); ctx.restore();
+        ctx.save(); ctx.translate(px + 10, py); ctx.scale(-1, 1);
+        SP.drawBitmap(ctx, bmp, 0, 0); ctx.restore();
       } else SP.drawBitmap(ctx, bmp, px, py);
     }
 
@@ -414,9 +446,9 @@
     ctx.fillStyle = SP.PAL['2']; ctx.font = 'bold 20px ui-monospace, monospace';
     ctx.fillText("RICARDO'S RETURN", buf.width / 2, 70);
     ctx.fillStyle = SP.PAL['3']; ctx.font = '8px ui-monospace, monospace';
-    ctx.fillText('a pyramid awaits the cosmic cat', buf.width / 2, 88);
+    ctx.fillText('the pyramid is all outta catnip', buf.width / 2, 88);
     const big = 3;
-    ctx.save(); ctx.translate(buf.width / 2 - 12, 100); ctx.scale(big, big);
+    ctx.save(); ctx.translate(buf.width / 2 - 15, 100); ctx.scale(big, big);
     SP.drawBitmap(ctx, SP.CAT_STAND, 0, 0); ctx.restore();
     if ((G.time * 2 | 0) % 2 === 0) {
       ctx.fillStyle = SP.PAL['5'];
@@ -448,7 +480,9 @@
       else if (G.mode === 'dying' && G.modeT > 0.9) {
         G.lives--;
         if (G.lives <= 0) { G.mode = 'gameover'; G.modeT = 0; }
-        else { G.mode = 'play'; enterRoom(G.room.id, G.entry.x, G.entry.y); }
+        // respawn grace: entry points can hang over pits now, so the first
+        // landing after a respawn is free (fall: -99 pushes fallPeak way up)
+        else { G.mode = 'play'; enterRoom(G.room.id, G.entry.x, G.entry.y, { fall: -99 }); }
       } else if ((G.mode === 'title' || G.mode === 'gameover' || G.mode === 'win') && anyInput && G.modeT > 0.5) {
         startRun();
       }
