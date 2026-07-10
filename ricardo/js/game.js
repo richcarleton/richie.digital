@@ -220,11 +220,14 @@
       }
     }
 
-    // grounded check (feet probe)
+    // grounded check (feet probe) — span the full foot width so it agrees
+    // with rectSolid's fall-collision check; narrow point-probes can both
+    // land past a ledge's edge while the AABB still overlaps it, causing
+    // grounded to flip false/true within the same frame and soft-lock the player.
     const feetY = p.y + PH + 0.02;
-    const g0 = solid(Math.floor(p.x + 0.06), Math.floor(feetY), p) ||
-               solid(Math.floor(p.x + PW - 0.06), Math.floor(feetY), p) ||
-               ladderTopSolid(Math.floor(p.x + PW / 2), Math.floor(feetY), p);
+    const fx0 = Math.floor(p.x + 1e-3), fx1 = Math.floor(p.x + PW - 1e-3);
+    let g0 = ladderTopSolid(Math.floor(p.x + PW / 2), Math.floor(feetY), p);
+    for (let fx = fx0; fx <= fx1 && !g0; fx++) g0 = solid(fx, Math.floor(feetY), p);
     p.grounded = g0 && p.vy >= 0;
 
     // conveyor push
