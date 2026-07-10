@@ -23,7 +23,7 @@ document.body.appendChild(plate);
 // ── typeface styles — last one triggers settle ────────────────────────────────
 const styles = [
   () => apply(`
-    font-family: 'Courier New', monospace;
+    font-family: 'Helvetica Neue', Arial, sans-serif;
     font-size: clamp(32px, 6vw, 64px);
     font-weight: 700;
     letter-spacing: 0.18em;
@@ -40,7 +40,7 @@ const styles = [
     text-shadow: none;
   `),
   () => apply(`
-    font-family: 'Courier New', monospace;
+    font-family: Verdana, Geneva, sans-serif;
     font-size: clamp(30px, 5.5vw, 58px);
     font-weight: 400;
     letter-spacing: 0.08em;
@@ -57,7 +57,7 @@ const styles = [
     text-shadow: none;
   `),
   () => apply(`
-    font-family: 'Courier New', monospace;
+    font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
     font-size: clamp(28px, 5vw, 54px);
     font-weight: 700;
     letter-spacing: 0.12em;
@@ -66,7 +66,7 @@ const styles = [
   `),
   // last — triggers settle
   () => apply(`
-    font-family: Georgia, serif;
+    font-family: 'Century Gothic', 'Futura', sans-serif;
     font-size: clamp(32px, 6vw, 62px);
     font-weight: 700;
     letter-spacing: 0.2em;

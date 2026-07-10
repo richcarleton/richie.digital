@@ -11,14 +11,13 @@
   // ── tunables (devpanel writes these; defaults if panel absent) ──────────────
   window.EFFECT_RICARDO_GRAVITY ??= 38;    // tiles/s²
   window.EFFECT_RICARDO_SPEED   ??= 6;     // tiles/s
-  window.EFFECT_RICARDO_JUMP    ??= 13.5;  // tiles/s takeoff
+  window.EFFECT_RICARDO_JUMP    ??= 16;    // tiles/s takeoff
   window.EFFECT_RICARDO_SKULL   ??= 2.5;   // tiles/s
   window.EFFECT_RICARDO_SOUND   ??= true;
   window.EFFECT_RICARDO_CRT     ??= true;
 
   const CLIMB = 4.2;        // tiles/s on ladders/ropes
   const CONV  = 2.6;        // conveyor push, tiles/s
-  const FALL_TILES = 5.2;   // falls beyond this = death (the Coleco tax)
   const VANISH_PERIOD = 2.4, VANISH_DUTY = 0.62;
   const STEP = 1 / 120;     // simulation step, s
   const PW = 0.66, PH = 0.94; // player AABB in tiles
@@ -138,7 +137,7 @@
     G.player = {
       x: px, y: py, vx: 0, vy: 0,
       grounded: false, climbing: false, airVX: 0,
-      fallPeak: py, face: 1, anim: 0,
+      face: 1, anim: 0,
     };
     G.entry = { x: px, y: py };
     G.roomFlash = 0.5;
@@ -177,6 +176,10 @@
     return tileAt(x, y) === T.LADDER && tileAt(x, y - 1) !== T.LADDER &&
            p.vy >= 0 && !keys.down && (p.y + PH) <= y + 0.35;
   }
+  function climbTile(x, y) {
+    const ch = tileAt(x, y);
+    return ch === T.LADDER || ch === T.ROPE;
+  }
 
   function rectSolid(x, y, w, h, p) {
     const x0 = Math.floor(x), x1 = Math.floor(x + w - 1e-9);
@@ -192,12 +195,15 @@
     const SPEED = window.EFFECT_RICARDO_SPEED, GRAV = window.EFFECT_RICARDO_GRAVITY,
           JUMP = window.EFFECT_RICARDO_JUMP;
     const cx = Math.floor(p.x + PW / 2), cy = Math.floor(p.y + PH / 2);
-    const onClimbable = tileAt(cx, cy) === T.LADDER || tileAt(cx, cy) === T.ROPE ||
-                        tileAt(cx, Math.floor(p.y + PH - 0.1)) === T.LADDER;
+    const belowCh = tileAt(cx, Math.floor(p.y + PH + 0.1));
+    const onClimbable = climbTile(cx, cy) ||
+                        climbTile(cx, Math.floor(p.y + PH - 0.1)) ||
+                        belowCh === T.LADDER;
 
-    // enter climb
-    if (!p.climbing && onClimbable && (keys.up || (keys.down && !p.grounded)) ) {
-      p.climbing = true; p.vx = 0; p.vy = 0; p.airVX = 0;
+    // enter climb — mid-rail, or standing on a ladder top pressing down
+    if (!p.climbing && onClimbable &&
+        (keys.up || (keys.down && (!p.grounded || belowCh === T.LADDER)))) {
+      p.climbing = true; p.grounded = false; p.vx = 0; p.vy = 0; p.airVX = 0;
       p.x = cx + 0.5 - PW / 2; // snap to rail
     }
 
@@ -210,10 +216,29 @@
         jumpQueued = false;
         // vertical move w/ collision
         let ny = p.y + p.vy * dt;
-        if (p.vy < 0 && rectSolid(p.x, ny, PW, PH, p)) ny = p.y;
+        if (p.vy < 0) {
+          if (rectSolid(p.x, ny, PW, PH, p)) ny = p.y;
+          else if (p.climbing) {
+            // top of the rail: step off ladders cleanly, hang on ropes
+            let topR = Math.floor(p.y + PH + 0.1);
+            if (!climbTile(cx, topR)) topR = Math.floor(p.y + PH - 0.1);
+            if (!climbTile(cx, topR)) topR = cy;
+            while (climbTile(cx, topR - 1)) topR--;
+            const topCh = tileAt(cx, topR);
+            const minY = (topCh === T.ROPE ? topR + 0.15 : topR) - PH;
+            if (ny < minY) {
+              if (topCh === T.LADDER && !rectSolid(p.x, minY, PW, PH, p)) {
+                p.y = minY; p.vy = 0; p.airVX = 0;
+                p.climbing = false; p.grounded = true;
+                collectAndHazards(p);
+                return;
+              }
+              ny = minY;
+            }
+          }
+        }
         if (p.vy > 0 && rectSolid(p.x, ny, PW, PH, p)) { ny = p.y; p.climbing = false; p.grounded = true; p.vy = 0; }
         p.y = ny;
-        p.fallPeak = p.y;
         p.anim += Math.abs(p.vy) * dt;
         collectAndHazards(p);
         return;
@@ -242,7 +267,7 @@
       if (jumpQueued) {
         p.vy = -JUMP; p.grounded = false;
         p.airVX = (keys.left ? -SPEED : 0) + (keys.right ? SPEED : 0);
-        p.fallPeak = p.y; sfx.jump();
+        sfx.jump();
       }
     } else {
       p.vx = p.airVX;
@@ -270,16 +295,12 @@
                   ladderTopSolid(Math.floor(p.x + PW / 2), fy, p);
       if (hit) {
         ny = fy - PH;
-        // fall damage
-        if (ny - p.fallPeak > FALL_TILES) { kill(); return; }
         p.vy = 0; p.grounded = true; p.airVX = 0;
       }
     } else if (p.vy < 0 && rectSolid(p.x, ny, PW, PH, p)) {
       ny = Math.floor(ny) + 1.001; p.vy = 0;
     }
     p.y = ny;
-    if (p.vy < 0 || p.grounded) p.fallPeak = Math.min(p.fallPeak, p.y);
-    if (p.grounded) p.fallPeak = p.y;
 
     if (p.grounded && Math.abs(p.vx) > 0.1) { p.anim += Math.abs(p.vx) * dt; if ((p.anim | 0) % 2 === 0 && Math.random() < 0.02) sfx.step(); }
 

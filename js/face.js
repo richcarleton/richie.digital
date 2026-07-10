@@ -16,7 +16,7 @@ const DEG = Math.PI / 180;
 window.FACE_SPEED   = window.FACE_SPEED   !== undefined ? window.FACE_SPEED   : 0.18;
 window.FACE_TRAIL   = window.FACE_TRAIL   !== undefined ? window.FACE_TRAIL   : 0.08;
 window.FACE_PULSE   = window.FACE_PULSE   !== undefined ? window.FACE_PULSE   : true;
-window.FACE_SCAN    = window.FACE_SCAN    !== undefined ? window.FACE_SCAN    : true;
+window.FACE_SCAN    = window.FACE_SCAN    !== undefined ? window.FACE_SCAN    : false;
 window.FACE_ENABLED = window.FACE_ENABLED !== undefined ? window.FACE_ENABLED : true;
 
 function rotXYZ(x, y, z, rx, ry, rz) {
