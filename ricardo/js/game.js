@@ -81,6 +81,9 @@
     keys[k] = true; anyInput = true; audio();
   });
   window.addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k) keys[k] = false; });
+  // losing focus mid-press (alt-tab, devtools, clicking away) means the keyup
+  // never arrives — without this the player drifts in that direction forever.
+  window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
   // touch.js calls this:
   window.RICARDO_INPUT = (name, down) => {
     if (name === 'jump' && down && !keys.jump) jumpQueued = true;
