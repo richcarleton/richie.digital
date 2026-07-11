@@ -1,6 +1,6 @@
 # richie.digital
 
-Starfield space stuff
+Starfield space stuff + Ricardo's platform adventure
 
 ## structure
 
@@ -12,6 +12,11 @@ js/nameplate.js     — text styles + glitch + collapse sequence
 js/nav.js           — hover trigger + warp speed hook
 CNAME               — custom 
 
+ricardo/            — platform game (in progress)
+webGL/              — dither planet viewer
+```
+
+## tweaks
 
 **add a text style** — open `js/nameplate.js`, add a function to the `styles` array before the last entry. the last entry always triggers the collapse-to-nav sequence.
 
@@ -20,3 +25,11 @@ CNAME               — custom
 **nav items** — edit the `<a>` tags in index.html.
 
 **colors / sizing** — css variables in style.css `:root`.
+
+## Ricardo adjustments
+
+**jump height** — now 16 tiles/s takeoff (was 13.5)
+
+**climbing** — ladder/rope logic reworked for smooth top transitions
+
+**fall damage** — removed entirely
