@@ -1,0 +1,143 @@
+// ── face.js — mocap wireframe face ───────────────────────────────────────────
+(function () {
+
+const canvas = document.createElement('canvas');
+canvas.id = 'face-canvas';
+document.body.appendChild(canvas);
+const ctx = canvas.getContext('2d');
+const FACE_RGB = '255,176,0'; // Hercules amber (Claude orange = 217,119,87)
+
+function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+resize();
+window.addEventListener('resize', resize);
+
+const DEG = Math.PI / 180;
+
+// ── tunables (devpanel writes these) ─────────────────────────────────────────
+window.FACE_SPEED   = window.FACE_SPEED   !== undefined ? window.FACE_SPEED   : 0.18;
+window.FACE_TRAIL   = window.FACE_TRAIL   !== undefined ? window.FACE_TRAIL   : 0.08;
+window.FACE_PULSE   = window.FACE_PULSE   !== undefined ? window.FACE_PULSE   : true;
+window.FACE_SCAN    = window.FACE_SCAN    !== undefined ? window.FACE_SCAN    : false;
+window.FACE_ENABLED = window.FACE_ENABLED !== undefined ? window.FACE_ENABLED : true;
+
+function rotXYZ(x, y, z, rx, ry, rz) {
+  const cxr = Math.cos(rx), sxr = Math.sin(rx);
+  const cyr = Math.cos(ry), syr = Math.sin(ry);
+  const czr = Math.cos(rz), szr = Math.sin(rz);
+  let ty = y*cxr - z*sxr, tz = y*sxr + z*cxr; y = ty; z = tz;
+  let tx = x*cyr + z*syr; tz = -x*syr + z*cyr; x = tx; z = tz;
+  tx = x*czr - y*szr; ty = x*szr + y*czr;
+  return [tx, ty, z];
+}
+
+function lerpAngle(a, b, t) {
+  let d = b - a;
+  if (d >  Math.PI) d -= Math.PI * 2;
+  if (d < -Math.PI) d += Math.PI * 2;
+  return a + d * t;
+}
+
+Promise.all([
+  fetch('mocap/2026-05-11_19-23-11_face_mesh.json').then(r => r.json()),
+  fetch('mocap/2026-05-11_19-23-11_f-pose.json').then(r => r.json()),
+]).then(([mesh, poseData]) => {
+  const { pos: rawPos, indices } = mesh.meshGeometry[0];
+  const poses = poseData.facePoseList;
+
+  let sx = 0, sy = 0, sz = 0;
+  for (const v of rawPos) { sx += v.x; sy += v.y; sz += v.z; }
+  const n = rawPos.length;
+  const verts = rawPos.map(v => [v.x - sx/n, v.y - sy/n, v.z - sz/n]);
+
+  const seen = new Set(), edges = [];
+  for (let i = 0; i < indices.length; i += 3) {
+    const a = indices[i], b = indices[i+1], c = indices[i+2];
+    for (const [p, q] of [[a,b],[b,c],[a,c]]) {
+      const k = p < q ? p*1000+q : q*1000+p;
+      if (!seen.has(k)) { seen.add(k); edges.push([p, q]); }
+    }
+  }
+
+  let fiFrac = 0, lastTs = null, scanY = 0;
+  const t0 = performance.now();
+
+  function draw(ts) {
+    requestAnimationFrame(draw);
+    if (!window.FACE_ENABLED) { ctx.clearRect(0, 0, canvas.width, canvas.height); lastTs = null; return; }
+
+    if (lastTs === null) lastTs = ts;
+    const dt = Math.min(ts - lastTs, 64);
+    lastTs = ts;
+
+    fiFrac = (fiFrac + (dt / 33.333) * window.FACE_SPEED) % poses.length;
+
+    const fi0 = Math.floor(fiFrac) % poses.length;
+    const fi1 = (fi0 + 1) % poses.length;
+    const t   = fiFrac - Math.floor(fiFrac);
+
+    const r0 = poses[fi0].rot, r1 = poses[fi1].rot;
+    const rx = lerpAngle(r0.x * DEG, r1.x * DEG, t);
+    const ry = lerpAngle(r0.y * DEG, r1.y * DEG, t);
+    const rz = lerpAngle(r0.z * DEG, r1.z * DEG, t);
+
+    const alpha = Math.min(1, (ts - t0) * 0.00125);
+    const W = canvas.width, H = canvas.height;
+    const scale = Math.min(W, H) * 4.0;
+    const ox = W / 2, oy = H / 2;
+
+    // trail or clear
+    const trail = Math.max(0, Math.min(0.35, window.FACE_TRAIL));
+    if (trail > 0.001) {
+      ctx.fillStyle = `rgba(0,0,0,${trail})`;
+      ctx.fillRect(0, 0, W, H);
+    } else {
+      ctx.clearRect(0, 0, W, H);
+    }
+
+    const proj = verts.map(([x, y, z]) => {
+      const [px, py, pz] = rotXYZ(x, y, z, rx, ry, rz);
+      return [ox + px * scale, oy - py * scale, pz];
+    });
+
+    let minZ = proj[0][2], maxZ = proj[0][2];
+    for (const p of proj) { if (p[2] < minZ) minZ = p[2]; if (p[2] > maxZ) maxZ = p[2]; }
+    const zRange = maxZ - minZ || 1;
+
+    const tiers = [[], [], []];
+    for (const [a, b] of edges) {
+      const d = ((proj[a][2] + proj[b][2]) * 0.5 - minZ) / zRange;
+      tiers[d > 0.66 ? 2 : d > 0.33 ? 1 : 0].push([a, b]);
+    }
+
+    const pulse = window.FACE_PULSE ? (0.85 + 0.15 * Math.sin(ts * 0.0008)) : 1.0;
+    const opacities = [0.05, 0.13, 0.28 * pulse];
+    const widths    = [0.45, 0.55, 0.7];
+
+    for (let t2 = 0; t2 < 3; t2++) {
+      ctx.strokeStyle = `rgba(${FACE_RGB},${(alpha * opacities[t2]).toFixed(3)})`;
+      ctx.lineWidth   = widths[t2];
+      ctx.beginPath();
+      for (const [a, b] of tiers[t2]) {
+        ctx.moveTo(proj[a][0], proj[a][1]);
+        ctx.lineTo(proj[b][0], proj[b][1]);
+      }
+      ctx.stroke();
+    }
+
+    // scanline — independent of face speed
+    if (window.FACE_SCAN) {
+      scanY = (scanY + 0.004) % 1.0;
+      const sy2 = scanY * H;
+      const grad = ctx.createLinearGradient(0, sy2 - 40, 0, sy2 + 40);
+      grad.addColorStop(0,   `rgba(${FACE_RGB},0)`);
+      grad.addColorStop(0.5, `rgba(${FACE_RGB},${(alpha * 0.04).toFixed(3)})`);
+      grad.addColorStop(1,   `rgba(${FACE_RGB},0)`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, sy2 - 40, W, 80);
+    }
+  }
+
+  requestAnimationFrame(draw);
+});
+
+})();
