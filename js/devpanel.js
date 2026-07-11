@@ -85,8 +85,18 @@
       </div>
       <div class="dp-ctrl-row">
         <span class="dp-ctrl-lbl">TRAIL</span>
-        <input type="range" id="dp-face-trail" min="0" max="0.30" step="0.01" value="0.08" />
-        <span class="dp-ctrl-val" id="dp-face-trail-val">0.08</span>
+        <input type="range" id="dp-face-trail" min="0" max="0.30" step="0.01" value="0.04" />
+        <span class="dp-ctrl-val" id="dp-face-trail-val">0.04</span>
+      </div>
+      <div class="dp-ctrl-row">
+        <span class="dp-ctrl-lbl">WOBBLE</span>
+        <input type="range" id="dp-face-wobble" min="0" max="0.50" step="0.01" value="0.15" />
+        <span class="dp-ctrl-val" id="dp-face-wobble-val">0.15</span>
+      </div>
+      <div class="dp-ctrl-row">
+        <span class="dp-ctrl-lbl">SPD VAR</span>
+        <input type="range" id="dp-face-spdvar" min="0" max="1.0" step="0.05" value="0.35" />
+        <span class="dp-ctrl-val" id="dp-face-spdvar-val">0.35</span>
       </div>
       <div class="dp-ctrl-row">
         <span class="dp-ctrl-lbl">PULSE</span>
@@ -94,7 +104,18 @@
       </div>
       <div class="dp-ctrl-row">
         <span class="dp-ctrl-lbl">SCANLINE</span>
-        <label class="dp-toggle"><input type="checkbox" id="dp-face-scan" checked /><span></span></label>
+        <label class="dp-toggle"><input type="checkbox" id="dp-face-scan" /><span></span></label>
+      </div>
+
+      <div class="dp-section-label">// Hercules</div>
+      <div class="dp-ctrl-row">
+        <span class="dp-ctrl-lbl">AMBER</span>
+        <label class="dp-toggle"><input type="checkbox" id="dp-herc-on" checked /><span></span></label>
+      </div>
+      <div class="dp-ctrl-row">
+        <span class="dp-ctrl-lbl">WASH</span>
+        <input type="range" id="dp-herc-wash" min="0" max="1.0" step="0.05" value="0.55" />
+        <span class="dp-ctrl-val" id="dp-herc-wash-val">0.55</span>
       </div>
 
       <hr class="dp-divider" />
@@ -181,8 +202,26 @@
   wireToggle('dp-face-on',    'FACE_ENABLED');
   wireToggle('dp-face-pulse', 'FACE_PULSE');
   wireToggle('dp-face-scan',  'FACE_SCAN');
-  wireFaceSlider('dp-face-speed', 'dp-face-speed-val', 'FACE_SPEED', v => v.toFixed(2) + '×');
-  wireFaceSlider('dp-face-trail', 'dp-face-trail-val', 'FACE_TRAIL', v => v.toFixed(2));
+  wireFaceSlider('dp-face-speed',  'dp-face-speed-val',  'FACE_SPEED',    v => v.toFixed(2) + '×');
+  wireFaceSlider('dp-face-trail',  'dp-face-trail-val',  'FACE_TRAIL',    v => v.toFixed(2));
+  wireFaceSlider('dp-face-wobble', 'dp-face-wobble-val', 'FACE_WOBBLE',   v => v.toFixed(2));
+  wireFaceSlider('dp-face-spdvar', 'dp-face-spdvar-val', 'FACE_SPEEDVAR', v => v.toFixed(2));
+
+  // ── hercules wash controls (drive the overlay div directly) ─────────────────
+  const hercEl = document.getElementById('herc-wash');
+  const hercOn = document.getElementById('dp-herc-on');
+  if (hercEl && hercOn) {
+    hercOn.addEventListener('change', () => {
+      hercEl.style.display = hercOn.checked ? 'block' : 'none';
+    });
+    const hs = document.getElementById('dp-herc-wash');
+    const hv = document.getElementById('dp-herc-wash-val');
+    hs.addEventListener('input', () => {
+      const v = parseFloat(hs.value);
+      hv.textContent = v.toFixed(2);
+      hercEl.style.opacity = v;
+    });
+  }
 
   // ── tap zone demo dots ──────────────────────────────────────────────────────
   const dotsEl  = document.getElementById('dp-dots');
