@@ -23,12 +23,12 @@ document.body.appendChild(plate);
 // ── typeface styles — last one triggers settle ────────────────────────────────
 const styles = [
   () => apply(`
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Courier New', monospace;
     font-size: clamp(32px, 6vw, 64px);
     font-weight: 700;
     letter-spacing: 0.18em;
-    color: #ffb000;
-    text-shadow: 0 0 8px #ffb000, 0 0 30px rgba(255,176,0,0.6), 0 0 60px rgba(255,176,0,0.27);
+    color: #00ffe7;
+    text-shadow: 0 0 8px #00ffe7, 0 0 30px #00ffe799, 0 0 60px #00ffe744;
   `),
   () => apply(`
     font-family: Impact, 'Arial Narrow', sans-serif;
@@ -40,12 +40,12 @@ const styles = [
     text-shadow: none;
   `),
   () => apply(`
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Courier New', monospace;
     font-size: clamp(30px, 5.5vw, 58px);
     font-weight: 400;
     letter-spacing: 0.08em;
-    color: #ffb000;
-    text-shadow: 3px 0 0 #ff8a00, -3px 0 0 #ffb000;
+    color: #ff2d78;
+    text-shadow: 3px 0 0 #00ffe7, -3px 0 0 #ff2d78;
   `),
   () => apply(`
     font-family: Arial, sans-serif;
@@ -57,23 +57,23 @@ const styles = [
     text-shadow: none;
   `),
   () => apply(`
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Courier New', monospace;
     font-size: clamp(28px, 5vw, 54px);
     font-weight: 700;
     letter-spacing: 0.12em;
-    color: #ffb000;
-    text-shadow: 0 0 6px rgba(255,176,0,0.67), 0 0 20px rgba(255,176,0,0.33);
+    color: #ffb800;
+    text-shadow: 0 0 6px #ffb800aa, 0 0 20px #ffb80055;
   `),
   // last — triggers settle
   () => apply(`
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-family: Georgia, serif;
     font-size: clamp(32px, 6vw, 62px);
     font-weight: 700;
     letter-spacing: 0.2em;
     font-style: italic;
     color: transparent;
-    -webkit-text-stroke: 1px rgba(255,176,0,0.9);
-    text-shadow: 0 0 20px rgba(255,176,0,0.3);
+    -webkit-text-stroke: 1px rgba(160, 220, 255, 0.9);
+    text-shadow: 0 0 20px rgba(160,220,255,0.3);
   `),
 ];
 

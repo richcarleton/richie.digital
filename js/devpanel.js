@@ -94,7 +94,7 @@
       </div>
       <div class="dp-ctrl-row">
         <span class="dp-ctrl-lbl">SCANLINE</span>
-        <label class="dp-toggle"><input type="checkbox" id="dp-face-scan" /><span></span></label>
+        <label class="dp-toggle"><input type="checkbox" id="dp-face-scan" checked /><span></span></label>
       </div>
 
       <hr class="dp-divider" />
