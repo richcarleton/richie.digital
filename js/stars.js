@@ -8,11 +8,12 @@ const LINE_COUNT = 28;
 const STAR_COUNT = 160;
 
 // deep blue, site cyan, electric blue, mid blue, warm accent (rare)
+// Hercules amber monochrome (Claude orange = [217,119,87])
 const COLORS = [
-  [0, 140, 255],
-  [0, 255, 231],
-  [0, 75, 210],
-  [55, 165, 255],
+  [255, 176, 0],
+  [255, 200, 60],
+  [255, 140, 0],
+  [255, 190, 40],
   [255, 95, 25],
 ];
 
@@ -85,8 +86,8 @@ function draw() {
   // center glow
   const vpx = W / 2, vpy = H / 2;
   const hgr = ctx.createRadialGradient(vpx, vpy, 0, vpx, vpy, Math.min(W, H) * 0.55);
-  hgr.addColorStop(0,   'rgba(0,100,230,0.09)');
-  hgr.addColorStop(0.5, 'rgba(0,50,160,0.04)');
+  hgr.addColorStop(0,   'rgba(255,176,0,0.09)');
+  hgr.addColorStop(0.5, 'rgba(255,140,0,0.04)');
   hgr.addColorStop(1,   'rgba(0,0,0,0)');
   ctx.fillStyle = hgr;
   ctx.fillRect(0, 0, W, H);
@@ -96,7 +97,7 @@ function draw() {
     const a = s.a * (0.55 + 0.45 * Math.sin(t * s.rate + s.phase));
     ctx.beginPath();
     ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(170,205,255,${a})`;
+    ctx.fillStyle = `rgba(255,205,130,${a})`;
     ctx.fill();
   }
 
