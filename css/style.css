@@ -181,13 +181,13 @@ html, body {
   position: fixed;
   top: 24px;
   left: 28px;
-  font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  font-family: Helvetica, Roboto, Arial, sans-serif;
   font-size: 12px;
   letter-spacing: 0.2em;
-  color: rgba(0, 255, 231, 0.72);
+  color: #D97757; /* Claude Orange */
   text-shadow:
-    0 0 8px rgba(0, 255, 231, 0.6),
-    0 0 22px rgba(0, 255, 231, 0.25);
+    0 0 8px rgba(217, 119, 87, 0.55),
+    0 0 22px rgba(217, 119, 87, 0.22);
   opacity: 0;
   transition: opacity 1.0s ease;
   z-index: 15;
@@ -198,6 +198,20 @@ html, body {
 
 #nameplate.visible {
   opacity: 1;
+}
+
+/* ── hercules wash — mellow amber monochrome over the whole scene ────────────── */
+/* mix-blend-mode:color = amber hue + underlying luminance ≈ MDA phosphor.       */
+/* opacity is the "mellow" dial; devpanel drives it. pointer-events off always.  */
+#herc-wash {
+  position: fixed;
+  inset: 0;
+  background: #FFB000;
+  mix-blend-mode: color;
+  opacity: 0.55;
+  z-index: 18;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
 }
 
 /* ── planet overlay ──────────────────────────────────────────────────────────── */
