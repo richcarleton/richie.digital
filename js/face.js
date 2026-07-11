@@ -5,6 +5,7 @@ const canvas = document.createElement('canvas');
 canvas.id = 'face-canvas';
 document.body.appendChild(canvas);
 const ctx = canvas.getContext('2d');
+const FACE_RGB = '255,176,0'; // Hercules amber (Claude orange = 217,119,87)
 
 function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
 resize();
@@ -16,7 +17,7 @@ const DEG = Math.PI / 180;
 window.FACE_SPEED   = window.FACE_SPEED   !== undefined ? window.FACE_SPEED   : 0.18;
 window.FACE_TRAIL   = window.FACE_TRAIL   !== undefined ? window.FACE_TRAIL   : 0.08;
 window.FACE_PULSE   = window.FACE_PULSE   !== undefined ? window.FACE_PULSE   : true;
-window.FACE_SCAN    = window.FACE_SCAN    !== undefined ? window.FACE_SCAN    : true;
+window.FACE_SCAN    = window.FACE_SCAN    !== undefined ? window.FACE_SCAN    : false;
 window.FACE_ENABLED = window.FACE_ENABLED !== undefined ? window.FACE_ENABLED : true;
 
 function rotXYZ(x, y, z, rx, ry, rz) {
@@ -113,7 +114,7 @@ Promise.all([
     const widths    = [0.45, 0.55, 0.7];
 
     for (let t2 = 0; t2 < 3; t2++) {
-      ctx.strokeStyle = `rgba(0,255,231,${(alpha * opacities[t2]).toFixed(3)})`;
+      ctx.strokeStyle = `rgba(${FACE_RGB},${(alpha * opacities[t2]).toFixed(3)})`;
       ctx.lineWidth   = widths[t2];
       ctx.beginPath();
       for (const [a, b] of tiers[t2]) {
@@ -128,9 +129,9 @@ Promise.all([
       scanY = (scanY + 0.004) % 1.0;
       const sy2 = scanY * H;
       const grad = ctx.createLinearGradient(0, sy2 - 40, 0, sy2 + 40);
-      grad.addColorStop(0,   'rgba(0,255,231,0)');
-      grad.addColorStop(0.5, `rgba(0,255,231,${(alpha * 0.04).toFixed(3)})`);
-      grad.addColorStop(1,   'rgba(0,255,231,0)');
+      grad.addColorStop(0,   `rgba(${FACE_RGB},0)`);
+      grad.addColorStop(0.5, `rgba(${FACE_RGB},${(alpha * 0.04).toFixed(3)})`);
+      grad.addColorStop(1,   `rgba(${FACE_RGB},0)`);
       ctx.fillStyle = grad;
       ctx.fillRect(0, sy2 - 40, W, 80);
     }
