@@ -98,6 +98,10 @@
         <button class="dp-btn" id="rd-reset">RESET TUNING</button>
         <button class="dp-btn" id="rd-restart">RESTART RUN</button>
       </div>
+      <div class="dp-ctrl-row">
+        <button class="dp-btn" id="rd-pause">PAUSE (ESC)</button>
+        <button class="dp-btn" id="rd-boss">BOSS SCREEN (TAB)</button>
+      </div>
       <div class="dp-footer-txt" style="margin-top:8px">4-tap bottom-left · ctrl+~</div>
     </div>
   `;
@@ -149,6 +153,14 @@
   });
   document.getElementById('rd-restart').addEventListener('click', () => {
     window.RICARDO_GAME && window.RICARDO_GAME.restart();
+    close();
+  });
+  document.getElementById('rd-pause').addEventListener('click', () => {
+    window.RICARDO_GAME && window.RICARDO_GAME.pause();
+    close();
+  });
+  document.getElementById('rd-boss').addEventListener('click', () => {
+    window.RICARDO_GAME && window.RICARDO_GAME.boss();
     close();
   });
 

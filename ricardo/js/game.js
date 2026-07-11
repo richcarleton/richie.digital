@@ -115,7 +115,8 @@
   const MUS = { next: 0, step: 0 };
   const BASSLINE = [0, -1, 0, 12, 3, -1, 12, -1, 0, 0, -1, 12, 7, 15, 12, 10]; // -1 = rest
   function music() {
-    const on = window.EFFECT_RICARDO_MUSIC && G.mode === 'play' && AC && AC.state === 'running';
+    const on = window.EFFECT_RICARDO_MUSIC && !G.paused &&
+               (G.mode === 'play' || G.mode === 'flappy') && AC && AC.state === 'running';
     if (!on) { MUS.next = 0; return; }
     const SPB = 60 / 142 / 4; // one 16th
     if (!MUS.next || MUS.next < AC.currentTime - 0.2) { MUS.next = AC.currentTime + 0.06; MUS.step = 0; }
@@ -139,6 +140,7 @@
     die:      () => blip(90, 0.5, 'sawtooth', 0.09),
     grab:     () => { blip(520, 0.06, 'triangle', 0.07); setTimeout(() => blip(390, 0.1, 'triangle', 0.05), 50); },
     scare:    () => fm(0, 660, 0.22, 2.01, 9, 0.06),   // inharmonic FM squeal
+    flap:     () => fm(0, 280, 0.09, 0.5, 3, 0.05),    // soft FM whumpf
     poof:     () => {                                   // dusty lowpass noise burst
       const ac = audio(); if (!ac) return;
       const src = ac.createBufferSource(); src.buffer = noise(ac);
@@ -163,15 +165,93 @@
   window.addEventListener('keydown', e => {
     const k = KEYMAP[e.code]; if (!k) return;
     e.preventDefault();
+    if (G.paused) return; // no queuing jumps from the pause screen
     if (k === 'jump' && !keys.jump) jumpQueued = true;
     keys[k] = true; anyInput = true; audio();
   });
   window.addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k) keys[k] = false; });
+  // meta keys: ESC pause · M music (while paused) · TAB boss key
+  window.addEventListener('keydown', e => {
+    if (e.code === 'Tab') { e.preventDefault(); toggleBoss(); return; }
+    if (e.code === 'Escape') {
+      e.preventDefault();
+      if (bossEl && bossEl.style.display !== 'none') { toggleBoss(); return; }
+      if (G.mode === 'play' || G.mode === 'flappy') togglePause();
+      return;
+    }
+    if (e.code === 'KeyM' && G.paused) {
+      window.EFFECT_RICARDO_MUSIC = !window.EFFECT_RICARDO_MUSIC;
+      const cb = document.getElementById('rd-music'); // keep devpanel + localStorage honest
+      if (cb) { cb.checked = window.EFFECT_RICARDO_MUSIC; cb.dispatchEvent(new Event('change')); }
+    }
+  });
+
+  function togglePause() {
+    G.paused = !G.paused;
+    if (G.paused) { for (const k in keys) keys[k] = false; jumpQueued = false; if (AC && AC.state === 'running') AC.suspend(); }
+    else { if (AC && AC.state === 'suspended') AC.resume(); MUS.next = 0; }
+  }
+
+  // ── boss key: instant alien productivity ─────────────────────────────────────
+  let bossEl = null;
+  function toggleBoss() {
+    if (!bossEl) { bossEl = buildBoss(); document.body.appendChild(bossEl); }
+    const show = bossEl.style.display === 'none';
+    bossEl.style.display = show ? 'block' : 'none';
+    if (show) {
+      if (!G.paused && (G.mode === 'play' || G.mode === 'flappy')) togglePause();
+      else if (AC && AC.state === 'running') AC.suspend();
+    }
+    // on hide we STAY paused — assess the coast, then ESC to resume
+  }
+  function buildBoss() {
+    const d = document.createElement('div');
+    d.style.cssText = 'position:fixed;inset:0;z-index:9500;display:none;background:#050c05;' +
+      'color:#7fff9f;font:13px/1.5 ui-monospace,monospace;cursor:default;user-select:none';
+    const rows = [
+      ['SECTOR', 'SPECIMENS', 'QUOTA', 'STATUS'],
+      ['KEPLER-42B', '1,204', '1,000', '&#10003; AHEAD'],
+      ['EARTH (SOL-3)', '47', '50', '&#9888; BEHIND'],
+      ['TRAPPIST-1E', '88', '90', '&#9888; BEHIND'],
+      ['VEGA PRIME', '3,506', '200', '&#10003;&#10003; PROMOTED'],
+      ['MOON BASE ZETA', '0', '12', '&#10007; SEE HR'],
+    ].map((r, i) => '<tr>' + r.map(c =>
+      `<td style="border:1px solid #1d4d2a;padding:3px 14px;${i ? '' : 'background:#0d2413;font-weight:bold'}">${c}</td>`
+    ).join('') + '</tr>').join('');
+    d.innerHTML = `
+      <div style="background:#0d2413;padding:4px 12px;display:flex;justify-content:space-between;border-bottom:1px solid #1d4d2a">
+        <span>&#9651; ZORGON OS 9.4&nbsp;&nbsp;&nbsp;FILE&nbsp;&nbsp;EDIT&nbsp;&nbsp;PROBE&nbsp;&nbsp;HELP</span>
+        <span id="boss-clock"></span>
+      </div>
+      <div style="position:absolute;left:24px;top:64px;line-height:2.4;opacity:.85">
+        &#9673; SpecimenViewer<br>&#8889; FleetOps<br>&#9851; Recycle Nebula
+      </div>
+      <div style="position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);background:#08160b;border:1px solid #2a6b3a;box-shadow:0 0 40px #0f3;min-width:520px">
+        <div style="background:#123920;padding:4px 10px;display:flex;justify-content:space-between">
+          <span>XENOCEL&#8482; &mdash; Q3_ABDUCTION_QUOTAS.XLS</span><span>&#9472; &#9634; &#10005;</span>
+        </div>
+        <div style="padding:3px 10px;border-bottom:1px solid #1d4d2a;color:#4dcc70">
+          fx&nbsp;&nbsp;=SUM(B2:B6)-PLAUSIBLE_DENIABILITY
+        </div>
+        <table style="border-collapse:collapse;margin:10px">${rows}</table>
+        <div style="padding:4px 10px;color:#4dcc70;border-top:1px solid #1d4d2a">
+          47 specimens processed &mdash; do not feed<span style="animation:none">_</span>
+        </div>
+      </div>
+      <div style="position:absolute;bottom:0;left:0;right:0;background:#0d2413;padding:4px 12px;display:flex;justify-content:space-between;border-top:1px solid #1d4d2a">
+        <span style="background:#123920;padding:0 10px;border:1px solid #2a6b3a">&#8889; INVADE</span>
+        <span>&#9602;&#9604;&#9606; mothership signal: OK &mdash; definitely spreadsheets happening here</span>
+      </div>`;
+    const tick = () => { const c = d.querySelector('#boss-clock'); if (c) c.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); };
+    tick(); setInterval(tick, 10000);
+    return d;
+  }
   // losing focus mid-press (alt-tab, devtools, clicking away) means the keyup
   // never arrives — without this the player drifts in that direction forever.
   window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
   // touch.js calls this:
   window.RICARDO_INPUT = (name, down) => {
+    if (G.paused && down) return;
     if (name === 'jump' && down && !keys.jump) jumpQueued = true;
     keys[name] = down; if (down) { anyInput = true; audio(); }
   };
@@ -204,6 +284,8 @@
     roomFlash: 0,
     shake: 0,                 // camera shake magnitude, decays in the step loop
     ghosts: [],               // airborne afterimages
+    paused: false,
+    fl: null,                 // flappy-mode state (OPEN SKY)
   };
 
   function addShake(m) { G.shake = Math.min(8, Math.max(G.shake, m)); }
@@ -237,6 +319,16 @@
     };
     G.entry = { x: px, y: py };
     G.roomFlash = 0.5;
+    // rooms flagged flappy have no floor, no walls, no rules — only sky
+    if (room.flappy && (G.mode === 'play' || G.mode === 'title')) {
+      G.mode = 'flappy';
+      const clouds = [];
+      for (let i = 0; i < 10; i++) clouds.push({
+        x: Math.random() * (W + 8) - 4, y: 1 + Math.random() * (H - 4),
+        s: 1 + Math.random(), sp: 5 + Math.random() * 6,
+      });
+      G.fl = { y: 4, vy: 0, dist: 0, hintT: 3, gt: 0, clouds };
+    }
   }
 
   function clearTile(x, y) {
@@ -481,6 +573,35 @@
     if (G.skulls.some(s => s.dead)) G.skulls = G.skulls.filter(s => !s.dead);
   }
 
+  // ── OPEN SKY: the next screen was never built, so gravity improvises ────────
+  // No pipes, no death — just clouds. Flap across, land on CLOUD NINE.
+  function simFlappy(dt) {
+    const F = G.fl;
+    if (jumpQueued) { jumpQueued = false; F.vy = -7.5; sfx.flap(); }
+    F.vy = Math.min(F.vy + 20 * dt, 12);
+    F.y += F.vy * dt;
+    if (F.y < 0.5)     { F.y = 0.5;     F.vy = Math.max(F.vy, 0); }
+    if (F.y > H - 2.2) { F.y = H - 2.2; F.vy = Math.min(F.vy, 0); } // bouncy cloud floor
+    F.dist += 9 * dt;
+    F.hintT -= dt;
+    for (const c of F.clouds) {
+      c.x -= c.sp * dt;
+      if (c.x < -8) { c.x = W + 4 + Math.random() * 6; c.y = 1 + Math.random() * (H - 4); }
+    }
+    // afterimages drift behind (the sky scrolls; the ghosts remember)
+    F.gt += dt;
+    if (F.gt > 0.05) {
+      F.gt = 0;
+      G.ghosts.push({ x: 7, y: F.y, life: 0.3, c: (G.ghosts.length % 2) ? '#0ac8e8' : '#e80a78' });
+      if (G.ghosts.length > 14) G.ghosts.shift();
+    }
+    for (const gh of G.ghosts) gh.x -= 9 * dt;
+    if (F.dist > 130) { // made it across
+      G.mode = 'play'; G.fl = null; G.ghosts = [];
+      enterRoom((G.room.exits && G.room.exits.right) || G.pack.start, 2, 0.5, { fall: -99 });
+    }
+  }
+
   // ── render ───────────────────────────────────────────────────────────────────
   function starDot(x, y) { return ((x * 73856093) ^ (y * 19349663)) % 97 === 0; }
 
@@ -494,6 +615,11 @@
       if (starDot(x, y)) ctx.fillRect(x, y, 1, 1);
 
     if (G.mode === 'title') { renderTitle(ctx); blit(); return; }
+    if (G.mode === 'flappy') {
+      renderFlappy(ctx);
+      if (G.paused) renderPause(ctx);
+      blit(); return;
+    }
 
     const von = vanishOn();
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
@@ -563,7 +689,58 @@
 
     if (G.mode === 'gameover') centerText(ctx, 'GAME OVER', 'SCORE ' + G.score + ' — TAP / SPACE TO RETRY');
     if (G.mode === 'win')      centerText(ctx, 'PYRAMID CLEARED', 'SCORE ' + G.score + ' — RICARDO RETURNS. TAP TO REPLAY');
+    if (G.paused) renderPause(ctx);
     blit();
+  }
+
+  function renderPause(ctx) {
+    ctx.fillStyle = 'rgba(8,11,20,0.78)'; ctx.fillRect(0, 0, buf.width, buf.height);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = SP.PAL['5']; ctx.font = 'bold 16px ui-monospace, monospace';
+    ctx.fillText('PAUSED', buf.width / 2, 74);
+    ctx.fillStyle = SP.PAL['7']; ctx.font = '8px ui-monospace, monospace';
+    ctx.fillText('ESC — RESUME', buf.width / 2, 96);
+    ctx.fillText('M — MUSIC: ' + (window.EFFECT_RICARDO_MUSIC ? 'ON' : 'OFF'), buf.width / 2, 108);
+    ctx.fillText('TAB — LOOK BUSY', buf.width / 2, 120);
+    ctx.textAlign = 'left';
+  }
+
+  function drawCloud(ctx, x, y, s) {
+    ctx.fillStyle = SP.PAL['7']; ctx.globalAlpha = 0.7;
+    ctx.fillRect(x + 3 * s, y, 8 * s, 2 * s);
+    ctx.fillRect(x, y + 2 * s, 14 * s, 3 * s);
+    ctx.fillStyle = SP.PAL['2']; ctx.globalAlpha = 0.3;   // cosmic underglow
+    ctx.fillRect(x + 2 * s, y + 5 * s, 11 * s, 2 * s);
+    ctx.globalAlpha = 1;
+  }
+
+  function renderFlappy(ctx) {
+    const F = G.fl;
+    // far clouds first (slow = far, painter's algorithm on a budget)
+    const sorted = F.clouds.slice().sort((a, b) => a.sp - b.sp);
+    for (const c of sorted) drawCloud(ctx, Math.round(c.x * TP - 14), Math.round(c.y * TP), c.s);
+    // ghosts
+    for (const gh of G.ghosts) {
+      ctx.globalAlpha = Math.max(0, gh.life / 0.3) * 0.35;
+      SP.drawBitmapMono(ctx, SP.CAT_JUMP, Math.round(gh.x * TP), Math.round(gh.y * TP), gh.c);
+    }
+    ctx.globalAlpha = 1;
+    // Ricardo, tilting with vertical velocity like he read the flappy spec
+    ctx.save();
+    ctx.translate(7 * TP + 5, F.y * TP + 6);
+    ctx.rotate(Math.max(-0.45, Math.min(0.6, F.vy * 0.07)));
+    SP.drawBitmap(ctx, SP.CAT_JUMP, -5, -6);
+    ctx.restore();
+    // HUD
+    ctx.fillStyle = 'rgba(8,11,20,0.55)'; ctx.fillRect(0, 0, buf.width, TP);
+    ctx.font = '8px ui-monospace, monospace'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = SP.PAL['4'];
+    ctx.fillText('OPEN SKY — ' + Math.min(100, F.dist / 130 * 100 | 0) + '%', 4, TP / 2 + 1);
+    if (F.hintT > 0 && (G.time * 2 | 0) % 2 === 0) {
+      ctx.textAlign = 'center'; ctx.fillStyle = SP.PAL['5'];
+      ctx.fillText('TAP / SPACE = FLAP', buf.width / 2, 60);
+      ctx.textAlign = 'left';
+    }
   }
 
   function centerText(ctx, big, small) {
@@ -589,6 +766,9 @@
       ctx.fillStyle = SP.PAL['5'];
       ctx.fillText('TAP / SPACE TO START', buf.width / 2, 160);
     }
+    ctx.fillStyle = SP.PAL['4']; ctx.globalAlpha = 0.7;
+    ctx.fillText('ESC PAUSE · TAB BOSS KEY', buf.width / 2, 176);
+    ctx.globalAlpha = 1;
     ctx.textAlign = 'left';
   }
 
@@ -631,12 +811,14 @@
     let dt = (now - last) / 1000; last = now;
     if (dt > 0.25) dt = 0.25; // tab-switch guard
     acc += dt;
+    if (G.paused) acc = 0; // frozen, but still rendering (pause menu needs a stage)
     while (acc >= STEP) {
       G.time += STEP; G.modeT += STEP;
       if (G.roomFlash > 0) G.roomFlash -= STEP;
       if (G.shake > 0) G.shake = Math.max(0, G.shake - 9 * STEP);
       for (const gh of G.ghosts) gh.life -= STEP;
       if (G.mode === 'play') { simPlayer(STEP); simSkulls(STEP); }
+      else if (G.mode === 'flappy') { simFlappy(STEP); }
       else if (G.mode === 'dying' && G.modeT > 0.9) {
         G.lives--;
         if (G.lives <= 0) { G.mode = 'gameover'; G.modeT = 0; }
@@ -658,7 +840,8 @@
   function startRun() {
     G.score = 0; G.lives = 3; G.keysHeld = []; G.mut = {};
     G.mode = 'play'; G.modeT = 0;
-    G.shake = 0; G.ghosts = []; MUS.next = 0; MUS.step = 0;
+    G.shake = 0; G.ghosts = []; G.fl = null; G.paused = false;
+    MUS.next = 0; MUS.step = 0;
     enterRoom(G.pack.start, null, null);
   }
 
@@ -672,5 +855,5 @@
     requestAnimationFrame(ts => { last = ts; frame(ts); });
   });
 
-  window.RICARDO_GAME = { G, restart: startRun }; // devpanel hooks
+  window.RICARDO_GAME = { G, restart: startRun, pause: togglePause, boss: toggleBoss }; // devpanel hooks
 })();
