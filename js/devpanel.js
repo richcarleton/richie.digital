@@ -107,6 +107,17 @@
         <label class="dp-toggle"><input type="checkbox" id="dp-face-scan" /><span></span></label>
       </div>
 
+      <div class="dp-section-label">// Wheel Badge</div>
+      <div class="dp-ctrl-row">
+        <span class="dp-ctrl-lbl">ENABLED</span>
+        <label class="dp-toggle"><input type="checkbox" id="dp-wheel-on" checked /><span></span></label>
+      </div>
+      <div class="dp-ctrl-row">
+        <span class="dp-ctrl-lbl">SPIN</span>
+        <input type="range" id="dp-wheel-spin" min="0" max="180" step="2" value="24" />
+        <span class="dp-ctrl-val" id="dp-wheel-spin-val">24&deg;/s</span>
+      </div>
+
       <div class="dp-section-label">// Hercules</div>
       <div class="dp-ctrl-row">
         <span class="dp-ctrl-lbl">AMBER</span>
@@ -206,6 +217,9 @@
   wireFaceSlider('dp-face-trail',  'dp-face-trail-val',  'FACE_TRAIL',    v => v.toFixed(2));
   wireFaceSlider('dp-face-wobble', 'dp-face-wobble-val', 'FACE_WOBBLE',   v => v.toFixed(2));
   wireFaceSlider('dp-face-spdvar', 'dp-face-spdvar-val', 'FACE_SPEEDVAR', v => v.toFixed(2));
+
+  wireToggle('dp-wheel-on', 'WHEEL_ENABLED');
+  wireFaceSlider('dp-wheel-spin', 'dp-wheel-spin-val', 'WHEEL_SPIN', v => v.toFixed(0) + '\u00b0/s');
 
   // ── hercules wash controls (drive the overlay div directly) ─────────────────
   const hercEl = document.getElementById('herc-wash');
