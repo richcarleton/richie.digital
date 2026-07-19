@@ -1,45 +1,716 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>richie.digital</title>
-  <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>suit — richie.digital</title>
+<style>
+  :root{
+    --mag:#ff2d95; --cyn:#27e0d8; --haz:#f5c518;
+    --bg:#150b26; --panel:rgba(18,12,34,.88); --ink:#e8e6f2; --dim:#8b84a8;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;background:var(--bg);
+    font-family:"Courier New",ui-monospace,monospace;color:var(--ink);
+    touch-action:none;user-select:none;-webkit-user-select:none}
+  canvas{display:block}
+  #fx{position:fixed;inset:0;pointer-events:none;z-index:3}
+
+  /* ---------- HUD ---------- */
+  #hud{position:fixed;inset:0;pointer-events:none;z-index:4}
+  .top{display:flex;justify-content:space-between;padding:10px 14px}
+  .brand{font-size:10px;letter-spacing:.16em;line-height:1.6}
+  .brand b{color:var(--mag);font-size:12px;text-shadow:0 0 8px var(--mag)}
+  .laps{text-align:right;font-size:11px;line-height:1.6;letter-spacing:.08em}
+  .laps .t{font-size:20px;color:#fff}
+  .laps .b{color:var(--cyn)}
+  #speedo{position:fixed;right:16px;bottom:16px;text-align:right}
+  #speedo .n{font-size:46px;font-weight:bold;color:#fff;text-shadow:0 0 12px var(--cyn);line-height:1}
+  #speedo .u{font-size:10px;color:var(--dim);letter-spacing:.2em}
+  #knees{position:fixed;left:16px;bottom:16px;width:120px;font-size:9px;letter-spacing:.12em;color:var(--dim)}
+  .kbar{height:8px;background:#0c0818;border:1px solid #3a2c5e;margin:3px 0 7px;overflow:hidden}
+  .kbar i{display:block;height:100%;background:var(--cyn);transform-origin:left;transition:background .15s}
+  .kbar i.hot{background:var(--mag)}
+  #toast{position:fixed;left:50%;top:30%;transform:translateX(-50%);font-size:22px;
+    letter-spacing:.3em;color:var(--haz);text-shadow:0 0 14px var(--haz);opacity:0;transition:opacity .3s;z-index:4}
+  #padTag{position:fixed;left:50%;bottom:8px;transform:translateX(-50%);font-size:9px;
+    letter-spacing:.15em;color:var(--dim);z-index:4}
+
+  /* ---------- options corner ---------- */
+  #gear{position:fixed;top:10px;right:50%;transform:translateX(50%);z-index:6;pointer-events:auto;
+    background:var(--panel);border:1px solid #3a2c5e;color:var(--cyn);
+    font-family:inherit;font-size:11px;letter-spacing:.14em;padding:6px 12px;cursor:pointer}
+  #opts{position:fixed;top:42px;right:50%;transform:translateX(50%);z-index:6;width:230px;
+    background:var(--panel);border:1px solid #3a2c5e;padding:10px 12px;display:none;pointer-events:auto;
+    backdrop-filter:blur(4px);max-height:70vh;overflow-y:auto}
+  #opts.open{display:block}
+  #opts h3{font-size:10px;letter-spacing:.2em;color:var(--mag);margin-bottom:8px}
+  .opt{margin-bottom:8px}
+  .opt label{display:flex;justify-content:space-between;font-size:9px;letter-spacing:.1em;color:var(--dim)}
+  .opt label span{color:var(--ink)}
+  .opt input[type=range]{width:100%;accent-color:#ff2d95;height:18px}
+  #optReset{width:100%;margin-top:4px;padding:6px;background:transparent;border:1px solid #3a2c5e;
+    color:var(--dim);font-family:inherit;font-size:9px;letter-spacing:.15em;cursor:pointer}
+
+  /* ---------- touch ---------- */
+  #touchUI{position:fixed;inset:0;pointer-events:none;display:none;z-index:5}
+  body.touch #touchUI{display:block}
+  .tbtn{position:absolute;pointer-events:auto;background:rgba(18,12,34,.7);
+    border:1px solid #3a2c5e;color:var(--ink);font-size:11px;letter-spacing:.1em;
+    display:flex;align-items:center;justify-content:center;border-radius:50%}
+  .tbtn:active,.tbtn.on{border-color:var(--mag);color:var(--mag)}
+  #tL{left:14px;bottom:110px;width:62px;height:62px}
+  #tR{left:88px;bottom:110px;width:62px;height:62px}
+  #tGas{right:14px;bottom:110px;width:70px;height:70px;border-color:var(--cyn)}
+  #tBrk{right:96px;bottom:110px;width:56px;height:56px}
+  #tHop{right:14px;bottom:196px;width:70px;height:44px;border-radius:22px;border-color:var(--haz)}
+
+  /* ---------- intro ---------- */
+  #intro{position:fixed;inset:0;background:rgba(10,6,20,.9);display:flex;align-items:center;justify-content:center;z-index:10}
+  #intro .card{max-width:440px;margin:16px;background:var(--panel);border:1px solid #3a2c5e;
+    border-top:3px solid var(--mag);padding:22px 24px;font-size:12px;line-height:1.9;letter-spacing:.04em}
+  #intro h1{font-size:16px;letter-spacing:.2em;color:var(--mag);text-shadow:0 0 10px var(--mag)}
+  #intro .sub{color:var(--cyn);font-size:10px;letter-spacing:.25em;margin-bottom:12px}
+  #intro kbd{background:#0c0818;border:1px solid #3a2c5e;padding:1px 6px;font-family:inherit;color:#fff}
+  #intro .pad{color:var(--dim);font-size:10px;margin-top:6px}
+  #go{margin-top:14px;width:100%;padding:12px;background:var(--mag);color:#fff;border:0;
+    font-family:inherit;font-size:13px;letter-spacing:.2em;cursor:pointer;box-shadow:0 0 18px rgba(255,45,149,.5)}
+</style>
 </head>
 <body>
-  <canvas id="stars"></canvas>
-  <div id="herc-wash"></div>
+<canvas id="fx"></canvas>
 
-  <div id="terminal">
-    <span id="terminal-prompt">&gt;</span>
-    <input id="terminal-input" type="text" autocomplete="off" spellcheck="false" placeholder="...">
+<div id="hud">
+  <div class="top">
+    <div class="brand"><a href="../" style="color:inherit;text-decoration:none;pointer-events:auto"><b>MOTORCYCLE SUIT</b></a><br>CIRCUIT v0.2<br><a href="../" style="color:#27e0d8;text-decoration:none;pointer-events:auto">&larr; richie.digital</a></div>
+    <div class="laps">
+      <span class="t" id="lapT">0:00.0</span><br>
+      <span class="b">BEST <span id="lapB">--:--.-</span></span><br>
+      <span style="color:var(--dim)">LAP <span id="lapN">0</span></span>
+    </div>
   </div>
+  <div id="speedo"><div class="n" id="spd">0</div><div class="u">KM/H</div></div>
+  <div id="knees">
+    L KNEE<div class="kbar"><i id="kL"></i></div>
+    R KNEE<div class="kbar"><i id="kR"></i></div>
+  </div>
+</div>
+<div id="toast"></div>
+<div id="padTag"></div>
 
-  <script src="js/stars.js"></script>
-  <script src="js/face.js"></script>
-  <script src="js/content.js"></script>
-  <script src="js/panel.js"></script>
-  <script src="js/viewer.js"></script>
-  <script src="js/planet-orig.js"></script>
-  <script src="js/menu.js"></script>
-  <script src="js/terminal.js"></script>
-  <script src="js/nameplate.js"></script>
-  <script src="js/devpanel.js"></script>
+<button id="gear">TUNING &#9662;</button>
+<div id="opts">
+  <h3>SUIT TUNING</h3>
+  <div id="optList"></div>
+  <button id="optReset">FACTORY RESET</button>
+</div>
 
-  <!-- shelved — bring back individually as needed
-  <script src="js/planet.js"></script>
-  <script src="js/comet.js"></script>
-  <script src="js/sticker.js"></script>
-  <script src="js/cruiser.js"></script>
-  <script src="js/midi.js"></script>
-  <script src="js/nameplate.js"></script>
-  <script src="js/nav.js"></script>
-  <script src="js/satellites.js"></script>
-  <script src="js/devpanel.js"></script>
-  <script src="js/sounds.js"></script>
-  <script src="js/catfloat.js"></script>
-  <script src="js/walker.js"></script>
-  -->
+<div id="touchUI">
+  <div class="tbtn" id="tL">&#9664;</div>
+  <div class="tbtn" id="tR">&#9654;</div>
+  <div class="tbtn" id="tGas">GAS</div>
+  <div class="tbtn" id="tBrk">BRK</div>
+  <div class="tbtn" id="tHop">HOP</div>
+</div>
+
+<div id="intro">
+  <div class="card">
+    <h1>MOTORCYCLE SUIT</h1>
+    <div class="sub">NIGHT CIRCUIT // KNEES ARE THE SUSPENSION</div>
+    <div><kbd>W</kbd> gas &nbsp;<kbd>S</kbd> brake &nbsp;<kbd>A</kbd>/<kbd>D</kbd> steer<br>
+    <kbd>SPACE</kbd> hold to preload knees, release to pop &nbsp;<kbd>SHIFT</kbd> drift</div>
+    <div class="pad">GAMEPAD: RT gas · LT brake · stick steer · A preload/pop · B drift</div>
+    <div class="pad">Washboard rattles the knees. The big ramp wants full preload. Tune everything under TUNING.</div>
+    <button id="go">LIGHTS OUT</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+"use strict";
+
+/* ================= visible error trap (no silent freezes) ================= */
+window.onerror=function(msg,src,line){
+  let b=document.getElementById('errbar');
+  if(!b){b=document.createElement('div');b.id='errbar';
+    b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99;background:#ff4d3a;color:#fff;font:11px monospace;padding:6px 10px;white-space:pre-wrap';
+    document.body.appendChild(b);}
+  b.textContent='ERR: '+msg+' @'+line;
+};
+
+/* ================= tunables + options panel ================= */
+const DEF={
+  topSpeed:  {v:17,  min:8,  max:28, s:0.5, l:"TOP SPEED"},
+  accel:     {v:9,   min:3,  max:20, s:0.5, l:"ACCEL"},
+  steer:     {v:2.1, min:0.8,max:4,  s:0.1, l:"STEER RATE"},
+  spring:    {v:60,  min:15, max:140,s:1,   l:"KNEE SPRING"},
+  damp:      {v:7.5, min:1,  max:18, s:0.5, l:"KNEE DAMPING"},
+  pop:       {v:5.2, min:0,  max:10, s:0.2, l:"HOP POP"},
+  gravity:   {v:16,  min:6,  max:30, s:0.5, l:"GRAVITY"},
+  fovKick:   {v:16,  min:0,  max:30, s:1,   l:"FOV KICK"},
+  shake:     {v:1.0, min:0,  max:3,  s:0.1, l:"CAM SHAKE"},
+  driftGrip: {v:0.55,min:0.1,max:1,  s:0.05,l:"DRIFT GRIP"}
+};
+const CFG={};
+const saved=(function(){try{return JSON.parse(localStorage.getItem('SUIT2')||'{}')}catch(e){return{}}})();
+for(const k in DEF)CFG[k]=(typeof saved[k]==='number')?saved[k]:DEF[k].v;
+window.SUIT_CFG=CFG;
+
+const optList=document.getElementById('optList');
+for(const k in DEF){
+  const d=DEF[k];
+  const wrap=document.createElement('div');wrap.className='opt';
+  wrap.innerHTML='<label>'+d.l+'<span id="ov_'+k+'">'+CFG[k]+'</span></label>'+
+    '<input type="range" id="or_'+k+'" min="'+d.min+'" max="'+d.max+'" step="'+d.s+'" value="'+CFG[k]+'">';
+  optList.appendChild(wrap);
+  wrap.querySelector('input').addEventListener('input',e=>{
+    CFG[k]=parseFloat(e.target.value);
+    document.getElementById('ov_'+k).textContent=CFG[k];
+    localStorage.setItem('SUIT2',JSON.stringify(CFG));
+  });
+}
+document.getElementById('optReset').addEventListener('click',()=>{
+  for(const k in DEF){CFG[k]=DEF[k].v;
+    document.getElementById('or_'+k).value=CFG[k];
+    document.getElementById('ov_'+k).textContent=CFG[k];}
+  localStorage.setItem('SUIT2',JSON.stringify(CFG));
+});
+document.getElementById('gear').addEventListener('click',()=>
+  document.getElementById('opts').classList.toggle('open'));
+
+/* ================= track spline ================= */
+function catmull(p0,p1,p2,p3,t){
+  const t2=t*t,t3=t2*t;
+  return 0.5*((2*p1)+(-p0+p2)*t+(2*p0-5*p1+4*p2-p3)*t2+(-p0+3*p1-3*p2+p3)*t3);
+}
+const CP=[[0,-30],[24,-33],[38,-16],[29,4],[38,21],[14,33],[-14,31],[-35,16],[-33,-11],[-16,-31]];
+const NS=420, PTS=[];
+(function(){
+  let s=0,px=0,pz=0;
+  for(let i=0;i<NS;i++){
+    const t=i/NS*CP.length, seg=Math.floor(t)%CP.length, f=t-Math.floor(t);
+    const a=CP[(seg-1+CP.length)%CP.length],b=CP[seg],c=CP[(seg+1)%CP.length],d=CP[(seg+2)%CP.length];
+    const x=catmull(a[0],b[0],c[0],d[0],f), z=catmull(a[1],b[1],c[1],d[1],f);
+    if(i>0)s+=Math.hypot(x-px,z-pz);
+    PTS.push({x,z,s}); px=x;pz=z;
+  }
+  PTS.total=PTS[NS-1].s+Math.hypot(PTS[0].x-px,PTS[0].z-pz);
+})();
+const W=4.6;                                  // half track width
+
+function nearest(x,z){
+  let bi=0,bd=1e9;
+  for(let i=0;i<NS;i+=7){
+    const dx=PTS[i].x-x,dz=PTS[i].z-z,d=dx*dx+dz*dz;
+    if(d<bd){bd=d;bi=i;}
+  }
+  for(let j=bi-7;j<=bi+7;j++){
+    const i=(j+NS)%NS;
+    const dx=PTS[i].x-x,dz=PTS[i].z-z,d=dx*dx+dz*dz;
+    if(d<bd){bd=d;bi=i;}
+  }
+  return {i:bi,d:Math.sqrt(bd),u:PTS[bi].s/PTS.total,s:PTS[bi].s};
+}
+function env(u,a,b,e){          // smooth 0..1..0 envelope inside [a,b]
+  if(u<a||u>b)return 0;
+  const t=(u-a)/(b-a);
+  return Math.min(1,Math.min(t,1-t)/e);
+}
+function profile(u,s){
+  let h=0;
+  h+=0.26*Math.pow(Math.sin(s*2.4),2)*env(u,0.14,0.30,0.18);      // washboard whoops
+  const r1=env(u,0.44,0.492,0.999);                                // BIG RAMP
+  if(u>=0.44&&u<0.492)h+=1.55*((u-0.44)/0.052);
+  if(u>=0.492&&u<0.56)h+=-0.35*(1-(u-0.492)/0.068);                // dug-out landing
+  if(u>=0.72&&u<0.745)h+=0.7*((u-0.72)/0.025);                     // kicker
+  if(u>=0.745&&u<0.79)h+=-0.15*(1-(u-0.745)/0.045);
+  h+=0.5*Math.sin(u*Math.PI*2*3)*0.12;                             // gentle flow
+  return h;
+}
+function hash2(ix,iz){let n=(ix*374761393+iz*668265263)|0;n=Math.imul(n^(n>>>13),1274126177);return(((n^(n>>>16))>>>0)/4294967295);}
+function groundH(x,z){
+  const n=nearest(x,z);
+  const tr=profile(n.u,n.s);
+  if(n.d<W)return tr;
+  const over=n.d-W;
+  const grass=-0.18+0.25*Math.sin(x*0.7)*Math.sin(z*0.6)+over*over*0.012; // bowl walls
+  const f=Math.min(1,over/2.2);
+  return tr*(1-f)+grass*f;
+}
+function isRamp(u){return (u>=0.43&&u<0.50)||(u>=0.715&&u<0.75);}
+function isWhoops(u){return u>=0.14&&u<=0.30;}
+
+/* ================= scene ================= */
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+document.body.insertBefore(renderer.domElement,document.getElementById('fx'));
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x150b26);
+scene.fog=new THREE.Fog(0x150b26,55,120);
+const camera=new THREE.PerspectiveCamera(62,innerWidth/innerHeight,0.1,400);
+
+scene.add(new THREE.HemisphereLight(0xc0aaff,0x120a20,0.9));
+const sun=new THREE.DirectionalLight(0xffd0e8,0.65);
+sun.position.set(-40,60,-30);scene.add(sun);
+
+/* synthwave backdrop */
+(function(){
+  const sunDisc=new THREE.Mesh(new THREE.CircleGeometry(26,40),
+    new THREE.MeshBasicMaterial({color:0xff2d95,fog:false}));
+  sunDisc.position.set(0,16,150);sunDisc.rotation.y=Math.PI;scene.add(sunDisc);
+  const core=new THREE.Mesh(new THREE.CircleGeometry(17,40),
+    new THREE.MeshBasicMaterial({color:0xffb347,fog:false}));
+  core.position.set(0,13,149.5);core.rotation.y=Math.PI;scene.add(core);
+  for(let i=0;i<5;i++){                                   // occlusion stripes
+    const st=new THREE.Mesh(new THREE.PlaneGeometry(70,1.1+i*0.5),
+      new THREE.MeshBasicMaterial({color:0x150b26,fog:false}));
+    st.position.set(0,7+i*4.4,148.9);st.rotation.y=Math.PI;scene.add(st);
+  }
+  const starG=new THREE.BufferGeometry(),sp=[];
+  for(let i=0;i<450;i++){
+    const a=Math.random()*Math.PI*2,r=160+Math.random()*60;
+    sp.push(Math.cos(a)*r,20+Math.random()*90,Math.sin(a)*r);
+  }
+  starG.setAttribute('position',new THREE.Float32BufferAttribute(sp,3));
+  scene.add(new THREE.Points(starG,new THREE.PointsMaterial({color:0xbfb6e8,size:0.7,fog:false})));
+})();
+
+/* ---- static terrain build (one shot, small world) ---- */
+(function(){
+  const SIZE=110,SEG=150;
+  const g=new THREE.PlaneGeometry(SIZE,SIZE,SEG,SEG);g.rotateX(-Math.PI/2);
+  const pos=g.attributes.position;
+  const col=new Float32Array(pos.count*3);
+  const cAsp=new THREE.Color(0x241b3a),cAsp2=new THREE.Color(0x2c2148),
+        cGrs=new THREE.Color(0x0d2330),cGrid=new THREE.Color(0x1a4a52),
+        cHaz=new THREE.Color(0xf5c518),cHzD=new THREE.Color(0x2a2208),
+        cChk=new THREE.Color(0xe8e6f2),cMag=new THREE.Color(0xff2d95),
+        tmp=new THREE.Color();
+  for(let i=0;i<pos.count;i++){
+    const x=pos.getX(i),z=pos.getZ(i);
+    pos.setY(i,groundH(x,z));
+    const n=nearest(x,z);
+    if(n.d<W){
+      tmp.copy((Math.floor(n.s*0.55)%2)?cAsp:cAsp2);                  // subtle chevrons
+      if(isRamp(n.u))tmp.copy((Math.floor(n.s*1.4)+Math.floor((n.d)*1.2))%2?cHaz:cHzD); // hazard stripes
+      if(n.u<0.008||n.u>0.996)                                        // start line checker
+        tmp.copy(((Math.floor(n.d*1.6)+Math.floor(n.s*1.6))%2)?cChk:cAsp);
+      if(n.d>W-0.55)tmp.copy(cMag).multiplyScalar(0.85);              // edge glow strip
+      if(isWhoops(n.u))tmp.lerp(cHaz,0.10);
+    }else{
+      tmp.copy(cGrs);
+      if(Math.abs(x%3)<0.28||Math.abs(z%3)<0.28)tmp.copy(cGrid);      // neon grid turf
+    }
+    col[i*3]=tmp.r;col[i*3+1]=tmp.g;col[i*3+2]=tmp.b;
+  }
+  g.setAttribute('color',new THREE.BufferAttribute(col,3));
+  g.computeVertexNormals();
+  scene.add(new THREE.Mesh(g,new THREE.MeshLambertMaterial({vertexColors:true,flatShading:true})));
+})();
+
+/* glowing rails along track edges */
+(function(){
+  for(const side of[-1,1]){
+    const v=[];
+    for(let i=0;i<=NS;i++){
+      const p=PTS[i%NS],q=PTS[(i+1)%NS];
+      let nx=-(q.z-p.z),nz=q.x-p.x;const l=Math.hypot(nx,nz)||1;nx/=l;nz/=l;
+      const u=p.s/PTS.total;
+      v.push(p.x+nx*W*side,profile(u,p.s)+0.06,p.z+nz*W*side);
+    }
+    const g=new THREE.BufferGeometry();
+    g.setAttribute('position',new THREE.Float32BufferAttribute(v,3));
+    scene.add(new THREE.Line(g,new THREE.LineBasicMaterial({color:side<0?0xff2d95:0x27e0d8})));
+  }
+})();
+
+/* start gate */
+(function(){
+  const p=PTS[0],q=PTS[2];
+  let nx=-(q.z-p.z),nz=q.x-p.x;const l=Math.hypot(nx,nz);nx/=l;nz/=l;
+  const m=new THREE.MeshBasicMaterial({color:0xff2d95});
+  for(const s of[-1,1]){
+    const py=new THREE.Mesh(new THREE.BoxGeometry(0.3,4.4,0.3),m);
+    py.position.set(p.x+nx*(W+0.6)*s,2.2+profile(0,0),p.z+nz*(W+0.6)*s);
+    scene.add(py);
+  }
+  const bar=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.22,(W+0.6)*2),
+    new THREE.MeshBasicMaterial({color:0x27e0d8}));
+  bar.position.set(p.x,4.3+profile(0,0),p.z);
+  bar.lookAt(p.x+nx,4.3+profile(0,0),p.z+nz);
+  scene.add(bar);
+})();
+
+/* ================= the suit (with knees!) ================= */
+const matSuit=new THREE.MeshLambertMaterial({color:0xb9bcd0,flatShading:true});
+const matDark=new THREE.MeshLambertMaterial({color:0x14101f,flatShading:true});
+const matHaz =new THREE.MeshLambertMaterial({color:0xf5c518,flatShading:true});
+const matMag =new THREE.MeshLambertMaterial({color:0xff2d95,flatShading:true});
+
+const rig=new THREE.Group();scene.add(rig);      // yaw only
+const body=new THREE.Group();rig.add(body);      // roll/pitch/squash, origin at hips
+
+const torso=new THREE.Mesh(new THREE.BoxGeometry(0.36,0.5,0.22),matSuit);torso.position.y=0.30;body.add(torso);
+const head=new THREE.Mesh(new THREE.SphereGeometry(0.115,10,8),matSuit);head.position.y=0.68;body.add(head);
+const visor=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.05,0.06),matMag);visor.position.set(0,0.69,0.09);body.add(visor);
+const armGeo=new THREE.BoxGeometry(0.56,0.075,0.075);
+const armL=new THREE.Mesh(armGeo,matSuit);armL.position.set(-0.45,0.46,0);body.add(armL);
+const armR=new THREE.Mesh(armGeo,matSuit);armR.position.set(0.45,0.46,0);body.add(armR);
+const thr=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.11,0.09),matHaz);thr.position.set(0.74,0.46,0);body.add(thr);
+const batL=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.16,0.22),matHaz);batL.position.set(-0.25,0.02,0);body.add(batL);
+const batR=batL.clone();batR.position.x=0.25;body.add(batR);
+
+/* legs: thigh + shin cylinders posed by 2-bone IK each frame (world space) */
+const THIGH=0.46,SHIN=0.46,WHEEL_R=0.24,STANCE=0.46,HIP_Y=0;   // hips at body origin
+function bone(r,mat){
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r*0.85,1,7),mat);
+  scene.add(m);return m;
+}
+const LTh=bone(0.06,matSuit),LSh=bone(0.05,matDark),
+      RTh=bone(0.06,matSuit),RSh=bone(0.05,matDark);
+const kneeL=new THREE.Mesh(new THREE.SphereGeometry(0.065,8,6),matMag);scene.add(kneeL);
+const kneeR=kneeL.clone();scene.add(kneeR);
+const Yup=new THREE.Vector3(0,1,0);
+function setBone(mesh,a,b){
+  const dir=new THREE.Vector3().subVectors(b,a);
+  const len=dir.length();
+  mesh.scale.set(1,len,1);
+  mesh.position.copy(a).addScaledVector(dir,0.5);
+  mesh.quaternion.setFromUnitVectors(Yup,dir.normalize());
+}
+/* 2-bone IK: hip->ankle dist d, knee bends toward 'fwd' */
+function solveLeg(hip,ankle,fwd,th,sh,kneeBall){
+  const d=Math.min(THIGH+SHIN-0.01,hip.distanceTo(ankle));
+  const a=Math.acos(Math.max(-1,Math.min(1,(THIGH*THIGH+d*d-SHIN*SHIN)/(2*THIGH*d))));
+  const dir=new THREE.Vector3().subVectors(ankle,hip).normalize();
+  const side=new THREE.Vector3().crossVectors(dir,fwd).normalize();
+  const bend=new THREE.Vector3().crossVectors(side,dir).normalize();  // in-plane, toward fwd
+  const knee=new THREE.Vector3().copy(hip)
+    .addScaledVector(dir,Math.cos(a)*THIGH)
+    .addScaledVector(bend,Math.sin(a)*THIGH);
+  setBone(th,hip,knee);setBone(sh,knee,ankle);
+  kneeBall.position.copy(knee);
+  return 1-(d-0.55)/(THIGH+SHIN-0.55);   // compression 0..1 for HUD
+}
+function makeWheel(){
+  const g=new THREE.Group();
+  const tire=new THREE.Mesh(new THREE.CylinderGeometry(WHEEL_R,WHEEL_R,0.11,16),matDark);
+  tire.rotation.z=Math.PI/2;g.add(tire);
+  const hub=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.125,10),matHaz);
+  hub.rotation.z=Math.PI/2;g.add(hub);
+  const glow=new THREE.Mesh(new THREE.TorusGeometry(WHEEL_R+0.015,0.012,6,20),
+    new THREE.MeshBasicMaterial({color:0x27e0d8}));
+  glow.rotation.y=Math.PI/2;g.add(glow);
+  scene.add(g);return{g,tire,hub,spin:0};
+}
+const whL=makeWheel(),whR=makeWheel();
+
+/* dust particles (pooled) */
+const DUST=[];
+(function(){
+  const g=new THREE.SphereGeometry(0.06,5,4);
+  for(let i=0;i<40;i++){
+    const m=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:0xc9bfa0,transparent:true,opacity:0}));
+    scene.add(m);DUST.push({m,vx:0,vy:0,vz:0,life:0});
+  }
+})();
+let dustIdx=0;
+function puff(x,y,z,n,spread){
+  for(let i=0;i<n;i++){
+    const d=DUST[dustIdx++%DUST.length];
+    d.m.position.set(x+(Math.random()-0.5)*0.4,y,z+(Math.random()-0.5)*0.4);
+    d.vx=(Math.random()-0.5)*spread;d.vy=1+Math.random()*2;d.vz=(Math.random()-0.5)*spread;
+    d.life=0.6+Math.random()*0.3;d.m.material.opacity=0.8;
+  }
+}
+
+/* ================= input ================= */
+const keys={};
+addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='Space')e.preventDefault();});
+addEventListener('keyup',e=>{keys[e.code]=false;});
+addEventListener('contextmenu',e=>e.preventDefault());          // Android long-press guard
+const isTouch=('ontouchstart' in window)||navigator.maxTouchPoints>0||
+  (window.matchMedia&&matchMedia('(pointer:coarse)').matches);
+if(isTouch)document.body.classList.add('touch');
+let tL=false,tR=false,tGas=false,tBrk=false,tHop=false;
+function hold(id,set){const el=document.getElementById(id);
+  const on =e=>{e.preventDefault();set(true);el.classList.add('on');
+    if(e.pointerId!==undefined&&el.setPointerCapture){try{el.setPointerCapture(e.pointerId)}catch(_){}}}
+  const off=e=>{e.preventDefault();set(false);el.classList.remove('on');};
+  if(window.PointerEvent){
+    el.addEventListener('pointerdown',on);
+    el.addEventListener('pointerup',off);
+    el.addEventListener('pointercancel',off);
+  }else{
+    el.addEventListener('touchstart',on,{passive:false});
+    el.addEventListener('touchend',off,{passive:false});
+    el.addEventListener('mousedown',on);
+    el.addEventListener('mouseup',off);
+  }
+}
+hold('tL',v=>tL=v);hold('tR',v=>tR=v);hold('tGas',v=>tGas=v);hold('tBrk',v=>tBrk=v);hold('tHop',v=>tHop=v);
+
+let padOn=false;
+function readPad(){
+  const gp=(navigator.getGamepads&&navigator.getGamepads()[0])||null;
+  if(!gp)return null;
+  if(!padOn){padOn=true;document.getElementById('padTag').textContent='GAMEPAD LINKED: '+gp.id.slice(0,28);}
+  const dz=v=>Math.abs(v)<0.12?0:v;
+  return{
+    steer:dz(gp.axes[0]||0),
+    gas:(gp.buttons[7]&&gp.buttons[7].value)||0,
+    brk:(gp.buttons[6]&&gp.buttons[6].value)||0,
+    hop:!!(gp.buttons[0]&&gp.buttons[0].pressed),
+    drift:!!(gp.buttons[1]&&gp.buttons[1].pressed),
+    gp
+  };
+}
+function rumble(gp,str,ms){
+  try{gp&&gp.vibrationActuator&&gp.vibrationActuator.playEffect('dual-rumble',
+    {duration:ms,strongMagnitude:str,weakMagnitude:str*0.6});}catch(e){}
+}
+
+/* ================= state ================= */
+const start=PTS[0];
+const S={
+  x:start.x,z:start.z,heading:Math.atan2(PTS[4].x-start.x,PTS[4].z-start.z),
+  speed:0,y:0,vy:0,air:false,airT:0,
+  preload:0,hopHeld:false,drift:0,
+  cL:0,cR:0,shake:0,
+  lapT:0,lapN:0,lapBest:0,lastU:0,halfway:false,running:false
+};
+S.y=groundH(S.x,S.z)+WHEEL_R+0.86;
+
+/* ================= HUD/fx refs ================= */
+const $=id=>document.getElementById(id);
+const elSpd=$('spd'),elKL=$('kL'),elKR=$('kR'),elLapT=$('lapT'),elLapB=$('lapB'),elLapN=$('lapN'),elToast=$('toast');
+function fmt(t){const m=Math.floor(t/60),s=t-m*60;return m+':'+(s<10?'0':'')+s.toFixed(1);}
+function toast(txt){elToast.textContent=txt;elToast.style.opacity=1;
+  clearTimeout(toast._t);toast._t=setTimeout(()=>elToast.style.opacity=0,1200);}
+$('go').addEventListener('click',()=>{
+  $('intro').style.display='none';S.running=true;
+  try{window.focus();}catch(e){}
+  document.body.classList.add('touch');        // controls always available; harmless on desktop
+});
+/* live input monitor — tells us exactly what the device is delivering */
+let inputMon='';
+function monitor(gas,brk,steer,hop){
+  const s='IN ['+(gas?'GAS ':'')+(brk?'BRK ':'')+(steer>0?'L ':steer<0?'R ':'')+(hop?'HOP':'')+']';
+  if(s!==inputMon){inputMon=s;document.getElementById('padTag').textContent=(padOn?'PAD · ':'')+s;}
+}
+
+const fx=document.getElementById('fx'),fctx=fx.getContext('2d');
+function sizeFx(){fx.width=innerWidth;fx.height=innerHeight;}
+sizeFx();
+function speedLines(f){
+  fctx.clearRect(0,0,fx.width,fx.height);
+  if(f<=0.02)return;
+  const cx=fx.width/2,cy=fx.height*0.45;
+  fctx.strokeStyle='rgba(232,230,242,'+(0.35*f)+')';
+  fctx.lineWidth=1.5;
+  for(let i=0;i<26;i++){
+    const a=(i/26)*Math.PI*2+((performance.now()*0.002)%1);
+    const r1=Math.min(fx.width,fx.height)*(0.42+0.1*Math.sin(i*7));
+    const r2=r1+40+120*f;
+    fctx.beginPath();
+    fctx.moveTo(cx+Math.cos(a)*r1,cy+Math.sin(a)*r1);
+    fctx.lineTo(cx+Math.cos(a)*r2,cy+Math.sin(a)*r2);
+    fctx.stroke();
+  }
+}
+
+/* ================= sim ================= */
+let last=performance.now();
+const rest=0.86;              // hip height above wheel axle, knees easy
+function step(dt){
+  const pad=readPad();
+  /* --- gather input --- */
+  let gas=0,brk=0,steer=0,hop=false,driftIn=false;
+  if(keys['KeyW']||keys['ArrowUp']||tGas)gas=1;
+  if(keys['KeyS']||keys['ArrowDown']||tBrk)brk=1;
+  if(keys['KeyA']||keys['ArrowLeft']||tL)steer+=1;
+  if(keys['KeyD']||keys['ArrowRight']||tR)steer-=1;
+  if(keys['Space']||tHop)hop=true;
+  if(keys['ShiftLeft']||keys['ShiftRight'])driftIn=true;
+  if(pad){gas=Math.max(gas,pad.gas);brk=Math.max(brk,pad.brk);
+    steer+=-pad.steer;hop=hop||pad.hop;driftIn=driftIn||pad.drift;}
+  steer=Math.max(-1,Math.min(1,steer));
+  monitor(gas,brk,steer,hop);
+
+  /* --- surface --- */
+  const rx=Math.cos(S.heading),rz=-Math.sin(S.heading);
+  const gLx=S.x-rx*STANCE/2,gLz=S.z-rz*STANCE/2;
+  const gRx=S.x+rx*STANCE/2,gRz=S.z+rz*STANCE/2;
+  const hGL=groundH(gLx,gLz),hGR=groundH(gRx,gRz);
+  const n=nearest(S.x,S.z);
+  const onTrack=n.d<W+0.4;
+
+  /* --- drift state --- */
+  S.drift+=((driftIn&&Math.abs(S.speed)>4?1:0)-S.drift)*Math.min(1,dt*8);
+
+  /* --- longitudinal --- */
+  const grip=onTrack?1:0.45;
+  if(gas)S.speed+=CFG.accel*grip*dt;
+  if(brk)S.speed-=CFG.accel*1.4*dt;
+  const fwd1x=Math.sin(S.heading),fwd1z=Math.cos(S.heading);
+  const slope=(groundH(S.x+fwd1x*1.1,S.z+fwd1z*1.1)-groundH(S.x,S.z))/1.1;
+  if(!S.air)S.speed-=slope*5.5*dt;
+  S.speed*=(1-(onTrack?0.22:0.9)*dt-(S.drift*(1-CFG.driftGrip)*0.8*dt));
+  S.speed=Math.max(-3,Math.min(CFG.topSpeed,S.speed));
+
+  /* --- steering --- */
+  const sf=1/(1+Math.abs(S.speed)*0.10);
+  const airMul=S.air?0.35:1;
+  S.heading+=steer*CFG.steer*(1+S.drift*0.9)*sf*airMul*dt*(S.speed<0?-1:1);
+
+  /* --- move --- */
+  S.x+=fwd1x*S.speed*dt;S.z+=fwd1z*S.speed*dt;
+
+  /* --- vertical: knee springs --- */
+  let effRest=rest;
+  if(hop&&!S.air){S.preload=Math.min(1,S.preload+dt*3);S.hopHeld=true;}
+  effRest-=S.preload*0.26;
+  if(!hop&&S.hopHeld){                                   // release = pop
+    if(!S.air){S.vy+=CFG.pop*(0.35+0.65*S.preload);rumble(pad&&pad.gp,0.4,90);}
+    S.hopHeld=false;S.preload=0;
+  }
+  let F=0,contact=0;
+  S.cL=0;S.cR=0;
+  for(const [hg,which] of [[hGL,'L'],[hGR,'R']]){
+    const wheelTop=hg+WHEEL_R;
+    const compress=effRest-(S.y-wheelTop);
+    if(compress>-0.03){
+      contact++;
+      const c=Math.max(0,compress);
+      F+=CFG.spring*c-CFG.damp*S.vy;
+      if(which==='L')S.cL=Math.min(1,c/0.45);else S.cR=Math.min(1,c/0.45);
+    }
+  }
+  const wasAir=S.air;
+  S.air=contact===0;
+  if(S.air)S.airT+=dt;
+  S.vy+=(F-CFG.gravity)*dt;
+  S.y+=S.vy*dt;
+  const floor=Math.max(hGL,hGR)+WHEEL_R+0.30;            // hard bottom-out
+  if(S.y<floor){S.y=floor;if(S.vy<0){S.shake+=Math.min(1.2,-S.vy*0.12)*CFG.shake;S.vy*=-0.15;}}
+
+  /* landing */
+  if(wasAir&&!S.air){
+    const impact=Math.min(1.5,-Math.min(0,S.vy)*0.14+S.airT*0.3);
+    S.shake+=impact*CFG.shake;
+    puff((gLx+gRx)/2,Math.min(hGL,hGR)+0.1,(gLz+gRz)/2,10,3);
+    rumble(pad&&pad.gp,Math.min(1,impact),140);
+    if(S.airT>0.55)toast('AIR '+S.airT.toFixed(2)+'s');
+    S.airT=0;
+  }
+  if(isWhoops(n.u)&&onTrack&&Math.abs(S.speed)>5&&!S.air){
+    S.shake+=0.05*CFG.shake;
+    if(pad&&Math.random()<dt*8)rumble(pad.gp,0.25,50);
+  }
+  if(S.drift>0.5&&!S.air&&Math.random()<dt*20)
+    puff(S.x-fwd1x*0.3,Math.min(hGL,hGR)+0.05,S.z-fwd1z*0.3,1,2);
+
+  /* --- laps --- */
+  if(S.running&&Math.abs(S.speed)>0.5)S.lapT+=dt;
+  const u=n.u;
+  if(u>0.45&&u<0.55)S.halfway=true;
+  if(S.lastU>0.9&&u<0.1&&S.halfway&&onTrack){
+    S.lapN++;S.halfway=false;
+    if(S.lapN>1){
+      if(!S.lapBest||S.lapT<S.lapBest){S.lapBest=S.lapT;toast('BEST LAP '+fmt(S.lapT));}
+      else toast('LAP '+fmt(S.lapT));
+    }else toast('LAP 1 — GO');
+    S.lapT=0;
+  }
+  S.lastU=u;
+
+  /* ================= pose everything ================= */
+  rig.position.set(S.x,S.y,S.z);
+  rig.rotation.y=S.heading;
+  const dH=(hGR-hGL);
+  const rollT=S.air?steer*-0.25:Math.atan2(dH,STANCE)*0.8;
+  body.rotation.z+=(rollT+steer*-0.12*Math.min(1,Math.abs(S.speed)/6)+S.drift*steer*-0.15-body.rotation.z)*Math.min(1,dt*10);
+  const pitchT=S.air?Math.max(-0.4,Math.min(0.4,-S.vy*0.05)):
+    Math.atan2(groundH(S.x,S.z)-groundH(S.x+fwd1x,S.z+fwd1z),1)*0.3;
+  body.rotation.x+=(pitchT-body.rotation.x)*Math.min(1,dt*8);
+  /* squash & stretch */
+  const sq=1-0.22*Math.max(S.cL,S.cR)-0.3*S.preload+(S.air?0.1:0);
+  body.scale.y+=(sq-body.scale.y)*Math.min(1,dt*12);
+  body.scale.x=body.scale.z=1+(1-body.scale.y)*0.5;
+
+  /* wheels + IK legs (world space) */
+  const hipW=p=>new THREE.Vector3(p.x,p.y,p.z).applyMatrix4(body.matrixWorld);
+  rig.updateMatrixWorld();body.updateMatrixWorld();
+  const fwdV=new THREE.Vector3(fwd1x,0,fwd1z);
+  for(const side of[-1,1]){
+    const hg=side<0?hGL:hGR;
+    const wx=S.x+rx*STANCE/2*side,wz=S.z+rz*STANCE/2*side;
+    const wheel=side<0?whL:whR;
+    const contactW=(S.y-(hg+WHEEL_R))<effRest+0.03;
+    const wy=contactW?hg+WHEEL_R:S.y-effRest;
+    wheel.g.position.set(wx,wy,wz);
+    wheel.g.rotation.y=S.heading;
+    wheel.spin+=S.speed*dt/WHEEL_R;
+    wheel.tire.rotation.x=wheel.spin;wheel.hub.rotation.x=wheel.spin;
+    const hip=hipW({x:STANCE/2*side,y:0,z:0});
+    const ankle=new THREE.Vector3(wx,wy+0.05,wz);
+    const c=solveLeg(hip,ankle,fwdV,side<0?LTh:RTh,side<0?LSh:RSh,side<0?kneeL:kneeR);
+    if(side<0)S.cL=Math.max(S.cL,0);   // HUD uses spring compression already
+  }
+
+  /* dust */
+  for(const d of DUST){
+    if(d.life>0){d.life-=dt;
+      d.m.position.x+=d.vx*dt;d.m.position.y+=d.vy*dt;d.m.position.z+=d.vz*dt;
+      d.vy-=6*dt;d.m.material.opacity=Math.max(0,d.life);}
+  }
+
+  /* --- camera: chase + fov kick + shake --- */
+  const spdF=Math.min(1,Math.abs(S.speed)/CFG.topSpeed);
+  camera.fov+=((62+CFG.fovKick*spdF*spdF)-camera.fov)*Math.min(1,dt*5);
+  camera.updateProjectionMatrix();
+  S.shake=Math.max(0,S.shake-dt*3);
+  const shx=(Math.random()-0.5)*S.shake*0.25,shy=(Math.random()-0.5)*S.shake*0.25;
+  const camT=new THREE.Vector3(
+    S.x-fwd1x*(5.6+2*spdF)+shx,
+    S.y+2.3+shy,
+    S.z-fwd1z*(5.6+2*spdF));
+  camera.position.lerp(camT,1-Math.pow(0.0005,dt));
+  camera.lookAt(S.x+fwd1x*2,S.y+0.5,S.z+fwd1z*2);
+  speedLines(Math.max(0,spdF-0.55)/0.45);
+}
+
+/* ================= HUD ================= */
+function hud(){
+  elSpd.textContent=Math.round(Math.abs(S.speed)*3.6);
+  elKL.style.transform='scaleX('+S.cL+')';
+  elKR.style.transform='scaleX('+S.cR+')';
+  elKL.classList.toggle('hot',S.cL>0.75);
+  elKR.classList.toggle('hot',S.cR>0.75);
+  elLapT.textContent=fmt(S.lapT);
+  elLapB.textContent=S.lapBest?fmt(S.lapBest):'--:--.-';
+  elLapN.textContent=S.lapN;
+}
+
+/* ================= loop ================= */
+function loop(now){
+  requestAnimationFrame(loop);
+  const dt=Math.min(0.045,(now-last)/1000);last=now;
+  if(S.running)step(dt);
+  hud();
+  renderer.render(scene,camera);
+}
+requestAnimationFrame(loop);
+addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);sizeFx();
+});
+/* idle cam pre-start */
+camera.position.set(start.x-8,groundH(start.x,start.z)+5,start.z-8);
+camera.lookAt(start.x,groundH(start.x,start.z)+1,start.z);
+})();
+</script>
 </body>
 </html>
