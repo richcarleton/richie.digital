@@ -14,11 +14,20 @@ window.addEventListener('resize', resize);
 const DEG = Math.PI / 180;
 
 // ── tunables (devpanel writes these) ─────────────────────────────────────────
-window.FACE_SPEED   = window.FACE_SPEED   !== undefined ? window.FACE_SPEED   : 0.18;
-window.FACE_TRAIL   = window.FACE_TRAIL   !== undefined ? window.FACE_TRAIL   : 0.08;
-window.FACE_PULSE   = window.FACE_PULSE   !== undefined ? window.FACE_PULSE   : true;
-window.FACE_SCAN    = window.FACE_SCAN    !== undefined ? window.FACE_SCAN    : false;
-window.FACE_ENABLED = window.FACE_ENABLED !== undefined ? window.FACE_ENABLED : true;
+window.FACE_SPEED    = window.FACE_SPEED    !== undefined ? window.FACE_SPEED    : 0.18;
+window.FACE_TRAIL    = window.FACE_TRAIL    !== undefined ? window.FACE_TRAIL    : 0.04;  // fade rate: LOWER = longer trails
+window.FACE_PULSE    = window.FACE_PULSE    !== undefined ? window.FACE_PULSE    : true;
+window.FACE_SCAN     = window.FACE_SCAN     !== undefined ? window.FACE_SCAN     : false; // remmed for now — devpanel can re-enable
+window.FACE_ENABLED  = window.FACE_ENABLED  !== undefined ? window.FACE_ENABLED  : true;
+window.FACE_WOBBLE   = window.FACE_WOBBLE   !== undefined ? window.FACE_WOBBLE   : 0.15;  // random size drift amplitude (0–0.5)
+window.FACE_SPEEDVAR = window.FACE_SPEEDVAR !== undefined ? window.FACE_SPEEDVAR : 0.35;  // random speed drift amount (0–1)
+
+// smooth pseudo-random in [-1,1]: layered sines at irrational ratios — no RNG snap
+function drift(t, seed) {
+  return (Math.sin(t * 0.00021 + seed) * 0.55 +
+          Math.sin(t * 0.00057 + seed * 2.7) * 0.30 +
+          Math.sin(t * 0.00131 + seed * 5.3) * 0.15);
+}
 
 function rotXYZ(x, y, z, rx, ry, rz) {
   const cxr = Math.cos(rx), sxr = Math.sin(rx);
@@ -69,7 +78,9 @@ Promise.all([
     const dt = Math.min(ts - lastTs, 64);
     lastTs = ts;
 
-    fiFrac = (fiFrac + (dt / 33.333) * window.FACE_SPEED) % poses.length;
+    // speed drifts smoothly around FACE_SPEED; clamped so it never fully stalls or reverses
+    const spdMul = Math.max(0.05, 1 + drift(ts, 1.0) * window.FACE_SPEEDVAR);
+    fiFrac = (fiFrac + (dt / 33.333) * window.FACE_SPEED * spdMul) % poses.length;
 
     const fi0 = Math.floor(fiFrac) % poses.length;
     const fi1 = (fi0 + 1) % poses.length;
@@ -82,7 +93,7 @@ Promise.all([
 
     const alpha = Math.min(1, (ts - t0) * 0.00125);
     const W = canvas.width, H = canvas.height;
-    const scale = Math.min(W, H) * 4.0;
+    const scale = Math.min(W, H) * 4.0 * (1 + drift(ts, 7.7) * window.FACE_WOBBLE);
     const ox = W / 2, oy = H / 2;
 
     // trail or clear

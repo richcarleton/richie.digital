@@ -64,16 +64,14 @@ const styles = [
     color: #ffb000;
     text-shadow: 0 0 6px rgba(255,176,0,0.67), 0 0 20px rgba(255,176,0,0.33);
   `),
-  // last — triggers settle
+  // last — triggers settle (matches the Claude Orange plate it hands off to)
   () => apply(`
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Helvetica Neue', Helvetica, Roboto, Arial, sans-serif;
     font-size: clamp(32px, 6vw, 62px);
     font-weight: 700;
     letter-spacing: 0.2em;
-    font-style: italic;
-    color: transparent;
-    -webkit-text-stroke: 1px rgba(255,176,0,0.9);
-    text-shadow: 0 0 20px rgba(255,176,0,0.3);
+    color: #D97757;
+    text-shadow: 0 0 12px rgba(217,119,87,0.5), 0 0 32px rgba(217,119,87,0.2);
   `),
 ];
 

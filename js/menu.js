@@ -34,6 +34,10 @@ function build() {
       ${mediaRows}
     </div>
     <div class="menu-section">
+      <div class="menu-section-label">garage</div>
+      ${row('menu-cmd', 'suit', 'motorcycle suit circuit')}
+    </div>
+    <div class="menu-section">
       ${row('menu-cmd-dim', '&lt;anything&gt;', 'text flythrough')}
     </div>
     <div class="menu-hint">esc &nbsp;·&nbsp; click outside</div>
