@@ -47,6 +47,9 @@ input.addEventListener('keydown', e => {
     window.location.href = 'ricardo/';   // 🐈 the pyramid awaits
   } else if (cmd === 'suit' || cmd === 'circuit' || cmd === 'ride') {
     window.location.href = 'suit/';      // 🏍 knees are the suspension
+  } else if (cmd === 'crash') {
+    hide();
+    if (window.DOSCrash) new window.DOSCrash().init();
   } else if (window.SITE_MEDIA && window.SITE_MEDIA[cmd]) {
     window.showViewer(window.SITE_MEDIA[cmd]);
   } else if (window.SITE_CONTENT && window.SITE_CONTENT[cmd]) {

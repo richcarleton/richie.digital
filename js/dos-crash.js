@@ -29,12 +29,14 @@ class DOSCrash {
       'Fatal exception 0E at 0028:C0000005',
       'Stack overflow',
       'Dumping memory to CRASH.DMP...',
-      'System halted.',
-      '',
-      'Press any key to reboot...'
+      'System halted.'
     ];
-    
+
+    this.prompt = 'C:\\RICHIE\\>';
     this.outputLines = [];
+    this.isIdle = false;
+    this.cursorVisible = true;
+    this.cursorInterval = null;
   }
 
   async init() {
@@ -49,7 +51,7 @@ class DOSCrash {
       display: flex;
       flex-direction: column;
       justify-content: center;
-      align-items: center;
+      align-items: flex-start;
       font-family: "Courier New", monospace;
       color: #00ff00;
       overflow: hidden;
@@ -83,6 +85,7 @@ class DOSCrash {
       letter-spacing: 0.05em;
       white-space: pre;
       word-wrap: break-word;
+      text-align: left;
       text-shadow: 0 0 10px #00ff00;
     `;
 
@@ -96,6 +99,9 @@ class DOSCrash {
 
     // Type out the error sequence
     await this.typeSequence();
+
+    // Settle into a blinking idle prompt
+    this.startIdlePrompt();
 
     // Start animation loop
     this.animate();
@@ -162,12 +168,6 @@ class DOSCrash {
 
     // Draw scanlines
     this.drawScanlines();
-    
-    // Update glitch
-    this.glitchFrames = (this.glitchFrames + 1) % 60;
-    if (this.glitchFrames % 8 === 0) {
-      this.distortTerminal();
-    }
 
     // Check duration
     if (this.duration > 0 && Date.now() - this.startTime > this.duration) {
@@ -194,29 +194,37 @@ class DOSCrash {
     this.scanlineOffset = (this.scanlineOffset + 1) % lineSpacing;
   }
 
-  distortTerminal() {
-    if (!this.terminalEl) return;
+  startIdlePrompt() {
+    this.isIdle = true;
+    this.cursorVisible = true;
+    this.renderPrompt();
 
-    const distortion = Math.random() * this.glitchIntensity;
-    const offset = Math.random() < 0.5 ? -distortion : distortion;
-    
-    this.terminalEl.style.transform = `translateX(${offset * 20}px) scaleX(${1 - distortion * 0.1})`;
-    this.overlay.style.opacity = 1 - distortion * 0.2;
-    
-    setTimeout(() => {
-      if (this.isActive) {
-        this.terminalEl.style.transform = 'none';
-        this.overlay.style.opacity = '1';
-      }
-    }, Math.random() * 100 + 50);
+    this.cursorInterval = setInterval(() => {
+      this.cursorVisible = !this.cursorVisible;
+      this.renderPrompt();
+    }, 530);
+  }
+
+  renderPrompt() {
+    if (!this.terminalEl) return;
+    this.terminalEl.textContent = this.prompt + (this.cursorVisible ? '█' : ' ');
   }
 
   handleKeyDown(e) {
     if (!this.isActive) return;
-    
-    // Any key to close
-    this.close();
-    e.preventDefault();
+
+    if (!this.isIdle) {
+      // Skip the boot sequence
+      this.close();
+      e.preventDefault();
+      return;
+    }
+
+    // Idle prompt: reserved for future commands, Escape dismisses
+    if (e.key === 'Escape') {
+      this.close();
+      e.preventDefault();
+    }
   }
 
   handleClose() {
@@ -228,6 +236,7 @@ class DOSCrash {
     if (!this.isActive) return;
 
     this.isActive = false;
+    clearInterval(this.cursorInterval);
     document.removeEventListener('keydown', this.handleKeyDown.bind(this));
     document.removeEventListener('click', this.handleClose.bind(this));
 
