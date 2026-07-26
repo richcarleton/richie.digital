@@ -118,6 +118,17 @@
         <span class="dp-ctrl-val" id="dp-wheel-spin-val">24&deg;/s</span>
       </div>
 
+      <div class="dp-section-label">// Starfield</div>
+      <div class="dp-ctrl-row">
+        <span class="dp-ctrl-lbl">VISIBLE</span>
+        <label class="dp-toggle"><input type="checkbox" id="dp-stars-on" /><span></span></label>
+      </div>
+      <div class="dp-ctrl-row">
+        <span class="dp-ctrl-lbl">WARP</span>
+        <input type="range" id="dp-stars-speed" min="0" max="3" step="0.05" value="0.35" />
+        <span class="dp-ctrl-val" id="dp-stars-speed-val">0.35&times;</span>
+      </div>
+
       <div class="dp-section-label">// Hercules</div>
       <div class="dp-ctrl-row">
         <span class="dp-ctrl-lbl">AMBER</span>
@@ -220,6 +231,23 @@
 
   wireToggle('dp-wheel-on', 'WHEEL_ENABLED');
   wireFaceSlider('dp-wheel-spin', 'dp-wheel-spin-val', 'WHEEL_SPIN', v => v.toFixed(0) + '\u00b0/s');
+
+  // ── starfield controls (drive the canvas directly) ──────────────────────────
+  const starsEl = document.getElementById('stars');
+  const starsOn = document.getElementById('dp-stars-on');
+  if (starsEl && starsOn) {
+    starsOn.checked = parseFloat(getComputedStyle(starsEl).opacity) > 0;
+    starsOn.addEventListener('change', () => {
+      starsEl.style.opacity = starsOn.checked ? '1' : '0';
+    });
+    const ss  = document.getElementById('dp-stars-speed');
+    const ssv = document.getElementById('dp-stars-speed-val');
+    ss.addEventListener('input', () => {
+      const v = parseFloat(ss.value);
+      ssv.textContent = v.toFixed(2) + '×';
+      if (window.setWarpSpeed) window.setWarpSpeed(v);
+    });
+  }
 
   // ── hercules wash controls (drive the overlay div directly) ─────────────────
   const hercEl = document.getElementById('herc-wash');
