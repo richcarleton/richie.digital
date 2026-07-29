@@ -29,7 +29,10 @@
       "Bash(python -m http.server 8791)",
       "Bash(curl -sI http://localhost:8791/ricardo/index.html)",
       "Bash(taskkill //F //IM python.exe)",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:8123/index.html)",
+      "Bash(npx --yes serve -l 8123 .)",
+      "Bash(taskkill //F //IM node.exe //T)"
     ]
   }
 }
