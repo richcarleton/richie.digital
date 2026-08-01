@@ -31,7 +31,7 @@ window.SITE_CONTENT = {
   contact: {
     title: 'contact',
     items: [
-      { label: 'email',    sub: 'you@example.com' },
+      { label: 'email',    sub: '<a href="mailto:me@richie.digital">me@richie.digital</a>' },
       { label: 'github',   sub: 'github.com/richcarleton' },
       { label: 'linkedin', sub: 'link or handle' },
     ],
@@ -61,6 +61,13 @@ window.SITE_MEDIA = {
 
   planet: {
     type: 'planet',
+  },
+
+  gary: {
+    type:  'image',
+    src:   'img/garyc01.jpg',
+    label: 'gary',
+    sub:   '',
   },
 
   // example image entry — swap src / label / sub for real content:
