@@ -327,7 +327,7 @@
         x: Math.random() * (W + 8) - 4, y: 1 + Math.random() * (H - 4),
         s: 1 + Math.random(), sp: 5 + Math.random() * 6,
       });
-      G.fl = { y: 4, vy: 0, dist: 0, hintT: 3, gt: 0, clouds };
+      G.fl = { y: 4, vy: 0, dist: 0, hintT: 3, gt: 0, clouds, puffs: [], flapPulse: 0, arriveT: 0 };
     }
   }
 
@@ -577,10 +577,28 @@
   // No pipes, no death — just clouds. Flap across, land on CLOUD NINE.
   function simFlappy(dt) {
     const F = G.fl;
-    if (jumpQueued) { jumpQueued = false; F.vy = -7.5; sfx.flap(); }
+    if (F.arriveT > 0) { // touchdown beat — freeze flight, let the celebration play
+      jumpQueued = false;
+      F.arriveT -= dt;
+      if (F.arriveT <= 0) {
+        G.mode = 'play'; G.fl = null; G.ghosts = [];
+        enterRoom((G.room.exits && G.room.exits.right) || G.pack.start, 2, 0.5, { fall: -99 });
+      }
+      return;
+    }
+    if (jumpQueued) {
+      jumpQueued = false; F.vy = -7.5; sfx.flap(); F.flapPulse = 1; addShake(1);
+      for (let i = 0; i < 6; i++) { // downward puff burst — the wing-beat you can feel
+        const a = Math.PI * (0.15 + Math.random() * 0.7);
+        const sp = 3 + Math.random() * 3;
+        F.puffs.push({ x: 7.5, y: F.y + 1, vx: -Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0.4, s: 1 + Math.random() });
+      }
+    }
+    F.flapPulse = Math.max(0, F.flapPulse - dt * 4);
     F.vy = Math.min(F.vy + 20 * dt, 12);
     F.y += F.vy * dt;
-    if (F.y < 0.5)     { F.y = 0.5;     F.vy = Math.max(F.vy, 0); }
+    // ceiling sits just below the HUD bar (1 tile) so the sprite never clips under it
+    if (F.y < 1.05)    { F.y = 1.05;    F.vy = Math.max(F.vy, 0); }
     if (F.y > H - 2.2) { F.y = H - 2.2; F.vy = Math.min(F.vy, 0); } // bouncy cloud floor
     F.dist += 9 * dt;
     F.hintT -= dt;
@@ -588,6 +606,8 @@
       c.x -= c.sp * dt;
       if (c.x < -8) { c.x = W + 4 + Math.random() * 6; c.y = 1 + Math.random() * (H - 4); }
     }
+    for (const pf of F.puffs) { pf.x += pf.vx * dt; pf.y += pf.vy * dt; pf.life -= dt; }
+    F.puffs = F.puffs.filter(pf => pf.life > 0);
     // afterimages drift behind (the sky scrolls; the ghosts remember)
     F.gt += dt;
     if (F.gt > 0.05) {
@@ -596,9 +616,8 @@
       if (G.ghosts.length > 14) G.ghosts.shift();
     }
     for (const gh of G.ghosts) gh.x -= 9 * dt;
-    if (F.dist > 130) { // made it across
-      G.mode = 'play'; G.fl = null; G.ghosts = [];
-      enterRoom((G.room.exits && G.room.exits.right) || G.pack.start, 2, 0.5, { fall: -99 });
+    if (F.dist >= 130) { // made it across — freeze the number and take a bow
+      F.dist = 130; F.arriveT = 0.9; sfx.win(); addShake(3);
     }
   }
 
@@ -716,6 +735,23 @@
 
   function renderFlappy(ctx) {
     const F = G.fl;
+    // dusk gradient sky — indigo up top, warm synthwave glow at the horizon
+    const grad = ctx.createLinearGradient(0, 0, 0, buf.height);
+    grad.addColorStop(0,    '#0a0c1c');
+    grad.addColorStop(0.55, '#1a1440');
+    grad.addColorStop(1,    '#3a1450');
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, buf.width, buf.height);
+    // faint stars, only in the upper dusk band
+    ctx.fillStyle = 'rgba(232,232,240,0.22)';
+    for (let y = 0; y < buf.height * 0.55; y += 3) for (let x = 0; x < buf.width; x += 3)
+      if (starDot(x, y)) ctx.fillRect(x, y, 1, 1);
+    // distant sun, drifting slow with distance travelled (parallax)
+    let sunX = (buf.width * 1.15 - F.dist * 1.1) % (buf.width + 90);
+    if (sunX < -45) sunX += buf.width + 90;
+    ctx.fillStyle = 'rgba(232,144,10,0.16)';
+    ctx.beginPath(); ctx.arc(sunX, 36, 26, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = SP.PAL['5'];
+    ctx.beginPath(); ctx.arc(sunX, 36, 13, 0, Math.PI * 2); ctx.fill();
     // far clouds first (slow = far, painter's algorithm on a budget)
     const sorted = F.clouds.slice().sort((a, b) => a.sp - b.sp);
     for (const c of sorted) drawCloud(ctx, Math.round(c.x * TP - 14), Math.round(c.y * TP), c.s);
@@ -725,22 +761,39 @@
       SP.drawBitmapMono(ctx, SP.CAT_JUMP, Math.round(gh.x * TP), Math.round(gh.y * TP), gh.c);
     }
     ctx.globalAlpha = 1;
-    // Ricardo, tilting with vertical velocity like he read the flappy spec
+    // wing-beat puffs, behind the cat
+    for (const pf of F.puffs) {
+      ctx.globalAlpha = Math.max(0, pf.life / 0.4) * 0.6;
+      ctx.fillStyle = SP.PAL['7'];
+      const s = pf.s * 2;
+      ctx.fillRect(Math.round(pf.x * TP - s / 2), Math.round(pf.y * TP - s / 2), s, s);
+    }
+    ctx.globalAlpha = 1;
+    // Ricardo, tilting with vertical velocity like he read the flappy spec,
+    // with a squash-stretch pop on every flap
     ctx.save();
     ctx.translate(7 * TP + 5, F.y * TP + 6);
     ctx.rotate(Math.max(-0.45, Math.min(0.6, F.vy * 0.07)));
+    const pop = F.flapPulse * 0.22;
+    ctx.scale(1 - pop, 1 + pop);
     SP.drawBitmap(ctx, SP.CAT_JUMP, -5, -6);
     ctx.restore();
     // HUD
     ctx.fillStyle = 'rgba(8,11,20,0.55)'; ctx.fillRect(0, 0, buf.width, TP);
     ctx.font = '8px ui-monospace, monospace'; ctx.textBaseline = 'middle';
+    const pct = Math.min(100, F.dist / 130 * 100 | 0);
     ctx.fillStyle = SP.PAL['4'];
-    ctx.fillText('OPEN SKY — ' + Math.min(100, F.dist / 130 * 100 | 0) + '%', 4, TP / 2 + 1);
+    ctx.fillText('OPEN SKY — ' + pct + '%', 4, TP / 2 + 1);
+    // progress bar, right-aligned in the HUD strip
+    const barW = 80, barX = buf.width - barW - 4, barY = TP / 2 - 2;
+    ctx.fillStyle = 'rgba(232,232,240,0.25)'; ctx.fillRect(barX, barY, barW, 4);
+    ctx.fillStyle = SP.PAL['6']; ctx.fillRect(barX, barY, barW * pct / 100, 4);
     if (F.hintT > 0 && (G.time * 2 | 0) % 2 === 0) {
       ctx.textAlign = 'center'; ctx.fillStyle = SP.PAL['5'];
       ctx.fillText('TAP / SPACE = FLAP', buf.width / 2, 60);
       ctx.textAlign = 'left';
     }
+    if (F.arriveT > 0) centerText(ctx, 'CLOUD NINE!', 'made it across');
   }
 
   function centerText(ctx, big, small) {
