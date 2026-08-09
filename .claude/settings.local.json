@@ -32,7 +32,11 @@
       "Bash(git *)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:8123/index.html)",
       "Bash(npx --yes serve -l 8123 .)",
-      "Bash(taskkill //F //IM node.exe //T)"
+      "Bash(taskkill //F //IM node.exe //T)",
+      "Bash(curl -s http://localhost:8765/js/content.js)",
+      "Bash(curl *)",
+      "Bash(pkill -f \"http.server 8765\")",
+      "Bash(pkill -f \"http.server 8791\")"
     ]
   }
 }
