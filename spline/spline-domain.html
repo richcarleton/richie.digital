@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Spline Domain — Toolpath Field</title>
+<style>
+  :root{
+    --ink-bg:#0B1E33;
+    --ink-line:rgba(143,227,255,0.07);
+  }
+  html,body{
+    margin:0; height:100%; overflow:hidden;
+    background-color:var(--ink-bg);
+    background-image:
+      repeating-linear-gradient(0deg, var(--ink-line) 0 1px, transparent 1px 48px),
+      repeating-linear-gradient(90deg, var(--ink-line) 0 1px, transparent 1px 48px);
+    font-family: ui-monospace, "SF Mono", "JetBrains Mono", Consolas, "Cascadia Mono", monospace;
+    -webkit-user-select:none; user-select:none;
+  }
+  canvas{ display:block; touch-action:none; }
+  #hud{
+    position:fixed; inset:0; pointer-events:none;
+    color:#BFEBFF; text-shadow:0 0 6px rgba(11,30,51,0.9), 0 0 2px rgba(11,30,51,0.9);
+  }
+  #hud .top{
+    position:absolute; top:16px; left:18px;
+  }
+  #hud .top h1{
+    margin:0; font-size:13px; font-weight:600; letter-spacing:0.28em;
+    text-transform:uppercase; opacity:0.92;
+  }
+  #hud .top p{
+    margin:4px 0 0; font-size:10.5px; letter-spacing:0.06em; opacity:0.55;
+  }
+  #hud .stats{
+    position:absolute; top:16px; right:18px; text-align:right;
+    font-size:10.5px; letter-spacing:0.05em; opacity:0.6; line-height:1.6;
+  }
+  #hud .legend{
+    position:absolute; bottom:14px; left:18px; right:18px;
+    font-size:10px; letter-spacing:0.03em; opacity:0.5; line-height:1.6;
+    display:flex; flex-wrap:wrap; gap:2px 18px;
+  }
+  #hud .legend span b{ opacity:0.95; font-weight:600; }
+  #hud.hidden{ display:none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud">
+  <div class="top">
+    <h1>Spline Domain</h1>
+    <p>toolpath flow field — drag the pins to reshape</p>
+  </div>
+  <div class="stats" id="stats">PEN CYAN · PTS 8 · FPS —</div>
+  <div class="legend">
+    <span><b>drag pins</b> reshape</span>
+    <span><b>tap empty</b> ink burst</span>
+    <span><b>← →</b> rotate</span>
+    <span><b>↑ ↓</b> scale</span>
+    <span><b>1 2 3</b> pen</span>
+    <span><b>space</b> auto-drift</span>
+    <span><b>c</b> clear</span>
+    <span><b>r</b> reset</span>
+    <span><b>h</b> hide hud</span>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- setup ----------
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const hud = document.getElementById('hud');
+  const statsEl = document.getElementById('stats');
+
+  let W = 0, H = 0, DPR = 1;
+  function resize(){
+    const oldW = W, oldH = H;
+    W = window.innerWidth; H = window.innerHeight;
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.fillStyle = 'rgba(11,30,51,1)';
+    ctx.fillRect(0, 0, W, H);
+    if (oldW && points){
+      const sx = W / oldW, sy = H / oldH;
+      for (const p of points){ p.x *= sx; p.y *= sy; }
+    }
+    forceRebuild = true;
+  }
+
+  // ---------- pens (plotter ink colors) ----------
+  const PENS = [
+    { name: 'CYAN',   bright: [143,227,255], mid: [79,166,216] },
+    { name: 'AMBER',  bright: [255,198,112], mid: [216,154,69] },
+    { name: 'VIOLET', bright: [217,166,255], mid: [155,111,216] }
+  ];
+  let penIndex = 0;
+  function rgba(arr, a){ return `rgba(${arr[0]},${arr[1]},${arr[2]},${a})`; }
+
+  // ---------- control points (the "domain" boundary) ----------
+  const N_POINTS = 8;
+  const VARIANCE = [1, 0.75, 1.15, 0.85, 1.3, 0.7, 1.05, 0.9]; // deterministic lopsided shape
+  let points = [];
+  function defaultPoints(){
+    const cx = W/2, cy = H/2, baseR = Math.min(W,H) * 0.28;
+    const out = [];
+    for (let i = 0; i < N_POINTS; i++){
+      const ang = (i/N_POINTS)*Math.PI*2 - Math.PI/2;
+      const r = baseR * VARIANCE[i];
+      out.push({ x: cx + Math.cos(ang)*r, y: cy + Math.sin(ang)*r*0.8 });
+    }
+    return out;
+  }
+
+  function rotatePoints(pts, cx, cy, dAngle){
+    for (const p of pts){
+      const dx = p.x-cx, dy = p.y-cy;
+      const ang = Math.atan2(dy,dx) + dAngle, r = Math.hypot(dx,dy);
+      p.x = cx + Math.cos(ang)*r; p.y = cy + Math.sin(ang)*r;
+    }
+  }
+  function scalePoints(pts, cx, cy, factor){
+    for (const p of pts){ p.x = cx + (p.x-cx)*factor; p.y = cy + (p.y-cy)*factor; }
+  }
+
+  // ---------- catmull-rom closed spline ----------
+  function crPoint(p0,p1,p2,p3,t){
+    const t2=t*t, t3=t2*t;
+    return {
+      x: 0.5*((2*p1.x) + (-p0.x+p2.x)*t + (2*p0.x-5*p1.x+4*p2.x-p3.x)*t2 + (-p0.x+3*p1.x-3*p2.x+p3.x)*t3),
+      y: 0.5*((2*p1.y) + (-p0.y+p2.y)*t + (2*p0.y-5*p1.y+4*p2.y-p3.y)*t2 + (-p0.y+3*p1.y-3*p2.y+p3.y)*t3)
+    };
+  }
+  function sampleSpline(pts, perSeg){
+    const n = pts.length, out = [];
+    for (let i=0;i<n;i++){
+      const p0=pts[(i-1+n)%n], p1=pts[i], p2=pts[(i+1)%n], p3=pts[(i+2)%n];
+      for (let j=0;j<perSeg;j++) out.push(crPoint(p0,p1,p2,p3,j/perSeg));
+    }
+    const len = out.length;
+    for (let i=0;i<len;i++){
+      const nx = out[(i+1)%len], pv = out[(i-1+len)%len];
+      const dx = nx.x-pv.x, dy = nx.y-pv.y, l = Math.hypot(dx,dy)||1;
+      out[i].tx = dx/l; out[i].ty = dy/l;
+    }
+    return out;
+  }
+
+  // ---------- flow field (the "domain graphics" — a vector field warped by the spline) ----------
+  const COLS = 60, ROWS = 34;
+  let flow = new Float32Array(COLS*ROWS*2);
+  let samples = [];
+  function rebuildFlow(){
+    samples = sampleSpline(points, 24);
+    const cw = W/COLS, ch = H/ROWS;
+    for (let ry=0; ry<ROWS; ry++){
+      for (let rx=0; rx<COLS; rx++){
+        const cx = (rx+0.5)*cw, cy = (ry+0.5)*ch;
+        let best = Infinity, bi = 0;
+        for (let si=0; si<samples.length; si++){
+          const dx = samples[si].x-cx, dy = samples[si].y-cy;
+          const d = dx*dx+dy*dy;
+          if (d < best){ best = d; bi = si; }
+        }
+        const s = samples[bi];
+        const dist = Math.sqrt(best);
+        const ndx = (s.x-cx)/(dist||1), ndy = (s.y-cy)/(dist||1);
+        const pull = Math.min(1, dist/300);
+        let fx = s.tx*(1-pull*0.6) + ndx*pull*0.6;
+        let fy = s.ty*(1-pull*0.6) + ndy*pull*0.6;
+        const l = Math.hypot(fx,fy)||1;
+        const idx = (ry*COLS+rx)*2;
+        flow[idx] = fx/l; flow[idx+1] = fy/l;
+      }
+    }
+  }
+  function sampleFlow(x,y){
+    let gx = Math.floor(x/(W/COLS)), gy = Math.floor(y/(H/ROWS));
+    if (gx<0) gx=0; else if (gx>=COLS) gx=COLS-1;
+    if (gy<0) gy=0; else if (gy>=ROWS) gy=ROWS-1;
+    const idx = (gy*COLS+gx)*2;
+    return [flow[idx], flow[idx+1]];
+  }
+
+  // ---------- particles ----------
+  const N_PARTICLES = 900;
+  const particles = [];
+  function respawn(p){
+    p.x = Math.random()*W; p.y = Math.random()*H;
+    p.vx = (Math.random()-0.5)*0.3; p.vy = (Math.random()-0.5)*0.3;
+    p.life = 80 + Math.random()*220; p.maxLife = p.life;
+  }
+  for (let i=0;i<N_PARTICLES;i++){ const p={}; respawn(p); particles.push(p); }
+  let spawnCursor = 0;
+  function spawnBurst(x,y,count){
+    for (let k=0;k<count;k++){
+      const p = particles[spawnCursor];
+      const ang = Math.random()*Math.PI*2, spd = 0.6+Math.random()*1.3;
+      p.x=x; p.y=y; p.vx=Math.cos(ang)*spd; p.vy=Math.sin(ang)*spd;
+      p.life = 60+Math.random()*120; p.maxLife = p.life;
+      spawnCursor = (spawnCursor+1) % particles.length;
+    }
+  }
+
+  // ---------- input: pointer (mouse + touch, unified) ----------
+  const HIT_R = 30;
+  const activeDrags = new Map();   // pointerId -> point index
+  const tapCandidates = new Map(); // pointerId -> {x,y,t}
+
+  function toLocal(e){
+    const r = canvas.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+  canvas.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    const {x,y} = toLocal(e);
+    let bestI = -1, bestD = HIT_R;
+    for (let i=0;i<points.length;i++){
+      const d = Math.hypot(points[i].x-x, points[i].y-y);
+      if (d < bestD){ bestD = d; bestI = i; }
+    }
+    if (bestI >= 0){
+      activeDrags.set(e.pointerId, bestI);
+      canvas.setPointerCapture(e.pointerId);
+    } else {
+      tapCandidates.set(e.pointerId, {x,y,t:performance.now()});
+    }
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (activeDrags.has(e.pointerId)){
+      const {x,y} = toLocal(e);
+      const i = activeDrags.get(e.pointerId);
+      const m = 12;
+      points[i].x = Math.max(m, Math.min(W-m, x));
+      points[i].y = Math.max(m, Math.min(H-m, y));
+      forceRebuild = true;
+    }
+  });
+  function endPointer(e){
+    if (activeDrags.has(e.pointerId)){
+      activeDrags.delete(e.pointerId);
+      return;
+    }
+    if (tapCandidates.has(e.pointerId)){
+      const start = tapCandidates.get(e.pointerId);
+      const {x,y} = toLocal(e);
+      const moved = Math.hypot(x-start.x, y-start.y);
+      const dt = performance.now() - start.t;
+      if (moved < 12 && dt < 500) spawnBurst(x,y,55);
+      tapCandidates.delete(e.pointerId);
+    }
+  }
+  canvas.addEventListener('pointerup', endPointer);
+  canvas.addEventListener('pointercancel', endPointer);
+
+  // ---------- input: keyboard ----------
+  const keys = new Set();
+  let autoDrift = false, hudVisible = true;
+  window.addEventListener('keydown', (e) => {
+    keys.add(e.key);
+    if (e.repeat) return;
+    if (e.key === ' '){ autoDrift = !autoDrift; e.preventDefault(); }
+    else if (e.key === 'r' || e.key === 'R'){ points = defaultPoints(); forceRebuild = true; }
+    else if (e.key === 'c' || e.key === 'C'){ ctx.fillStyle='rgba(11,30,51,1)'; ctx.fillRect(0,0,W,H); }
+    else if (e.key === 'h' || e.key === 'H'){ hudVisible = !hudVisible; hud.classList.toggle('hidden', !hudVisible); }
+    else if (e.key === '1'){ penIndex = 0; }
+    else if (e.key === '2'){ penIndex = 1; }
+    else if (e.key === '3'){ penIndex = 2; }
+  });
+  window.addEventListener('keyup', (e) => keys.delete(e.key));
+
+  // ---------- main loop ----------
+  let forceRebuild = true;
+  let lastFpsT = performance.now(), frames = 0, fps = 0;
+
+  function isDragged(i){
+    for (const v of activeDrags.values()) if (v === i) return true;
+    return false;
+  }
+
+  function frame(t){
+    requestAnimationFrame(frame);
+    let dirty = forceRebuild;
+    forceRebuild = false;
+
+    const cx = W/2, cy = H/2;
+    if (keys.has('ArrowLeft'))  { rotatePoints(points, cx, cy, -0.018); dirty = true; }
+    if (keys.has('ArrowRight')) { rotatePoints(points, cx, cy,  0.018); dirty = true; }
+    if (keys.has('ArrowUp'))    { scalePoints(points, cx, cy, 1.012); dirty = true; }
+    if (keys.has('ArrowDown'))  { scalePoints(points, cx, cy, 0.988); dirty = true; }
+    if (autoDrift){
+      for (let i=0;i<points.length;i++){
+        if (isDragged(i)) continue;
+        points[i].x += Math.sin(t*0.0006 + i*1.7) * 0.22;
+        points[i].y += Math.cos(t*0.0005 + i*2.1) * 0.22;
+      }
+      dirty = true;
+    }
+    if (dirty) rebuildFlow();
+
+    // trail fade — low alpha overdraw lets the blueprint grid glow faintly through
+    ctx.fillStyle = 'rgba(11,30,51,0.12)';
+    ctx.fillRect(0,0,W,H);
+
+    // update + bucket particles by speed for batched stroking
+    const pen = PENS[penIndex];
+    const t0x=[],t0y=[], t1x=[],t1y=[], t2x=[],t2y=[];
+    for (const p of particles){
+      const f = sampleFlow(p.x, p.y);
+      p.vx = (p.vx + f[0]*0.16) * 0.94;
+      p.vy = (p.vy + f[1]*0.16) * 0.94;
+      p.x += p.vx * 2.1; p.y += p.vy * 2.1;
+      p.life--;
+      if (p.life <= 0 || p.x < -20 || p.x > W+20 || p.y < -20 || p.y > H+20) respawn(p);
+      const spd = Math.hypot(p.vx, p.vy);
+      const tx = p.x - p.vx*2.2, ty = p.y - p.vy*2.2;
+      if (spd < 0.35){ t0x.push(p.x,tx); t0y.push(p.y,ty); }
+      else if (spd < 0.9){ t1x.push(p.x,tx); t1y.push(p.y,ty); }
+      else { t2x.push(p.x,tx); t2y.push(p.y,ty); }
+    }
+    ctx.lineCap = 'round';
+    drawTier(t0x,t0y, rgba(pen.bright,0.22), 1);
+    drawTier(t1x,t1y, rgba(pen.bright,0.5), 1.3);
+    drawTier(t2x,t2y, rgba(pen.bright,0.9), 1.8);
+
+    // domain overlay: dashed construction polygon + smooth toolpath curve + numbered pins
+    ctx.setLineDash([4,5]);
+    ctx.strokeStyle = rgba(pen.mid, 0.35);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    points.forEach((p,i)=> i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+    ctx.closePath(); ctx.stroke();
+    ctx.setLineDash([]);
+
+    if (samples.length){
+      ctx.strokeStyle = rgba(pen.bright, 0.5);
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      samples.forEach((s,i)=> i===0 ? ctx.moveTo(s.x,s.y) : ctx.lineTo(s.x,s.y));
+      ctx.closePath(); ctx.stroke();
+    }
+
+    points.forEach((p,i)=>{
+      ctx.beginPath();
+      ctx.arc(p.x,p.y, isDragged(i)?9:6, 0, Math.PI*2);
+      ctx.fillStyle = isDragged(i) ? rgba([255,122,51],0.95) : rgba([255,122,51],0.7);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(11,30,51,0.95)';
+      ctx.font = '9px ui-monospace, monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(String(i+1), p.x, p.y);
+    });
+
+    frames++;
+    const now = performance.now();
+    if (now - lastFpsT > 500){
+      fps = Math.round(frames * 1000 / (now-lastFpsT));
+      frames = 0; lastFpsT = now;
+      statsEl.textContent = `PEN ${pen.name} · PTS ${points.length} · FPS ${fps}${autoDrift ? ' · DRIFT' : ''}`;
+    }
+  }
+  function drawTier(xs,ys,color,width){
+    if (!xs.length) return;
+    ctx.strokeStyle = color; ctx.lineWidth = width;
+    ctx.beginPath();
+    for (let i=0;i<xs.length;i+=2){ ctx.moveTo(xs[i],ys[i]); ctx.lineTo(xs[i+1],ys[i+1]); }
+    ctx.stroke();
+  }
+
+  // ---------- boot ----------
+  window.addEventListener('resize', resize);
+  resize();
+  points = defaultPoints();
+  rebuildFlow();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
