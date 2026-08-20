@@ -317,7 +317,13 @@
       grounded: false, climbing: false, airVX: 0, slideV: 0,
       fallPeak: py - (carry ? carry.fall : 0), face: 1, anim: 0,
     };
-    G.entry = { x: px, y: py };
+    // sky arrivals land wherever there's room; entry is recorded after the
+    // correction so dying here doesn't respawn you back inside the roof
+    if (carry && carry.dropIn) {
+      unstick(G.player);
+      G.player.fallPeak = G.player.y - carry.fall;
+    }
+    G.entry = { x: G.player.x, y: G.player.y };
     G.roomFlash = 0.5;
     // rooms flagged flappy have no floor, no walls, no rules — only sky
     if (room.flappy && (G.mode === 'play' || G.mode === 'title')) {
@@ -327,7 +333,16 @@
         x: Math.random() * (W + 8) - 4, y: 1 + Math.random() * (H - 4),
         s: 1 + Math.random(), sp: 5 + Math.random() * 6,
       });
-      G.fl = { y: 4, vy: 0, dist: 0, hintT: 3, gt: 0, clouds, puffs: [], flapPulse: 0, arriveT: 0 };
+      // flocks cross the middle distance — slower than the clouds they pass
+      const birds = [];
+      for (let i = 0; i < 3; i++) birds.push({
+        x: Math.random() * (W + 20), y: 2 + Math.random() * 5,
+        sp: 3 + Math.random() * 2, ph: Math.random() * 6.28, n: 3 + (Math.random() * 3 | 0),
+      });
+      G.fl = {
+        y: 4, vy: 0, dist: 0, hintT: 3, gt: 0, clouds, puffs: [], flapPulse: 0, arriveT: 0,
+        birds, shoots: [], shootT: 1 + Math.random() * 3, wisps: [],
+      };
     }
   }
 
@@ -370,6 +385,26 @@
     const y0 = Math.floor(y), y1 = Math.floor(y + h - 1e-9);
     for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++)
       if (solid(tx, ty, !!p)) return true;
+    return false;
+  }
+
+  // Arriving by air, not through a door: the destination room has a real roof
+  // and the requested spot may be inside it. Nudge down to the first gap that
+  // fits, then sideways if the whole column is masonry. Never passes `p` to
+  // rectSolid — this runs before the player has agency, so doors must stay shut
+  // rather than silently eating a key.
+  function unstick(p) {
+    for (let dy = 0; dy < H; dy += 0.25) {
+      if (!rectSolid(p.x, p.y + dy, PW, PH)) { p.y += dy; return true; }
+    }
+    for (let dx = 1; dx < W; dx++) {                 // ceiling's solid all the way down
+      for (const sx of [p.x + dx, p.x - dx]) {
+        if (sx < 0 || sx + PW > W) continue;
+        for (let dy = 0; dy < H; dy += 0.25) {
+          if (!rectSolid(sx, p.y + dy, PW, PH)) { p.x = sx; p.y += dy; return true; }
+        }
+      }
+    }
     return false;
   }
 
@@ -582,7 +617,10 @@
       F.arriveT -= dt;
       if (F.arriveT <= 0) {
         G.mode = 'play'; G.fl = null; G.ghosts = [];
-        enterRoom((G.room.exits && G.room.exits.right) || G.pack.start, 2, 0.5, { fall: -99 });
+        // 1.05 mirrors the flappy ceiling — just under the HUD bar. dropIn lets
+        // enterRoom push him clear if the landing room's roof is solid there.
+        enterRoom((G.room.exits && G.room.exits.right) || G.pack.start, 2, 1.05,
+                  { fall: -99, dropIn: true });
       }
       return;
     }
@@ -606,6 +644,25 @@
       c.x -= c.sp * dt;
       if (c.x < -8) { c.x = W + 4 + Math.random() * 6; c.y = 1 + Math.random() * (H - 4); }
     }
+    // migrating flocks, bobbing as they go
+    for (const b of F.birds) {
+      b.x -= b.sp * dt; b.ph += dt * 7;
+      if (b.x < -6) { b.x = W + 6 + Math.random() * 14; b.y = 2 + Math.random() * 5; }
+    }
+    // meteors streak the upper dusk band now and then
+    F.shootT -= dt;
+    if (F.shootT <= 0) {
+      F.shootT = 2 + Math.random() * 4;
+      F.shoots.push({ x: W * (0.4 + Math.random() * 0.7), y: -1 + Math.random() * 3, life: 1 });
+    }
+    for (const s of F.shoots) { s.x -= 34 * dt; s.y += 15 * dt; s.life -= dt * 1.4; }
+    F.shoots = F.shoots.filter(s => s.life > 0);
+    // near-field wisps rip past the camera — the fastest layer, sells the speed
+    if (Math.random() < dt * 5) F.wisps.push({
+      x: W + 2, y: Math.random() * H, len: 1.2 + Math.random() * 2, sp: 26 + Math.random() * 16,
+    });
+    for (const w of F.wisps) w.x -= w.sp * dt;
+    F.wisps = F.wisps.filter(w => w.x > -8);
     for (const pf of F.puffs) { pf.x += pf.vx * dt; pf.y += pf.vy * dt; pf.life -= dt; }
     F.puffs = F.puffs.filter(pf => pf.life > 0);
     // afterimages drift behind (the sky scrolls; the ghosts remember)
@@ -733,6 +790,30 @@
     ctx.globalAlpha = 1;
   }
 
+  // A pyramid skyline that never repeats visibly: peak heights are hashed off
+  // the peak index, so scrolling is deterministic and costs no state.
+  function drawRidge(ctx, scroll, baseY, h, color, period) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(0, buf.height);
+    for (let x = 0; x <= buf.width; x += 2) {
+      const t = (x + scroll) / period;
+      const tri = 1 - Math.abs((t % 1) - 0.5) * 2;        // 0 at valley, 1 at peak
+      const hash = ((Math.floor(t) * 73856093) >>> 0) % 97 / 97;
+      ctx.lineTo(x, baseY - h * (0.5 + hash * 0.5) * tri);
+    }
+    ctx.lineTo(buf.width, buf.height);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawBird(ctx, x, y, ph) {
+    const w = Math.cos(ph) * 2;                            // wingbeat
+    ctx.fillRect(x - 2, y - w, 2, 1);
+    ctx.fillRect(x + 1, y - w, 2, 1);
+    ctx.fillRect(x, y, 1, 1);
+  }
+
   function renderFlappy(ctx) {
     const F = G.fl;
     // dusk gradient sky — indigo up top, warm synthwave glow at the horizon
@@ -752,9 +833,25 @@
     ctx.beginPath(); ctx.arc(sunX, 36, 26, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = SP.PAL['5'];
     ctx.beginPath(); ctx.arc(sunX, 36, 13, 0, Math.PI * 2); ctx.fill();
+    // meteors in the dusk band, drawn over the sun's glow but behind the ridge
+    for (const s of F.shoots) {
+      ctx.globalAlpha = Math.max(0, Math.min(1, s.life)) * 0.8;
+      ctx.fillStyle = SP.PAL['7'];
+      const sx = s.x * TP, sy = s.y * TP;
+      for (let i = 0; i < 7; i++) ctx.fillRect(Math.round(sx + i * 3), Math.round(sy - i * 1.4), 2, 1);
+    }
+    ctx.globalAlpha = 1;
+    // two pyramid ridgelines — the horizon Ricardo is flying away from
+    drawRidge(ctx, F.dist * 2.2, buf.height * 0.88, 34, 'rgba(58,20,80,0.85)', 70);
+    drawRidge(ctx, F.dist * 4.5, buf.height * 0.96, 24, 'rgba(26,8,42,0.95)', 46);
     // far clouds first (slow = far, painter's algorithm on a budget)
     const sorted = F.clouds.slice().sort((a, b) => a.sp - b.sp);
     for (const c of sorted) drawCloud(ctx, Math.round(c.x * TP - 14), Math.round(c.y * TP), c.s);
+    // flocks, above the cloud deck
+    ctx.fillStyle = 'rgba(232,232,240,0.5)';
+    for (const b of F.birds)
+      for (let i = 0; i < b.n; i++)
+        drawBird(ctx, Math.round((b.x + i * 1.1) * TP), Math.round(b.y * TP + i * 3), b.ph - i * 0.5);
     // ghosts
     for (const gh of G.ghosts) {
       ctx.globalAlpha = Math.max(0, gh.life / 0.3) * 0.35;
@@ -778,6 +875,10 @@
     ctx.scale(1 - pop, 1 + pop);
     SP.drawBitmap(ctx, SP.CAT_JUMP, -5, -6);
     ctx.restore();
+    // near-field wisps, in front of everything — closest layer, fastest parallax
+    ctx.fillStyle = 'rgba(232,232,240,0.20)';
+    for (const w of F.wisps)
+      ctx.fillRect(Math.round(w.x * TP), Math.round(w.y * TP), Math.round(w.len * TP), 1);
     // HUD
     ctx.fillStyle = 'rgba(8,11,20,0.55)'; ctx.fillRect(0, 0, buf.width, TP);
     ctx.font = '8px ui-monospace, monospace'; ctx.textBaseline = 'middle';

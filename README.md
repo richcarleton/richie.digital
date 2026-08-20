@@ -5,8 +5,9 @@ Starfield space stuff + Ricardo's platform adventure
 ## structure
 
 ```
-index.html
-css/style.css       — all variables at the top, tweak freely
+index.html          — landing page: 90s-catalogue grid linking out to every unit
+classic.html         — original starfield/terminal/face-mesh page (was index.html)
+css/style.css       — all variables at the top, tweak freely (used by classic.html)
 js/stars.js         — canvas warp field
 js/nameplate.js     — text styles + glitch + collapse sequence
 js/nav.js           — hover trigger + warp speed hook
@@ -14,6 +15,8 @@ CNAME               — custom
 
 ricardo/            — platform game (in progress)
 webGL/              — dither planet viewer
+suit/               — motorcycle suit configurator
+spline/             — spline-domain toolpath flow field toy
 ```
 
 ## tweaks
@@ -22,7 +25,7 @@ webGL/              — dither planet viewer
 
 **change cycle speed** — find `setInterval(cycle, 2800)` near the bottom of nameplate.js.
 
-**nav items** — edit the `<a>` tags in index.html.
+**nav items** — edit the `<a>` tags in classic.html.
 
 **colors / sizing** — css variables in style.css `:root`.
 
