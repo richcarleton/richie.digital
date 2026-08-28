@@ -1,0 +1,6 @@
+stop_id,stop_name,parent_station,location_type
+STN_GM,Grand-Moulin,,1
+GM_P1,"Grand-Moulin, Platform 1",STN_GM,0
+GM_P2,"Grand-Moulin, Platform 2",STN_GM,0
+STN_OTHER,Deux-Montagnes,,1
+OTHER_P1,Deux-Montagnes Platform,STN_OTHER,0

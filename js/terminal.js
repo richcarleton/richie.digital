@@ -47,6 +47,8 @@ input.addEventListener('keydown', e => {
     window.location.href = 'ricardo/';   // 🐈 the pyramid awaits
   } else if (cmd === 'suit' || cmd === 'circuit' || cmd === 'ride') {
     window.location.href = 'suit/';      // 🏍 knees are the suspension
+  } else if (cmd === 'train') {
+    window.location.href = 'transit-ticker/';  // 🚆 REM departures chyron
   } else if (cmd === 'crash') {
     hide();
     if (window.DOSCrash) new window.DOSCrash().init();
