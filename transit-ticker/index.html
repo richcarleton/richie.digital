@@ -62,6 +62,138 @@
     letter-spacing: 0.08em;
   }
 
+  /* -------------------------------------------------- mode toggle -- */
+
+  .mode-toggle {
+    position: absolute;
+    inset-block-start: 1.2rem;
+    inset-inline-end: 1.2rem;
+    z-index: 20;
+    background: var(--near-black);
+    color: var(--white);
+    border: 1px solid var(--red);
+    border-radius: 999px;
+    padding: 0.5rem 1rem;
+    font: inherit;
+    font-weight: 700;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+  }
+
+  .mode-toggle:hover { background: var(--black); }
+
+  /* -------------------------------------------------- highway gag -- */
+
+  .highway-scene {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+
+  .hwy-sky {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, #1a2a28 0%, #223a35 55%, #2e2e2e 62%, #232323 100%);
+  }
+
+  .hwy-road {
+    position: absolute;
+    inset-inline-start: 50%;
+    inset-block-end: 0;
+    inline-size: 150%;
+    block-size: 72%;
+    background: linear-gradient(to top, #2a2a2a, #1c1c1c 70%);
+    clip-path: polygon(41% 0%, 59% 0%, 100% 100%, 0% 100%);
+    transform: translateX(-50%);
+    animation: hwy-creep 42s ease-in-out infinite;
+  }
+
+  .hwy-lane {
+    position: absolute;
+    inset-inline-start: 50%;
+    inset-block-end: 0;
+    inline-size: 5%;
+    block-size: 100%;
+    transform: translateX(-50%);
+    clip-path: polygon(44% 0%, 56% 0%, 100% 100%, 0% 100%);
+    background: repeating-linear-gradient(to bottom, #e0c93a 0 22px, transparent 22px 55px);
+    opacity: 0.8;
+  }
+
+  .hwy-car {
+    position: absolute;
+    inset-inline-start: 50%;
+    background: #303030;
+    border: 1px solid #565656;
+    border-radius: 5px 5px 1px 1px;
+  }
+
+  .hwy-car.c1 { inset-block-end: 14%; inline-size: 68px; block-size: 32px; transform: translateX(-130%); }
+  .hwy-car.c2 { inset-block-end: 15%; inline-size: 54px; block-size: 26px; transform: translateX(60%); }
+  .hwy-car.c3 { inset-block-end: 26%; inline-size: 38px; block-size: 18px; transform: translateX(-190%); }
+  .hwy-car.c4 { inset-block-end: 34%; inline-size: 26px; block-size: 12px; transform: translateX(80%); }
+
+  .hwy-car .brake {
+    position: absolute;
+    inset-block-end: 15%;
+    inline-size: 22%;
+    block-size: 34%;
+    background: #ff2b2b;
+    border-radius: 2px;
+    box-shadow: 0 0 6px 2px rgba(255, 40, 40, 0.75);
+    animation: hwy-brake 2.6s ease-in-out infinite;
+  }
+
+  .hwy-car .brake:first-child { inset-inline-start: 8%; }
+  .hwy-car .brake:last-child { inset-inline-end: 8%; }
+  .hwy-car.c2 .brake, .hwy-car.c4 .brake { animation-delay: 0.9s; }
+
+  .hwy-dash {
+    position: absolute;
+    inset-inline: 0;
+    inset-block-end: 0;
+    block-size: 16%;
+    background: linear-gradient(to top, #050505 40%, rgba(5, 5, 5, 0));
+  }
+
+  .hwy-caption {
+    position: absolute;
+    inset-inline: 0;
+    inset-block-start: 1.5rem;
+    text-align: center;
+  }
+
+  .hwy-headline {
+    font-size: clamp(1.1rem, 2.6vw, 1.6rem);
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    color: var(--red);
+  }
+
+  .hwy-sub {
+    margin-block-start: 0.35rem;
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+    color: var(--grey);
+  }
+
+  @keyframes hwy-brake {
+    0%, 40% { opacity: 1; }
+    50%, 90% { opacity: 0.5; }
+    100% { opacity: 1; }
+  }
+
+  /* Barely, barely inching forward. */
+  @keyframes hwy-creep {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(-2px); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hwy-road, .hwy-car .brake { animation: none; }
+  }
+
   /* -------------------------------------------------- scanlines -- */
 
   .scanlines {
@@ -252,7 +384,7 @@
     border-block-start: 6px solid var(--near-black);
   }
 
-  /* center: departed | next | scroller */
+  /* center: the wheel — last 2 (departed) | NEXT (in focus) | next 5 */
 
   .ticker-viewport {
     flex: 1 1 auto;
@@ -262,137 +394,87 @@
     display: flex;
     align-items: stretch;
     background:
-      linear-gradient(90deg, var(--black) 0%, transparent 4%, transparent 96%, var(--black) 100%),
+      linear-gradient(90deg, var(--black) 0%, transparent 10%, transparent 90%, var(--black) 100%),
       repeating-linear-gradient(to bottom, transparent 0, transparent 44px, rgba(255,255,255,0.02) 44px, rgba(255,255,255,0.02) 88px);
   }
 
-  .departed-strip {
-    flex: 0 1 auto;
-    max-inline-size: 180px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 0.15rem;
-    padding-inline: 0.8rem;
-    border-inline-end: 1px solid rgba(245, 245, 245, 0.15);
-    color: var(--grey);
-    white-space: nowrap;
-  }
-
-  .departed-strip .departed-label {
-    font-size: 0.55rem;
-    letter-spacing: 0.2em;
-    color: var(--grey);
-    opacity: 0.8;
-  }
-
-  .departed-strip .departed-item {
-    font-size: 0.68rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-    opacity: 0.65;
-    text-decoration: line-through;
-    text-decoration-color: rgba(138, 138, 138, 0.5);
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .next-highlight {
-    flex: 0 1 auto;
-    max-inline-size: 320px;
+  .wheel-viewport {
+    flex: 1 1 auto;
+    min-inline-size: 0;
+    position: relative;
     overflow: hidden;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding-inline: 1rem;
-    border-inline-end: 2px solid var(--red);
-    white-space: nowrap;
+    /* NOT centered here — there are more items after NEXT than before it
+       (2 departed vs. 5 upcoming), so naive centering would skew the whole
+       row and NEXT would drift off-center. JS measures NEXT's actual
+       position and translates the strip so NEXT lands in the middle. */
+    justify-content: flex-start;
+    perspective: 900px;
   }
 
-  .next-highlight .next-badge {
+  .wheel-strip {
+    display: flex;
+    align-items: center;
+    gap: 1.1rem;
+    transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+  }
+
+  .wheel-slot {
+    flex: 0 0 auto;
+    text-align: center;
+    white-space: nowrap;
+    transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.6s ease;
+    transform-origin: center center;
+  }
+
+  .wheel-slot .ws-badge {
+    display: inline-block;
     background: var(--red);
     color: var(--near-black);
     font-size: 0.6rem;
     font-weight: 800;
     letter-spacing: 0.12em;
-    padding: 0.2rem 0.4rem;
+    padding: 0.15rem 0.4rem;
     border-radius: 2px;
-    flex-shrink: 0;
+    margin-block-end: 0.2rem;
   }
 
-  .next-highlight .next-label {
-    font-size: 1.3rem;
+  .wheel-slot .ws-line {
     font-weight: 800;
     letter-spacing: 0.02em;
-    color: var(--white);
     text-transform: uppercase;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .next-highlight .next-eta {
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: var(--red);
-    flex-shrink: 0;
-  }
-
-  .next-highlight .next-eta.soon {
-    animation: eta-flash 0.7s steps(1, end) infinite;
-  }
-
-  .scroller-viewport {
-    flex: 1 1 auto;
-    min-inline-size: 120px;
-    position: relative;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-  }
-
-  .ticker-track {
-    position: absolute;
-    white-space: nowrap;
-    will-change: transform;
-    font-size: 1.3rem;
-    letter-spacing: 0.02em;
     color: var(--white);
-    text-transform: uppercase;
+    font-size: 1.15rem;
   }
 
-  .ticker-track .passing {
-    display: inline-block;
-    padding: 0 1.6rem;
+  .wheel-slot.is-next .ws-line {
+    font-size: 1.5rem;
   }
 
-  .ticker-track .arrow {
-    color: var(--red);
-    font-weight: 900;
-    margin-inline-end: 0.4rem;
-  }
-
-  .ticker-track .eta {
-    color: var(--grey);
+  .wheel-slot .ws-sub {
+    display: block;
+    font-size: 0.8rem;
     font-weight: 600;
-    font-size: 1.1rem;
-    margin-inline-start: 0.35rem;
+    color: var(--grey);
+    margin-block-start: 0.1rem;
   }
 
-  .ticker-track .eta.soon {
+  .wheel-slot .ws-sub.soon {
     color: var(--red);
     animation: eta-flash 0.7s steps(1, end) infinite;
+  }
+
+  .wheel-slot.is-departed .ws-line {
+    color: var(--grey);
+    text-decoration: line-through;
+    text-decoration-color: rgba(147, 162, 154, 0.5);
   }
 
   @keyframes eta-flash {
     0%, 49% { color: var(--red); }
     50%, 100% { color: var(--white); }
-  }
-
-  .ticker-track .sep {
-    color: var(--red);
-    margin: 0 0.2rem;
   }
 
   .signal-lost {
@@ -438,14 +520,14 @@
 
   @media (max-width: 760px) {
     .station-select { font-size: 0.85rem; }
-    .ticker-track { font-size: 1.05rem; }
     .clock-time { font-size: 1.2rem; }
     .chyron { block-size: 78px; }
     .clock-block { min-inline-size: 100px; padding: 0 0.8rem; }
     .train-stage { inset-block-end: 78px; }
-    .departed-strip { display: none; }
-    .next-highlight .next-label { font-size: 1.2rem; }
-    .next-highlight .next-eta { font-size: 0.95rem; }
+    .wheel-strip { gap: 0.6rem; }
+    .wheel-slot .ws-line { font-size: 0.9rem; }
+    .wheel-slot.is-next .ws-line { font-size: 1.15rem; }
+    .wheel-slot .ws-sub { font-size: 0.65rem; }
   }
 
   /* -------------------------------------------------- train crossing -- */
@@ -506,10 +588,32 @@
 <body>
 
   <div class="stage">
-    <div class="stage-content">
+    <div class="stage-content" id="stageContent">
       <h1>REM TRANSIT DESK</h1>
       <p>Live departures feed &mdash; pick a station below</p>
     </div>
+
+    <!-- Gag: toggle to a driver's-eye view of a highway going nowhere,
+         as a joke comparison to the train that's actually moving. -->
+    <div class="highway-scene" id="highwayScene" hidden>
+      <div class="hwy-sky"></div>
+      <div class="hwy-road">
+        <div class="hwy-lane"></div>
+        <div class="hwy-car c1"><span class="brake"></span><span class="brake"></span></div>
+        <div class="hwy-car c2"><span class="brake"></span><span class="brake"></span></div>
+        <div class="hwy-car c3"><span class="brake"></span><span class="brake"></span></div>
+        <div class="hwy-car c4"><span class="brake"></span><span class="brake"></span></div>
+      </div>
+      <div class="hwy-dash"></div>
+      <div class="hwy-caption">
+        <div class="hwy-headline">STUCK ON HWY-15 SOUTH</div>
+        <div class="hwy-sub">2.1 KM IN 47 MIN &mdash; AVG SPEED 2.7 KM/H &mdash; SHOULD'VE TAKEN THE REM</div>
+      </div>
+    </div>
+
+    <button class="mode-toggle" id="modeToggle" type="button" aria-pressed="false">
+      &#128663; STUCK IN TRAFFIC?
+    </button>
   </div>
 
   <div class="breaking-bar">
@@ -606,14 +710,10 @@
       </div>
     </div>
     <div class="ticker-viewport">
-      <div class="departed-strip" id="departedStrip">
-        <div class="departed-label">LAST 2</div>
-      </div>
-      <div class="next-highlight" id="nextHighlight">
-        <span class="signal-lost">LOADING&hellip;</span>
-      </div>
-      <div class="scroller-viewport">
-        <div class="ticker-track" id="tickerTrack"></div>
+      <div class="wheel-viewport">
+        <div class="wheel-strip" id="wheelStrip">
+          <div class="wheel-slot"><span class="signal-lost">LOADING FEED&hellip;</span></div>
+        </div>
       </div>
     </div>
     <div class="clock-block">
@@ -629,18 +729,17 @@
 
   var SCHEDULE_URL = "schedule.json";
   var UPCOMING_COUNT = 5; // shown after the highlighted "next" passing
-  var SCROLL_SPEED_PX_PER_SEC = 90;
   var CROSSING_DURATION_MS = 9000; // must match the CSS animation duration
 
   var stationSelectEl = document.getElementById("stationSelect");
-  var departedStripEl = document.getElementById("departedStrip");
-  var nextHighlightEl = document.getElementById("nextHighlight");
-  var trackEl = document.getElementById("tickerTrack");
-  var viewportEl = trackEl.parentElement;
+  var wheelStripEl = document.getElementById("wheelStrip");
   var clockEl = document.getElementById("clock");
   var dayTypeEl = document.getElementById("dayType");
   var trainStageEl = document.getElementById("trainStage");
   var trainTemplate = document.getElementById("trainTemplate");
+  var modeToggleEl = document.getElementById("modeToggle");
+  var stageContentEl = document.getElementById("stageContent");
+  var highwaySceneEl = document.getElementById("highwayScene");
 
   var schedule = null;
   var signalLost = false;
@@ -797,58 +896,93 @@
     return t.length > maxLen ? t.slice(0, maxLen - 1) + "…" : t;
   }
 
-  // ---- ticker rendering (marquee via rAF, seamless loop) -----------------
+  // ---- wheel rendering ----------------------------------------------------
+  //
+  // "Last 2" (departed, oldest-to-recent) — NEXT (in focus, center) — the
+  // next 5, all in one row. Each slot is scaled/faded/tilted by its distance
+  // from NEXT, so a passing visibly grows as it approaches and shrinks away
+  // once it's departed — no auto-scroll, it only moves when the lineup
+  // actually changes.
 
-  var scrollX = 0;
-  var singleWidth = 0;
-  var lastFrameTime = null;
   var lastRenderedKey = "";
 
-  function buildTickerHTML(passings) {
-    if (!passings.length) {
-      return '<span class="passing"><span class="signal-lost">NO MORE DEPARTURES TODAY</span></span>';
-    }
-    var parts = passings.map(function (p) {
-      var soon = p.diffMinutes <= 2 ? " soon" : "";
-      var dirLabel = truncateLabel(p.headsign, 16);
+  function wheelSlotHTML(item) {
+    if (item.isNext) {
+      var soon = item.diffMinutes <= 2 ? " soon" : "";
       return (
-        '<span class="passing">' +
-          '<span class="arrow">&#9658;</span>' +
-          dirLabel + " " + p.time +
-          ' <span class="eta' + soon + '">(' + formatEta(p.diffMinutes) + ")</span>" +
-        "</span>" +
-        '<span class="sep">&#8226;</span>'
+        '<div class="ws-badge">NEXT</div>' +
+        '<div class="ws-line">&#9658; ' + truncateLabel(item.headsign, 14) + " " + item.time + "</div>" +
+        '<div class="ws-sub' + soon + '">(' + formatEta(item.diffMinutes) + ")</div>"
       );
-    });
-    return parts.join("");
-  }
-
-  function renderDeparted(departed) {
-    var html = '<div class="departed-label">LAST 2</div>';
-    if (!departed.length) {
-      html += '<div class="departed-item">&mdash;</div>';
-    } else {
-      departed.forEach(function (d) {
-        html +=
-          '<div class="departed-item">' +
-          truncateLabel(d.headsign, 12) + " " + d.time +
-          " &mdash; " + formatAgo(d.elapsedMinutes) +
-          "</div>";
-      });
     }
-    departedStripEl.innerHTML = html;
+    if (item.isDeparted) {
+      return (
+        '<div class="ws-line">' + truncateLabel(item.headsign, 12) + " " + item.time + "</div>" +
+        '<div class="ws-sub">' + formatAgo(item.elapsedMinutes) + "</div>"
+      );
+    }
+    var upcomingSoon = item.diffMinutes <= 2 ? " soon" : "";
+    return (
+      '<div class="ws-line">&#9658; ' + truncateLabel(item.headsign, 14) + " " + item.time + "</div>" +
+      '<div class="ws-sub' + upcomingSoon + '">(' + formatEta(item.diffMinutes) + ")</div>"
+    );
   }
 
-  function renderNextHighlight(next) {
-    if (!next) {
-      nextHighlightEl.innerHTML = '<span class="signal-lost">NO MORE TODAY</span>';
+  function renderWheel(view) {
+    if (!view.next && !view.departed.length && !view.upcoming.length) {
+      wheelStripEl.innerHTML = '<div class="wheel-slot"><span class="signal-lost">NO DEPARTURES TODAY</span></div>';
       return;
     }
-    var soon = next.diffMinutes <= 2 ? " soon" : "";
-    nextHighlightEl.innerHTML =
-      '<span class="next-badge">NEXT</span>' +
-      '<span class="next-label">&#9658; ' + truncateLabel(next.headsign, 14) + " " + next.time + "</span>" +
-      '<span class="next-eta' + soon + '">(' + formatEta(next.diffMinutes) + ")</span>";
+
+    // Oldest-departed farthest out, most-recently-departed closest to NEXT.
+    var items = view.departed.slice().reverse().map(function (d) {
+      d.isDeparted = true;
+      return d;
+    });
+    var centerIndex = items.length;
+    if (view.next) {
+      view.next.isNext = true;
+      items.push(view.next);
+    }
+    view.upcoming.forEach(function (u) { items.push(u); });
+
+    var html = items.map(function (item, i) {
+      var offset = i - centerIndex;
+      var abs = Math.abs(offset);
+      var scale = Math.max(0.55, 1 - abs * 0.16);
+      var opacity = Math.max(0.35, 1 - abs * 0.15);
+      var tiltY = offset * 9;
+      var dropY = Math.min(abs * 3, 10);
+      var cls = "wheel-slot" + (item.isNext ? " is-next" : item.isDeparted ? " is-departed" : "");
+      var style =
+        "transform: scale(" + scale.toFixed(2) + ") rotateY(" + tiltY + "deg) translateY(" + dropY + "px);" +
+        "opacity: " + opacity.toFixed(2) + ";";
+      return '<div class="' + cls + '" style="' + style + '">' + wheelSlotHTML(item) + "</div>";
+    }).join("");
+
+    // Reset any prior centering offset before measuring natural (flex-start)
+    // positions, otherwise the old offset would throw off the new one.
+    wheelStripEl.style.transition = "none";
+    wheelStripEl.style.transform = "translateX(0)";
+    wheelStripEl.innerHTML = html;
+
+    requestAnimationFrame(function () {
+      centerOnNext();
+      // Re-enable the transition on the next frame so this reset itself
+      // doesn't animate, only the recenter that follows it.
+      requestAnimationFrame(function () {
+        wheelStripEl.style.transition = "";
+      });
+    });
+  }
+
+  function centerOnNext() {
+    var viewport = wheelStripEl.parentElement;
+    var focusEl = wheelStripEl.querySelector(".is-next") || wheelStripEl.firstElementChild;
+    if (!focusEl) return;
+    var targetCenter = viewport.clientWidth / 2;
+    var focusCenter = focusEl.offsetLeft + focusEl.offsetWidth / 2;
+    wheelStripEl.style.transform = "translateX(" + (targetCenter - focusCenter) + "px)";
   }
 
   function renderTicker() {
@@ -859,8 +993,7 @@
 
     maybeScheduleTrainFor(view.next);
 
-    // Build a cheap key so we only touch the DOM (and remeasure) when the
-    // visible content actually changes, not every single second.
+    // Only touch the DOM when the actual lineup changes, not every second.
     var key =
       signalLost +
       "|" + (view.next ? view.next.time + view.next.direction : "-") +
@@ -871,37 +1004,11 @@
     lastRenderedKey = key;
 
     if (signalLost) {
-      departedStripEl.innerHTML = '<div class="departed-label">LAST 2</div>';
-      nextHighlightEl.innerHTML = '<span class="signal-lost">SIGNAL LOST &mdash; awaiting feed</span>';
-      trackEl.innerHTML = "";
-      singleWidth = 0;
+      wheelStripEl.innerHTML = '<div class="wheel-slot"><span class="signal-lost">SIGNAL LOST &mdash; awaiting feed</span></div>';
       return;
     }
 
-    renderDeparted(view.departed);
-    renderNextHighlight(view.next);
-
-    var html = buildTickerHTML(view.upcoming);
-    // Duplicate content so the marquee can loop seamlessly.
-    trackEl.innerHTML = html + html;
-
-    // Measure a single copy's width (half of the duplicated content).
-    singleWidth = trackEl.scrollWidth / 2;
-    if (!singleWidth || !isFinite(singleWidth)) singleWidth = viewportEl.clientWidth;
-  }
-
-  function animateMarquee(timestamp) {
-    if (lastFrameTime === null) lastFrameTime = timestamp;
-    var dt = (timestamp - lastFrameTime) / 1000;
-    lastFrameTime = timestamp;
-
-    if (singleWidth > 0) {
-      scrollX -= SCROLL_SPEED_PX_PER_SEC * dt;
-      if (scrollX <= -singleWidth) scrollX += singleWidth;
-      trackEl.style.transform = "translateX(" + scrollX + "px)";
-    }
-
-    requestAnimationFrame(animateMarquee);
+    renderWheel(view);
   }
 
   // ---- train crossing animation (real REM-liveried train, synced to the
@@ -972,6 +1079,20 @@
     trainStageEl.appendChild(instance);
   }
 
+  // ---- highway gag toggle -------------------------------------------------
+
+  var highwayMode = false;
+
+  modeToggleEl.addEventListener("click", function () {
+    highwayMode = !highwayMode;
+    stageContentEl.hidden = highwayMode;
+    highwaySceneEl.hidden = !highwayMode;
+    modeToggleEl.setAttribute("aria-pressed", String(highwayMode));
+    modeToggleEl.innerHTML = highwayMode
+      ? "&#128646; BACK TO THE REM"
+      : "&#128663; STUCK IN TRAFFIC?";
+  });
+
   // ---- boot --------------------------------------------------------------
 
   loadSchedule();
@@ -982,8 +1103,6 @@
   setInterval(renderTicker, 1000);
   // Re-check the feed periodically in case it recovers or is republished.
   setInterval(loadSchedule, 5 * 60 * 1000);
-
-  requestAnimationFrame(animateMarquee);
 })();
 </script>
 
