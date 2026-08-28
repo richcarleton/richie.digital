@@ -322,6 +322,61 @@
     .chyron { block-size: 78px; }
     .clock-block { min-inline-size: 100px; padding: 0 0.8rem; }
   }
+
+  /* -------------------------------------------------- train crossing -- */
+
+  .train-stage {
+    position: fixed;
+    inset-block-start: 34px;
+    inset-block-end: 92px;
+    inset-inline-start: 0;
+    inset-inline-end: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 150;
+  }
+
+  .train-instance {
+    position: absolute;
+    inset-block-start: 50%;
+    inset-inline-start: 0;
+    inline-size: min(340px, 46vw);
+    margin-block-start: -46px;
+    will-change: transform;
+  }
+
+  .train-instance.dir-ltr { animation: train-cross-ltr 9s linear forwards; }
+  .train-instance.dir-rtl { animation: train-cross-rtl 9s linear forwards; }
+
+  @keyframes train-cross-ltr {
+    from { transform: translateX(-40vw); }
+    to   { transform: translateX(135vw); }
+  }
+
+  @keyframes train-cross-rtl {
+    from { transform: translateX(135vw); }
+    to   { transform: translateX(-40vw); }
+  }
+
+  .train-art { display: block; }
+  .train-art.flip { transform: scaleX(-1); }
+
+  .train-art svg {
+    display: block;
+    inline-size: 100%;
+    block-size: auto;
+    filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.65));
+  }
+
+  .train-led {
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 15px;
+    fill: #ffb400;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .train-stage { display: none; }
+  }
 </style>
 </head>
 <body>
@@ -340,6 +395,59 @@
   </div>
 
   <div class="scanlines"></div>
+
+  <div class="train-stage" id="trainStage"></div>
+
+  <template id="trainTemplate">
+    <div class="train-instance">
+      <div class="train-art">
+        <svg viewBox="0 0 460 130" xmlns="http://www.w3.org/2000/svg">
+          <!-- pantograph -->
+          <path d="M225,28 L225,8 L252,8 L252,28" fill="none" stroke="#111" stroke-width="2.5" />
+          <!-- roof line -->
+          <rect x="14" y="27" width="322" height="7" rx="3" fill="#1c1c1c" />
+          <!-- body shell -->
+          <rect x="10" y="30" width="330" height="68" rx="14" fill="#eef0ee" stroke="#c9cdc9" stroke-width="1.5" />
+          <!-- window band -->
+          <rect x="24" y="38" width="300" height="21" rx="6" fill="#1b2226" opacity="0.92" />
+          <rect x="60" y="38" width="4" height="21" fill="#eef0ee" opacity="0.5" />
+          <rect x="140" y="38" width="4" height="21" fill="#eef0ee" opacity="0.5" />
+          <rect x="220" y="38" width="4" height="21" fill="#eef0ee" opacity="0.5" />
+          <rect x="300" y="38" width="4" height="21" fill="#eef0ee" opacity="0.5" />
+          <!-- doors -->
+          <rect x="66" y="62" width="30" height="34" rx="2" fill="#d7dbd7" stroke="#9aa09a" stroke-width="1" />
+          <rect x="150" y="62" width="30" height="34" rx="2" fill="#d7dbd7" stroke="#9aa09a" stroke-width="1" />
+          <rect x="234" y="62" width="30" height="34" rx="2" fill="#d7dbd7" stroke="#9aa09a" stroke-width="1" />
+          <!-- lime stripe along body -->
+          <rect x="10" y="86" width="330" height="11" fill="#8dc63f" />
+          <!-- under-frame -->
+          <rect x="0" y="97" width="352" height="15" fill="#111" />
+          <!-- cab / nose -->
+          <path d="M340,30 C398,25 440,45 458,72 C440,99 398,119 340,115 Z" fill="#eef0ee" stroke="#c9cdc9" stroke-width="1.5" />
+          <!-- black windshield mask -->
+          <path d="M354,36 C396,31 428,48 445,72 C428,93 396,108 354,110 Z" fill="#111214" />
+          <!-- windshield glass -->
+          <path d="M362,45 C392,42 412,54 424,70 C412,84 392,94 362,96 C356,80 356,60 362,45 Z" fill="#2b3640" opacity="0.9" />
+          <!-- headsign LED -->
+          <rect x="366" y="49" width="52" height="15" rx="2" fill="#050505" stroke="#333" stroke-width="1" />
+          <text class="train-led led-text" x="392" y="60" text-anchor="middle">RIVE</text>
+          <!-- lime nose accent -->
+          <path d="M340,88 C382,90 414,80 440,66 L440,76 C414,90 382,98 340,98 Z" fill="#8dc63f" />
+          <!-- lights -->
+          <circle cx="447" cy="86" r="3.5" fill="#ffe066" />
+          <circle cx="447" cy="97" r="3" fill="#e6001a" />
+          <!-- coupler skirt -->
+          <path d="M430,104 L458,80 L458,90 L440,112 Z" fill="#111" />
+          <!-- wheels -->
+          <circle cx="66" cy="116" r="12" fill="#161616" stroke="#3a3a3a" stroke-width="2" />
+          <circle cx="150" cy="116" r="12" fill="#161616" stroke="#3a3a3a" stroke-width="2" />
+          <circle cx="234" cy="116" r="12" fill="#161616" stroke="#3a3a3a" stroke-width="2" />
+          <circle cx="310" cy="116" r="12" fill="#161616" stroke="#3a3a3a" stroke-width="2" />
+          <circle cx="395" cy="116" r="12" fill="#161616" stroke="#3a3a3a" stroke-width="2" />
+        </svg>
+      </div>
+    </div>
+  </template>
 
   <div class="chyron">
     <div class="ident">
@@ -371,6 +479,8 @@
   var viewportEl = trackEl.parentElement;
   var clockEl = document.getElementById("clock");
   var dayTypeEl = document.getElementById("dayType");
+  var trainStageEl = document.getElementById("trainStage");
+  var trainTemplate = document.getElementById("trainTemplate");
 
   var schedule = null;
   var signalLost = false;
@@ -412,6 +522,7 @@
         schedule = data;
         signalLost = false;
         stationNameEl.textContent = (data.station || "UNKNOWN STATION").toUpperCase();
+        spawnTrainCrossing();
       })
       .catch(function () {
         schedule = null;
@@ -520,11 +631,52 @@
     requestAnimationFrame(animateMarquee);
   }
 
+  // ---- train crossing animation (real REM-liveried train, real data) ----
+
+  var trainCycleIndex = 0;
+
+  function spawnTrainCrossing() {
+    if (!schedule || !schedule.byDayType || !trainTemplate.content) return;
+
+    var dayType = currentDayType(new Date());
+    var list = schedule.byDayType[dayType];
+    if (!list || !list.length) return;
+
+    var entry = list[trainCycleIndex % list.length];
+    trainCycleIndex++;
+
+    var frag = trainTemplate.content.cloneNode(true);
+    var instance = frag.querySelector(".train-instance");
+    var art = frag.querySelector(".train-art");
+    var led = frag.querySelector(".led-text");
+
+    led.textContent = (entry.headsign || "").toUpperCase().slice(0, 10);
+
+    var goingRight = entry.direction !== "1";
+    instance.classList.add(goingRight ? "dir-ltr" : "dir-rtl");
+    if (!goingRight) art.classList.add("flip");
+
+    instance.addEventListener("animationend", function () {
+      instance.remove();
+    });
+
+    trainStageEl.appendChild(instance);
+  }
+
+  function scheduleNextCrossing() {
+    var delay = 8000 + Math.random() * 5000; // 8-13s apart
+    setTimeout(function () {
+      spawnTrainCrossing();
+      scheduleNextCrossing();
+    }, delay);
+  }
+
   // ---- boot --------------------------------------------------------------
 
   loadSchedule();
   updateClock();
   renderTicker();
+  scheduleNextCrossing();
 
   setInterval(updateClock, 1000);
   setInterval(renderTicker, 1000);
