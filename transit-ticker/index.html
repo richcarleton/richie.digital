@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>GRAND-MOULIN TRANSIT DESK</title>
+<title>REM TRANSIT DESK</title>
 <style>
   :root {
     --red: #e6001a;
@@ -209,12 +209,49 @@
     50% { opacity: 0.35; transform: scale(0.8); }
   }
 
-  .station-name {
+  .station-select-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .station-select {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    border: none;
     color: var(--white);
+    font: inherit;
+    font-weight: 700;
     font-size: 1.15rem;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     white-space: nowrap;
+    cursor: pointer;
+    padding-inline-end: 1.3em;
+  }
+
+  .station-select:focus-visible {
+    outline: 2px solid var(--white);
+    outline-offset: 2px;
+  }
+
+  .station-select option {
+    color: #000;
+    background: #fff;
+    text-transform: none;
+    font-weight: 600;
+  }
+
+  .select-arrow {
+    position: absolute;
+    inset-inline-end: 0;
+    inset-block-start: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    border-inline-start: 5px solid transparent;
+    border-inline-end: 5px solid transparent;
+    border-block-start: 6px solid var(--white);
   }
 
   /* center: scroller */
@@ -316,21 +353,23 @@
   }
 
   @media (max-width: 760px) {
-    .station-name { font-size: 0.85rem; }
+    .station-select { font-size: 0.85rem; }
     .ticker-track { font-size: 1.05rem; }
     .clock-time { font-size: 1.2rem; }
     .chyron { block-size: 78px; }
     .clock-block { min-inline-size: 100px; padding: 0 0.8rem; }
+    .train-stage { inset-block-end: 78px; }
   }
 
   /* -------------------------------------------------- train crossing -- */
+  /* Runs right along the top edge of the chyron footer, like a track. */
 
   .train-stage {
     position: fixed;
-    inset-block-start: 34px;
     inset-block-end: 92px;
     inset-inline-start: 0;
     inset-inline-end: 0;
+    block-size: 112px;
     overflow: hidden;
     pointer-events: none;
     z-index: 150;
@@ -338,10 +377,9 @@
 
   .train-instance {
     position: absolute;
-    inset-block-start: 50%;
+    inset-block-end: 0;
     inset-inline-start: 0;
-    inline-size: min(340px, 46vw);
-    margin-block-start: -46px;
+    inline-size: min(410px, 55vw);
     will-change: transform;
   }
 
@@ -359,7 +397,6 @@
   }
 
   .train-art { display: block; }
-  .train-art.flip { transform: scaleX(-1); }
 
   .train-art svg {
     display: block;
@@ -370,7 +407,7 @@
 
   .train-led {
     font-family: "Consolas", "Courier New", monospace;
-    font-size: 15px;
+    font-size: 13px;
     fill: #ffb400;
   }
 
@@ -383,8 +420,8 @@
 
   <div class="stage">
     <div class="stage-content">
-      <h1>GRAND-MOULIN TRANSIT DESK</h1>
-      <p>Live departures feed &mdash; see ticker below</p>
+      <h1>REM TRANSIT DESK</h1>
+      <p>Live departures feed &mdash; pick a station below</p>
     </div>
   </div>
 
@@ -400,50 +437,72 @@
 
   <template id="trainTemplate">
     <div class="train-instance">
+      <!-- Symmetric 4-car REM-style unit: an upright, curved cab face at
+           BOTH ends (real REM trains are bidirectional — no "front" or
+           "back"), so no mirroring is needed for direction of travel. -->
       <div class="train-art">
-        <svg viewBox="0 0 460 130" xmlns="http://www.w3.org/2000/svg">
-          <!-- pantograph -->
-          <path d="M225,28 L225,8 L252,8 L252,28" fill="none" stroke="#111" stroke-width="2.5" />
-          <!-- roof line -->
-          <rect x="14" y="27" width="322" height="7" rx="3" fill="#1c1c1c" />
-          <!-- body shell -->
-          <rect x="10" y="30" width="330" height="68" rx="14" fill="#eef0ee" stroke="#c9cdc9" stroke-width="1.5" />
-          <!-- window band -->
-          <rect x="24" y="38" width="300" height="21" rx="6" fill="#1b2226" opacity="0.92" />
-          <rect x="60" y="38" width="4" height="21" fill="#eef0ee" opacity="0.5" />
-          <rect x="140" y="38" width="4" height="21" fill="#eef0ee" opacity="0.5" />
-          <rect x="220" y="38" width="4" height="21" fill="#eef0ee" opacity="0.5" />
-          <rect x="300" y="38" width="4" height="21" fill="#eef0ee" opacity="0.5" />
-          <!-- doors -->
-          <rect x="66" y="62" width="30" height="34" rx="2" fill="#d7dbd7" stroke="#9aa09a" stroke-width="1" />
-          <rect x="150" y="62" width="30" height="34" rx="2" fill="#d7dbd7" stroke="#9aa09a" stroke-width="1" />
-          <rect x="234" y="62" width="30" height="34" rx="2" fill="#d7dbd7" stroke="#9aa09a" stroke-width="1" />
-          <!-- lime stripe along body -->
-          <rect x="10" y="86" width="330" height="11" fill="#8dc63f" />
-          <!-- under-frame -->
-          <rect x="0" y="97" width="352" height="15" fill="#111" />
-          <!-- cab / nose -->
-          <path d="M340,30 C398,25 440,45 458,72 C440,99 398,119 340,115 Z" fill="#eef0ee" stroke="#c9cdc9" stroke-width="1.5" />
-          <!-- black windshield mask -->
-          <path d="M354,36 C396,31 428,48 445,72 C428,93 396,108 354,110 Z" fill="#111214" />
-          <!-- windshield glass -->
-          <path d="M362,45 C392,42 412,54 424,70 C412,84 392,94 362,96 C356,80 356,60 362,45 Z" fill="#2b3640" opacity="0.9" />
-          <!-- headsign LED -->
-          <rect x="366" y="49" width="52" height="15" rx="2" fill="#050505" stroke="#333" stroke-width="1" />
-          <text class="train-led led-text" x="392" y="60" text-anchor="middle">RIVE</text>
-          <!-- lime nose accent -->
-          <path d="M340,88 C382,90 414,80 440,66 L440,76 C414,90 382,98 340,98 Z" fill="#8dc63f" />
-          <!-- lights -->
-          <circle cx="447" cy="86" r="3.5" fill="#ffe066" />
-          <circle cx="447" cy="97" r="3" fill="#e6001a" />
-          <!-- coupler skirt -->
-          <path d="M430,104 L458,80 L458,90 L440,112 Z" fill="#111" />
+        <svg viewBox="0 0 640 140" xmlns="http://www.w3.org/2000/svg">
+          <!-- under-frame, full length -->
+          <rect x="0" y="110" width="640" height="18" fill="#111" />
           <!-- wheels -->
-          <circle cx="66" cy="116" r="12" fill="#161616" stroke="#3a3a3a" stroke-width="2" />
-          <circle cx="150" cy="116" r="12" fill="#161616" stroke="#3a3a3a" stroke-width="2" />
-          <circle cx="234" cy="116" r="12" fill="#161616" stroke="#3a3a3a" stroke-width="2" />
-          <circle cx="310" cy="116" r="12" fill="#161616" stroke="#3a3a3a" stroke-width="2" />
-          <circle cx="395" cy="116" r="12" fill="#161616" stroke="#3a3a3a" stroke-width="2" />
+          <circle cx="48" cy="124" r="13" fill="#161616" stroke="#3a3a3a" stroke-width="2" />
+          <circle cx="140" cy="124" r="13" fill="#161616" stroke="#3a3a3a" stroke-width="2" />
+          <circle cx="260" cy="124" r="13" fill="#161616" stroke="#3a3a3a" stroke-width="2" />
+          <circle cx="380" cy="124" r="13" fill="#161616" stroke="#3a3a3a" stroke-width="2" />
+          <circle cx="500" cy="124" r="13" fill="#161616" stroke="#3a3a3a" stroke-width="2" />
+          <circle cx="592" cy="124" r="13" fill="#161616" stroke="#3a3a3a" stroke-width="2" />
+
+          <!-- pantograph -->
+          <path d="M300,19 L300,4 L340,4 L340,19" fill="none" stroke="#111" stroke-width="2.5" />
+
+          <!-- roof + body shell (4-car section, between the two cabs) -->
+          <rect x="76" y="19" width="488" height="7" rx="3" fill="#1c1c1c" />
+          <rect x="76" y="22" width="488" height="100" rx="6" fill="#eef0ee" stroke="#c9cdc9" stroke-width="1.5" />
+
+          <!-- window band + mullions -->
+          <rect x="92" y="32" width="456" height="24" rx="5" fill="#1b2226" opacity="0.92" />
+          <rect x="130" y="32" width="3" height="24" fill="#eef0ee" opacity="0.4" />
+          <rect x="175" y="32" width="3" height="24" fill="#eef0ee" opacity="0.4" />
+          <rect x="220" y="32" width="3" height="24" fill="#eef0ee" opacity="0.4" />
+          <rect x="265" y="32" width="3" height="24" fill="#eef0ee" opacity="0.4" />
+          <rect x="355" y="32" width="3" height="24" fill="#eef0ee" opacity="0.4" />
+          <rect x="400" y="32" width="3" height="24" fill="#eef0ee" opacity="0.4" />
+          <rect x="445" y="32" width="3" height="24" fill="#eef0ee" opacity="0.4" />
+          <rect x="490" y="32" width="3" height="24" fill="#eef0ee" opacity="0.4" />
+
+          <!-- doors, one per car -->
+          <rect x="126" y="58" width="28" height="36" rx="2" fill="#d7dbd7" stroke="#9aa09a" stroke-width="1" />
+          <rect x="246" y="58" width="28" height="36" rx="2" fill="#d7dbd7" stroke="#9aa09a" stroke-width="1" />
+          <rect x="366" y="58" width="28" height="36" rx="2" fill="#d7dbd7" stroke="#9aa09a" stroke-width="1" />
+          <rect x="486" y="58" width="28" height="36" rx="2" fill="#d7dbd7" stroke="#9aa09a" stroke-width="1" />
+
+          <!-- lime stripe -->
+          <rect x="76" y="86" width="488" height="12" fill="#8dc63f" />
+
+          <!-- articulation joints between the 4 cars -->
+          <rect x="197" y="22" width="6" height="100" fill="#050505" />
+          <rect x="317" y="22" width="6" height="100" fill="#050505" />
+          <rect x="437" y="22" width="6" height="100" fill="#050505" />
+
+          <!-- ===== left cab: upright, gently curved face ===== -->
+          <path d="M80,20 L38,20 Q14,20 14,46 L14,94 Q14,120 38,120 L80,120 Z" fill="#eef0ee" stroke="#c9cdc9" stroke-width="1.5" />
+          <path d="M74,28 L42,28 Q24,28 24,48 L24,92 Q24,112 42,112 L74,112 Z" fill="#111214" />
+          <path d="M68,36 L46,36 Q32,36 32,50 L32,90 Q32,104 46,104 L68,104 Z" fill="#2b3640" opacity="0.9" />
+          <rect x="30" y="62" width="34" height="16" rx="2" fill="#050505" stroke="#333" stroke-width="1" />
+          <text class="train-led led-text-left" x="47" y="74" text-anchor="middle">REM</text>
+          <circle cx="48" cy="42" r="3.5" fill="#ffe066" />
+          <circle cx="48" cy="98" r="3" fill="#e6001a" />
+          <rect x="4" y="64" width="10" height="12" rx="2" fill="#111" />
+
+          <!-- ===== right cab: mirror of left ===== -->
+          <path d="M560,20 L602,20 Q626,20 626,46 L626,94 Q626,120 602,120 L560,120 Z" fill="#eef0ee" stroke="#c9cdc9" stroke-width="1.5" />
+          <path d="M566,28 L598,28 Q616,28 616,48 L616,92 Q616,112 598,112 L566,112 Z" fill="#111214" />
+          <path d="M572,36 L594,36 Q608,36 608,50 L608,90 Q608,104 594,104 L572,104 Z" fill="#2b3640" opacity="0.9" />
+          <rect x="576" y="62" width="34" height="16" rx="2" fill="#050505" stroke="#333" stroke-width="1" />
+          <text class="train-led led-text-right" x="593" y="74" text-anchor="middle">REM</text>
+          <circle cx="592" cy="42" r="3.5" fill="#ffe066" />
+          <circle cx="592" cy="98" r="3" fill="#e6001a" />
+          <rect x="626" y="64" width="10" height="12" rx="2" fill="#111" />
         </svg>
       </div>
     </div>
@@ -452,7 +511,12 @@
   <div class="chyron">
     <div class="ident">
       <div class="live-bug"><span class="live-dot"></span>LIVE</div>
-      <div class="station-name" id="stationName">&mdash;</div>
+      <div class="station-select-wrap">
+        <select class="station-select" id="stationSelect" aria-label="Station">
+          <option>LOADING&hellip;</option>
+        </select>
+        <span class="select-arrow"></span>
+      </div>
     </div>
     <div class="ticker-viewport">
       <div class="ticker-track" id="tickerTrack">
@@ -474,7 +538,7 @@
   var UPCOMING_COUNT = 6;
   var SCROLL_SPEED_PX_PER_SEC = 90;
 
-  var stationNameEl = document.getElementById("stationName");
+  var stationSelectEl = document.getElementById("stationSelect");
   var trackEl = document.getElementById("tickerTrack");
   var viewportEl = trackEl.parentElement;
   var clockEl = document.getElementById("clock");
@@ -484,6 +548,34 @@
 
   var schedule = null;
   var signalLost = false;
+  var selectedStation = null;
+
+  // ---- station picker ----------------------------------------------------
+
+  function populateStationSelect(data) {
+    var previousValue = selectedStation;
+    stationSelectEl.innerHTML = "";
+    (data.stations || []).forEach(function (name) {
+      var opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name.toUpperCase();
+      stationSelectEl.appendChild(opt);
+    });
+    stationSelectEl.disabled = false;
+
+    var stations = data.stations || [];
+    selectedStation =
+      previousValue && stations.indexOf(previousValue) !== -1
+        ? previousValue
+        : data.defaultStation || stations[0] || null;
+    if (selectedStation) stationSelectEl.value = selectedStation;
+  }
+
+  stationSelectEl.addEventListener("change", function () {
+    selectedStation = stationSelectEl.value;
+    lastRenderedKey = ""; // force the ticker to rebuild for the new station
+    trainCycleIndex = 0;
+  });
 
   // ---- day-type resolution ------------------------------------------
 
@@ -521,25 +613,33 @@
       .then(function (data) {
         schedule = data;
         signalLost = false;
-        stationNameEl.textContent = (data.station || "UNKNOWN STATION").toUpperCase();
+        populateStationSelect(data);
+        lastRenderedKey = "";
         spawnTrainCrossing();
       })
       .catch(function () {
         schedule = null;
         signalLost = true;
-        stationNameEl.textContent = "NO SIGNAL";
+        selectedStation = null;
+        stationSelectEl.innerHTML = "";
+        var opt = document.createElement("option");
+        opt.textContent = "NO SIGNAL";
+        stationSelectEl.appendChild(opt);
+        stationSelectEl.disabled = true;
       });
   }
 
   // ---- upcoming passings -------------------------------------------------
 
   function getUpcomingPassings(now) {
-    if (!schedule || !schedule.byDayType) return [];
+    if (!schedule || !schedule.data || !selectedStation) return [];
+    var stationData = schedule.data[selectedStation];
+    if (!stationData) return [];
 
     var dayType = currentDayType(now);
     dayTypeEl.textContent = DAY_TYPE_LABEL[dayType] || dayType;
 
-    var list = schedule.byDayType[dayType] || [];
+    var list = stationData.byDayType[dayType] || [];
     var rawNowMinutes = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
 
     var withEta = list.map(function (entry) {
@@ -636,10 +736,12 @@
   var trainCycleIndex = 0;
 
   function spawnTrainCrossing() {
-    if (!schedule || !schedule.byDayType || !trainTemplate.content) return;
+    if (!schedule || !schedule.data || !selectedStation || !trainTemplate.content) return;
+    var stationData = schedule.data[selectedStation];
+    if (!stationData) return;
 
     var dayType = currentDayType(new Date());
-    var list = schedule.byDayType[dayType];
+    var list = stationData.byDayType[dayType];
     if (!list || !list.length) return;
 
     var entry = list[trainCycleIndex % list.length];
@@ -647,14 +749,22 @@
 
     var frag = trainTemplate.content.cloneNode(true);
     var instance = frag.querySelector(".train-instance");
-    var art = frag.querySelector(".train-art");
-    var led = frag.querySelector(".led-text");
+    var ledLeft = frag.querySelector(".led-text-left");
+    var ledRight = frag.querySelector(".led-text-right");
 
-    led.textContent = (entry.headsign || "").toUpperCase().slice(0, 10);
+    var headsignText = (entry.headsign || "").toUpperCase().slice(0, 10);
+    ledLeft.textContent = headsignText;
+    ledRight.textContent = headsignText;
 
-    var goingRight = entry.direction !== "1";
-    instance.classList.add(goingRight ? "dir-ltr" : "dir-rtl");
-    if (!goingRight) art.classList.add("flip");
+    // `lineDirection` (from the real REM station order) tells us which way
+    // the train is actually headed; direction_id is only a fallback for
+    // trips whose headsign couldn't be resolved against the line.
+    var travelRight;
+    if (entry.lineDirection === "downstream") travelRight = true; // toward Brossard
+    else if (entry.lineDirection === "upstream") travelRight = false; // toward Deux-Montagnes
+    else travelRight = entry.direction !== "1";
+
+    instance.classList.add(travelRight ? "dir-ltr" : "dir-rtl");
 
     instance.addEventListener("animationend", function () {
       instance.remove();

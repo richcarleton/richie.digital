@@ -13,19 +13,34 @@
  *
  * Output: ./schedule.json shaped as
  *   {
- *     station: "Grand-Moulin",
+ *     stations: ["Deux-Montagnes", "Grand-Moulin", ...],   // resolved, in line order
+ *     defaultStation: "Deux-Montagnes",
  *     generatedAt: "2026-08-28T20:00:00.000Z",
- *     byDayType: {
- *       weekday:  [{ time: "HH:MM", minutes: 1234, direction: "0"|"1", headsign: "..." }, ...],
- *       saturday: [...],
- *       sunday:   [...]
+ *     data: {
+ *       "Deux-Montagnes": { byDayType: { weekday: [...], saturday: [...], sunday: [...] } },
+ *       "Grand-Moulin":   { byDayType: { ... } },
+ *       ...
  *     }
  *   }
+ *
+ * Each passing is { time: "HH:MM", minutes: 1234, direction: "0"|"1",
+ * headsign: "...", lineDirection: "upstream"|"downstream"|null }.
  *
  * `time` is wrapped to a normal 24h clock for display. `minutes` preserves
  * the raw GTFS minute count (which can exceed 1440 for post-midnight
  * service, e.g. "25:10" -> 1510) so the frontend can correctly figure out
  * whether a passing belongs to "later tonight" vs. "earlier today".
+ *
+ * `lineDirection` is derived from LINE_ORDER below, not from the raw GTFS
+ * direction_id: a trip whose headsign resolves to a station earlier on the
+ * line than the station being built is "upstream" (headed toward the
+ * Deux-Montagnes end); a headsign resolving later on the line is
+ * "downstream" (headed toward the Brossard end). This is what lets the
+ * frontend point the animated train the correct physical way regardless of
+ * which arbitrary value the feed happens to use for direction_id — GTFS
+ * direction_id is only guaranteed consistent *within* one route/pattern,
+ * not tied to real-world compass or line-diagram direction, and is used
+ * only as a fallback when a headsign can't be resolved against the line.
  */
 
 "use strict";
@@ -33,9 +48,44 @@
 const fs = require("fs");
 const path = require("path");
 
-// ---- configuration ---------------------------------------------------
+// ---- configuration -----------------------------------------------------
 
-const STATION = "Grand-Moulin";
+// The REM (Réseau express métropolitain) A1/A2 line, Deux-Montagnes end
+// first. Used both to order/label the station picker and to work out which
+// physical way a trip is headed (see `lineDirection` above).
+const LINE_ORDER = [
+  "Deux-Montagnes",
+  "Grand-Moulin",
+  "Sainte-Dorothée",
+  "Île-Bigras",
+  "Bois-Franc",
+  "Sunnybrooke",
+  "Pierrefonds-Roxboro",
+  "Des Sources",
+  "Montpellier",
+  "Du Ruisseau",
+  "Côte-de-Liesse",
+  "Ville-de-Mont-Royal",
+  "Canora",
+  "Édouard-Montpetit",
+  "McGill",
+  "Gare Centrale",
+  "Griffintown – Bernard-Landry (Projected)",
+  "Île-des-Sœurs",
+  "Panama",
+  "Du Quartier",
+  "Brossard",
+];
+
+const DEFAULT_STATION = "Deux-Montagnes";
+
+// A few headsigns feeds commonly use that aren't an exact station name.
+const HEADSIGN_ALIASES = {
+  "montreal": "Gare Centrale",
+  "montréal": "Gare Centrale",
+  "downtown": "Gare Centrale",
+};
+
 const GTFS_DIR = process.argv[2] || path.join(__dirname, "gtfs");
 const OUT_FILE = path.join(__dirname, "schedule.json");
 
@@ -134,6 +184,15 @@ function normalize(s) {
     .trim();
 }
 
+const LINE_ORDER_NORM = LINE_ORDER.map(normalize);
+
+function lineIndexForHeadsign(headsign) {
+  const norm = normalize(headsign);
+  const aliased = HEADSIGN_ALIASES[norm] ? normalize(HEADSIGN_ALIASES[norm]) : norm;
+  const idx = LINE_ORDER_NORM.indexOf(aliased);
+  return idx === -1 ? null : idx;
+}
+
 // ---- GTFS time -> minutes-since-midnight (can exceed 1440) -----------
 
 function timeToMinutes(hhmmss) {
@@ -162,6 +221,26 @@ function dayTypeForYYYYMMDD(yyyymmdd) {
   return "weekday";
 }
 
+// ---- resolve every stop_id belonging to a named station ---------------
+
+function resolveStopIds(stationName, stops, stopById) {
+  const targetNorm = normalize(stationName);
+  const matched = new Set();
+  for (const s of stops) {
+    if (normalize(s.stop_name) === targetNorm) {
+      matched.add(s.stop_id);
+      continue;
+    }
+    if (s.parent_station) {
+      const parent = stopById.get(s.parent_station);
+      if (parent && normalize(parent.stop_name) === targetNorm) {
+        matched.add(s.stop_id);
+      }
+    }
+  }
+  return matched;
+}
+
 // ---- main --------------------------------------------------------------
 
 function main() {
@@ -179,33 +258,27 @@ function main() {
     process.exit(1);
   }
 
-  // --- resolve stop_id(s) for STATION -----------------------------------
-
   const stopById = new Map(stops.map((s) => [s.stop_id, s]));
-  const targetNorm = normalize(STATION);
 
-  const matchedStopIds = new Set();
-  for (const s of stops) {
-    if (normalize(s.stop_name) === targetNorm) {
-      matchedStopIds.add(s.stop_id);
+  // --- resolve stop_id(s) for every station on the line ------------------
+
+  const stationStopIds = new Map(); // stationName -> Set<stop_id>
+  const resolvedStations = [];
+
+  for (const stationName of LINE_ORDER) {
+    const ids = resolveStopIds(stationName, stops, stopById);
+    if (ids.size === 0) {
+      console.log(`Note: no stops found for "${stationName}" in this feed — skipping.`);
       continue;
     }
-    if (s.parent_station) {
-      const parent = stopById.get(s.parent_station);
-      if (parent && normalize(parent.stop_name) === targetNorm) {
-        matchedStopIds.add(s.stop_id);
-      }
-    }
+    stationStopIds.set(stationName, ids);
+    resolvedStations.push(stationName);
   }
 
-  if (matchedStopIds.size === 0) {
-    console.error(`ERROR: no stops found matching station name "${STATION}"`);
-    console.error("Available stop names include (sample):");
-    stops.slice(0, 20).forEach((s) => console.error(`  - ${s.stop_name}`));
+  if (resolvedStations.length === 0) {
+    console.error("ERROR: none of the configured LINE_ORDER stations were found in this feed.");
     process.exit(1);
   }
-
-  console.log(`Resolved ${matchedStopIds.size} stop_id(s) for "${STATION}": ${[...matchedStopIds].join(", ")}`);
 
   // --- build service_id -> Set<dayType> ---------------------------------
 
@@ -262,13 +335,24 @@ function main() {
     });
   }
 
-  // --- walk stop_times for the matched stop_id(s) -------------------------
+  // --- walk stop_times once, bucketed per matched stop_id -----------------
 
-  const byDayType = { weekday: [], saturday: [], sunday: [] };
+  const stopIdToStation = new Map();
+  for (const [stationName, ids] of stationStopIds) {
+    for (const id of ids) stopIdToStation.set(id, stationName);
+  }
+
+  const byStation = new Map(); // stationName -> { weekday: [], saturday: [], sunday: [] }
+  for (const stationName of resolvedStations) {
+    byStation.set(stationName, { weekday: [], saturday: [], sunday: [] });
+  }
+
   let matchedStopTimeRows = 0;
 
   for (const st of stopTimes) {
-    if (!matchedStopIds.has(st.stop_id)) continue;
+    const stationName = stopIdToStation.get(st.stop_id);
+    if (!stationName) continue;
+
     const trip = tripInfo.get(st.trip_id);
     if (!trip) continue;
 
@@ -282,35 +366,56 @@ function main() {
 
     matchedStopTimeRows++;
 
+    const stationLineIndex = LINE_ORDER_NORM.indexOf(normalize(stationName));
+    const headsignLineIndex = lineIndexForHeadsign(trip.headsign);
+    let lineDirection = null;
+    if (headsignLineIndex !== null && stationLineIndex !== -1) {
+      if (headsignLineIndex < stationLineIndex) lineDirection = "upstream"; // toward Deux-Montagnes
+      else if (headsignLineIndex > stationLineIndex) lineDirection = "downstream"; // toward Brossard
+    }
+
     const entry = {
       time: formatWrappedHHMM(minutes),
       minutes,
       direction: trip.direction,
       headsign: trip.headsign,
+      lineDirection,
     };
 
+    const buckets = byStation.get(stationName);
     for (const dayType of dayTypes) {
-      byDayType[dayType].push(entry);
+      buckets[dayType].push(entry);
     }
   }
 
-  for (const dayType of Object.keys(byDayType)) {
-    byDayType[dayType].sort((a, b) => a.minutes - b.minutes);
+  const data = {};
+  for (const stationName of resolvedStations) {
+    const buckets = byStation.get(stationName);
+    for (const dayType of Object.keys(buckets)) {
+      buckets[dayType].sort((a, b) => a.minutes - b.minutes);
+    }
+    data[stationName] = { byDayType: buckets };
   }
 
+  const defaultStation = resolvedStations.includes(DEFAULT_STATION)
+    ? DEFAULT_STATION
+    : resolvedStations[0];
+
   const schedule = {
-    station: STATION,
+    stations: resolvedStations,
+    defaultStation,
     generatedAt: new Date().toISOString(),
-    byDayType,
+    data,
   };
 
   fs.writeFileSync(OUT_FILE, JSON.stringify(schedule, null, 2));
 
   console.log(`\nWrote ${OUT_FILE}`);
-  console.log(`Summary for "${STATION}" (${matchedStopTimeRows} matched stop_time rows):`);
-  console.log(`  weekday:  ${byDayType.weekday.length} passings`);
-  console.log(`  saturday: ${byDayType.saturday.length} passings`);
-  console.log(`  sunday:   ${byDayType.sunday.length} passings`);
+  console.log(`Resolved ${resolvedStations.length}/${LINE_ORDER.length} line stations (${matchedStopTimeRows} matched stop_time rows total). Default: "${defaultStation}".`);
+  for (const stationName of resolvedStations) {
+    const b = data[stationName].byDayType;
+    console.log(`  ${stationName}: weekday ${b.weekday.length}, saturday ${b.saturday.length}, sunday ${b.sunday.length}`);
+  }
 }
 
 main();

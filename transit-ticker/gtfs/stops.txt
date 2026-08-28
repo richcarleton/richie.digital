@@ -1,6 +1,24 @@
 stop_id,stop_name,parent_station,location_type
+ST01,Deux-Montagnes,,
 STN_GM,Grand-Moulin,,1
 GM_P1,"Grand-Moulin, Platform 1",STN_GM,0
 GM_P2,"Grand-Moulin, Platform 2",STN_GM,0
-STN_OTHER,Deux-Montagnes,,1
-OTHER_P1,Deux-Montagnes Platform,STN_OTHER,0
+ST03,Sainte-Dorothée,,
+ST04,Île-Bigras,,
+ST05,Bois-Franc,,
+ST06,Sunnybrooke,,
+ST07,Pierrefonds-Roxboro,,
+ST08,Des Sources,,
+ST09,Montpellier,,
+ST10,Du Ruisseau,,
+ST11,Côte-de-Liesse,,
+ST12,Ville-de-Mont-Royal,,
+ST13,Canora,,
+ST14,Édouard-Montpetit,,
+ST15,McGill,,
+ST16,Gare Centrale,,
+ST17,Griffintown – Bernard-Landry (Projected),,
+ST18,Île-des-Sœurs,,
+ST19,Panama,,
+ST20,Du Quartier,,
+ST21,Brossard,,
