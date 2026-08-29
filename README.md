@@ -15,7 +15,7 @@ CNAME               — custom
 
 ricardo/            — platform game (in progress)
 webGL/              — dither planet viewer
-suit/               — motorcycle suit configurator
+motobang/           — motorcycle suit configurator
 spline/             — spline-domain toolpath flow field toy
 ```
 

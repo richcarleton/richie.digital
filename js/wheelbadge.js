@@ -1,4 +1,4 @@
-// ── wheelbadge.js — spinning EUC wheel, bottom-left, links to suit/ ───────────
+// ── wheelbadge.js — spinning EUC wheel, bottom-left, links to motobang/ ───────
 // Tunables: WHEEL_ENABLED (toggle), WHEEL_SPIN (idle deg/s; hover multiplies)
 (function () {
 
@@ -7,8 +7,8 @@
 
   const link = document.createElement('a');
   link.id = 'wheel-badge';
-  link.href = 'suit/';
-  link.title = 'suit — motorcycle circuit';
+  link.href = 'motobang/';
+  link.title = 'motobang — motorcycle circuit';
   link.style.cssText = [
     'position:fixed', 'left:18px', 'bottom:18px', 'width:44px', 'height:44px',
     'z-index:12', 'display:block', 'opacity:0', 'transition:opacity 1s ease, filter .25s ease',

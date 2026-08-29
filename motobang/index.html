@@ -2,17 +2,17 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>suit — richie.digital</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>motobang — richie.digital</title>
 <style>
   :root{
     --mag:#ff2d95; --cyn:#27e0d8; --haz:#f5c518;
     --bg:#150b26; --panel:rgba(18,12,34,.88); --ink:#e8e6f2; --dim:#8b84a8;
   }
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{height:100%;overflow:hidden;background:var(--bg);
+  html,body{block-size:100%;overflow:hidden;background:var(--bg);
     font-family:"Courier New",ui-monospace,monospace;color:var(--ink);
-    touch-action:none;user-select:none;-webkit-user-select:none}
+    touch-action:none;-webkit-user-select:none;user-select:none}
   canvas{display:block}
   #fx{position:fixed;inset:0;pointer-events:none;z-index:3}
 
@@ -21,35 +21,35 @@
   .top{display:flex;justify-content:space-between;padding:10px 14px}
   .brand{font-size:10px;letter-spacing:.16em;line-height:1.6}
   .brand b{color:var(--mag);font-size:12px;text-shadow:0 0 8px var(--mag)}
-  .laps{text-align:right;font-size:11px;line-height:1.6;letter-spacing:.08em}
+  .laps{text-align:end;font-size:11px;line-height:1.6;letter-spacing:.08em}
   .laps .t{font-size:20px;color:#fff}
   .laps .b{color:var(--cyn)}
-  #speedo{position:fixed;right:16px;bottom:16px;text-align:right}
+  #speedo{position:fixed;inset-inline-end:16px;inset-block-end:16px;text-align:end}
   #speedo .n{font-size:46px;font-weight:bold;color:#fff;text-shadow:0 0 12px var(--cyn);line-height:1}
   #speedo .u{font-size:10px;color:var(--dim);letter-spacing:.2em}
-  #knees{position:fixed;left:16px;bottom:16px;width:120px;font-size:9px;letter-spacing:.12em;color:var(--dim)}
-  .kbar{height:8px;background:#0c0818;border:1px solid #3a2c5e;margin:3px 0 7px;overflow:hidden}
-  .kbar i{display:block;height:100%;background:var(--cyn);transform-origin:left;transition:background .15s}
+  #knees{position:fixed;inset-inline-start:16px;inset-block-end:16px;inline-size:120px;font-size:9px;letter-spacing:.12em;color:var(--dim)}
+  .kbar{block-size:8px;background:#0c0818;border:1px solid #3a2c5e;margin:3px 0 7px;overflow:hidden}
+  .kbar i{display:block;block-size:100%;background:var(--cyn);transform-origin:left;transition:background .15s}
   .kbar i.hot{background:var(--mag)}
-  #toast{position:fixed;left:50%;top:30%;transform:translateX(-50%);font-size:22px;
+  #toast{position:fixed;inset-inline-start:50%;inset-block-start:30%;transform:translateX(-50%);font-size:22px;
     letter-spacing:.3em;color:var(--haz);text-shadow:0 0 14px var(--haz);opacity:0;transition:opacity .3s;z-index:4}
-  #padTag{position:fixed;left:50%;bottom:8px;transform:translateX(-50%);font-size:9px;
+  #padTag{position:fixed;inset-inline-start:50%;inset-block-end:8px;transform:translateX(-50%);font-size:9px;
     letter-spacing:.15em;color:var(--dim);z-index:4}
 
   /* ---------- options corner ---------- */
-  #gear{position:fixed;top:10px;right:50%;transform:translateX(50%);z-index:6;pointer-events:auto;
+  #gear{position:fixed;inset-block-start:10px;inset-inline-end:50%;transform:translateX(50%);z-index:6;pointer-events:auto;
     background:var(--panel);border:1px solid #3a2c5e;color:var(--cyn);
     font-family:inherit;font-size:11px;letter-spacing:.14em;padding:6px 12px;cursor:pointer}
-  #opts{position:fixed;top:42px;right:50%;transform:translateX(50%);z-index:6;width:230px;
+  #opts{position:fixed;inset-block-start:42px;inset-inline-end:50%;transform:translateX(50%);z-index:6;inline-size:230px;
     background:var(--panel);border:1px solid #3a2c5e;padding:10px 12px;display:none;pointer-events:auto;
-    backdrop-filter:blur(4px);max-height:70vh;overflow-y:auto}
+    -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);max-block-size:70vh;overflow-y:auto}
   #opts.open{display:block}
-  #opts h3{font-size:10px;letter-spacing:.2em;color:var(--mag);margin-bottom:8px}
-  .opt{margin-bottom:8px}
+  #opts h3{font-size:10px;letter-spacing:.2em;color:var(--mag);margin-block-end:8px}
+  .opt{margin-block-end:8px}
   .opt label{display:flex;justify-content:space-between;font-size:9px;letter-spacing:.1em;color:var(--dim)}
   .opt label span{color:var(--ink)}
-  .opt input[type=range]{width:100%;accent-color:#ff2d95;height:18px}
-  #optReset{width:100%;margin-top:4px;padding:6px;background:transparent;border:1px solid #3a2c5e;
+  .opt input[type=range]{inline-size:100%;accent-color:#ff2d95;block-size:18px}
+  #optReset{inline-size:100%;margin-block-start:4px;padding:6px;background:transparent;border:1px solid #3a2c5e;
     color:var(--dim);font-family:inherit;font-size:9px;letter-spacing:.15em;cursor:pointer}
 
   /* ---------- touch ---------- */
@@ -59,22 +59,32 @@
     border:1px solid #3a2c5e;color:var(--ink);font-size:11px;letter-spacing:.1em;
     display:flex;align-items:center;justify-content:center;border-radius:50%}
   .tbtn:active,.tbtn.on{border-color:var(--mag);color:var(--mag)}
-  #tL{left:14px;bottom:110px;width:62px;height:62px}
-  #tR{left:88px;bottom:110px;width:62px;height:62px}
-  #tGas{right:14px;bottom:110px;width:70px;height:70px;border-color:var(--cyn)}
-  #tBrk{right:96px;bottom:110px;width:56px;height:56px}
-  #tHop{right:14px;bottom:196px;width:70px;height:44px;border-radius:22px;border-color:var(--haz)}
+  #tL{inset-inline-start:14px;inset-block-end:110px;inline-size:62px;block-size:62px}
+  #tR{inset-inline-start:88px;inset-block-end:110px;inline-size:62px;block-size:62px}
+  #tGas{inset-inline-end:14px;inset-block-end:110px;inline-size:70px;block-size:70px;border-color:var(--cyn)}
+  #tBrk{inset-inline-end:96px;inset-block-end:110px;inline-size:56px;block-size:56px}
+  #tHop{inset-inline-end:14px;inset-block-end:196px;inline-size:70px;block-size:44px;border-radius:22px;border-color:var(--haz)}
 
   /* ---------- intro ---------- */
   #intro{position:fixed;inset:0;background:rgba(10,6,20,.9);display:flex;align-items:center;justify-content:center;z-index:10}
-  #intro .card{max-width:440px;margin:16px;background:var(--panel);border:1px solid #3a2c5e;
-    border-top:3px solid var(--mag);padding:22px 24px;font-size:12px;line-height:1.9;letter-spacing:.04em}
+  #intro .card{max-inline-size:440px;margin:16px;background:var(--panel);border:1px solid #3a2c5e;
+    border-block-start:3px solid var(--mag);padding:22px 24px;font-size:12px;line-height:1.9;letter-spacing:.04em}
   #intro h1{font-size:16px;letter-spacing:.2em;color:var(--mag);text-shadow:0 0 10px var(--mag)}
-  #intro .sub{color:var(--cyn);font-size:10px;letter-spacing:.25em;margin-bottom:12px}
+  #intro .sub{color:var(--cyn);font-size:10px;letter-spacing:.25em;margin-block-end:12px}
   #intro kbd{background:#0c0818;border:1px solid #3a2c5e;padding:1px 6px;font-family:inherit;color:#fff}
-  #intro .pad{color:var(--dim);font-size:10px;margin-top:6px}
-  #go{margin-top:14px;width:100%;padding:12px;background:var(--mag);color:#fff;border:0;
+  #intro .pad{color:var(--dim);font-size:10px;margin-block-start:6px}
+  #go{margin-block-start:14px;inline-size:100%;padding:12px;background:var(--mag);color:#fff;border:0;
     font-family:inherit;font-size:13px;letter-spacing:.2em;cursor:pointer;box-shadow:0 0 18px rgba(255,45,149,.5)}
+
+  /* ---------- home button / brand (moved from inline styles) ---------- */
+  #home{position:fixed;inset-block-start:0;inset-inline-start:0;inline-size:46px;block-size:46px;
+    background:#0a0a0a;color:#f4f1ea;display:flex;align-items:center;justify-content:center;
+    font-size:24px;font-weight:900;z-index:90;
+    border-inline-end:3px solid #ff2d95;border-block-end:3px solid #ff2d95;text-decoration:none}
+  .brand{margin-inline-start:52px}
+  .laps .n{color:var(--dim)}
+  #errbar{position:fixed;inset-block-start:0;inset-inline:0;z-index:99;background:#ff4d3a;color:#fff;
+    font:11px monospace;padding:6px 10px;white-space:pre-wrap}
 </style>
 </head>
 <body>
@@ -82,12 +92,12 @@
 
 <div id="hud">
   <div class="top">
-    <a href="../" title="home" style="position:fixed;top:0;left:0;width:46px;height:46px;background:#0a0a0a;color:#f4f1ea;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;z-index:90;border-right:3px solid #ff2d95;border-bottom:3px solid #ff2d95;text-decoration:none">&#8592;</a>
-  <div class="brand" style="margin-left:52px"><b>MOTORCYCLE SUIT</b><br>CIRCUIT v0.2</div>
+    <a id="home" href="../" title="home">&#8592;</a>
+  <div class="brand"><b>MOTORCYCLE SUIT</b><br>CIRCUIT v0.2</div>
     <div class="laps">
       <span class="t" id="lapT">0:00.0</span><br>
       <span class="b">BEST <span id="lapB">--:--.-</span></span><br>
-      <span style="color:var(--dim)">LAP <span id="lapN">0</span></span>
+      <span class="n">LAP <span id="lapN">0</span></span>
     </div>
   </div>
   <div id="speedo"><div class="n" id="spd">0</div><div class="u">KM/H</div></div>
@@ -99,11 +109,11 @@
 <div id="toast"></div>
 <div id="padTag"></div>
 
-<button id="gear">TUNING &#9662;</button>
+<button type="button" id="gear">TUNING &#9662;</button>
 <div id="opts">
   <h3>SUIT TUNING</h3>
   <div id="optList"></div>
-  <button id="optReset">FACTORY RESET</button>
+  <button type="button" id="optReset">FACTORY RESET</button>
 </div>
 
 <div id="touchUI">
@@ -122,7 +132,7 @@
     <kbd>SPACE</kbd> hold to preload knees, release to pop &nbsp;<kbd>SHIFT</kbd> drift</div>
     <div class="pad">GAMEPAD: RT gas · LT brake · stick steer · A preload/pop · B drift</div>
     <div class="pad">Washboard rattles the knees. The big ramp wants full preload. Tune everything under TUNING.</div>
-    <button id="go">LIGHTS OUT</button>
+    <button type="button" id="go">LIGHTS OUT</button>
   </div>
 </div>
 
@@ -135,7 +145,6 @@
 window.onerror=function(msg,src,line){
   let b=document.getElementById('errbar');
   if(!b){b=document.createElement('div');b.id='errbar';
-    b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99;background:#ff4d3a;color:#fff;font:11px monospace;padding:6px 10px;white-space:pre-wrap';
     document.body.appendChild(b);}
   b.textContent='ERR: '+msg+' @'+line;
 };

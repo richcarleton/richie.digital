@@ -35,7 +35,7 @@ function build() {
     </div>
     <div class="menu-section">
       <div class="menu-section-label">garage</div>
-      ${row('menu-cmd', 'suit', 'motorcycle suit circuit')}
+      ${row('menu-cmd', 'motobang', 'motorcycle circuit')}
     </div>
     <div class="menu-section">
       ${row('menu-cmd-dim', '&lt;anything&gt;', 'text flythrough')}

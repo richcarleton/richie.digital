@@ -45,8 +45,8 @@ input.addEventListener('keydown', e => {
     if (window.showMenu) window.showMenu();
   } else if (cmd === 'ricardo') {
     window.location.href = 'ricardo/';   // 🐈 the pyramid awaits
-  } else if (cmd === 'suit' || cmd === 'circuit' || cmd === 'ride') {
-    window.location.href = 'suit/';      // 🏍 knees are the suspension
+  } else if (cmd === 'motobang' || cmd === 'suit' || cmd === 'circuit' || cmd === 'ride') {
+    window.location.href = 'motobang/';  // 🏍 knees are the suspension
   } else if (cmd === 'train') {
     window.location.href = 'transit-ticker/';  // 🚆 REM departures chyron
   } else if (cmd === 'crash') {
