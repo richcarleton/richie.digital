@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ODESSA GOES TO THE MOON</title>
+<meta name="description" content="A low-res point-and-click crypto caper. Retro adventure game parody, built for richie.digital.">
+<meta name="theme-color" content="#1a0a2e">
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<style>
+  :root{
+    --bg:#0a0714; --panel:#1a1030; --edge:#4a2f7a;
+    --amber:#ffcc55; --mag:#ff2d78; --cyn:#3fe0ff; --acid:#c8ff3f;
+    --txt:#f4ecff;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{
+    background:var(--bg); color:var(--txt);
+    font-family:"Courier New",Courier,monospace;
+    height:100%; overflow:hidden;
+    -webkit-touch-callout:none; -webkit-user-select:none; user-select:none;
+  }
+  body{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    min-height:100vh; gap:10px; padding:12px;
+  }
+  #wrap{
+    width:100%; max-width:900px;
+    border:3px solid var(--edge); border-radius:6px;
+    background:#000;
+    box-shadow:0 0 0 1px #000, 0 0 40px rgba(90,40,160,.5), inset 0 0 30px rgba(0,0,0,.6);
+    position:relative;
+    overflow:hidden;
+  }
+  #screen{
+    display:block; width:100%; height:auto;
+    image-rendering:pixelated; image-rendering:crisp-edges;
+    background:#000;
+    cursor:pointer;
+  }
+  #titlebar{
+    display:flex; align-items:center; justify-content:space-between;
+    flex-wrap:wrap; row-gap:2px; column-gap:10px;
+    width:100%; max-width:900px;
+    font-size:11px; letter-spacing:.1em; color:var(--amber); opacity:.85;
+    padding:0 2px;
+  }
+  @media (max-width:480px){
+    #titlebar{ font-size:9px; letter-spacing:.06em }
+  }
+  #titlebar b{color:var(--mag)}
+  /* dialogue / HUD overlay, positioned over the canvas */
+  #hud{
+    position:absolute; left:0; right:0; bottom:0; top:0;
+    pointer-events:none;
+  }
+  #dialogue{
+    position:absolute; left:4%; right:4%; bottom:6%;
+    background:rgba(10,7,20,.92);
+    border:2px solid var(--amber);
+    border-radius:3px;
+    padding:10px 12px;
+    font-size:clamp(11px,1.6vw,15px);
+    line-height:1.4;
+    display:none;
+    pointer-events:auto;
+  }
+  #dialogue .who{color:var(--cyn); font-weight:bold; margin-right:6px}
+  #dialogue .who.odessa{color:var(--mag)}
+  #dialogue .hint{
+    display:block; margin-top:6px; font-size:.8em; color:#9a8fc0; opacity:.85;
+  }
+  #promptTag{
+    position:absolute; padding:3px 8px; background:rgba(0,0,0,.75);
+    border:1px solid var(--amber); border-radius:3px; color:var(--amber);
+    font-size:clamp(10px,1.4vw,13px); display:none; pointer-events:none;
+    white-space:nowrap; transform:translate(-50%,-140%);
+  }
+  #cmdBar{
+    position:absolute; left:4%; right:4%; bottom:6%;
+    display:none; gap:6px; pointer-events:auto;
+  }
+  #cmdInput{
+    flex:1; background:#000; border:2px solid var(--acid); color:var(--acid);
+    font-family:inherit; font-size:clamp(11px,1.6vw,15px); padding:8px;
+    outline:none; border-radius:3px;
+  }
+  #cmdInput::placeholder{color:#4a6a3a}
+  #cmdGo{
+    background:var(--acid); border:2px solid var(--acid); color:#132a08;
+    font-family:inherit; font-weight:bold; font-size:clamp(11px,1.6vw,15px);
+    padding:0 12px; border-radius:3px;
+  }
+  #titleScreen, #endScreen{
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center;
+    background:radial-gradient(ellipse at 50% 30%, #2a1550 0%, #0a0714 75%);
+    gap:14px; padding:20px; pointer-events:auto;
+  }
+  #titleScreen h1, #endScreen h1{
+    font-size:clamp(20px,4.4vw,40px); color:var(--amber);
+    text-shadow:3px 3px 0 var(--mag), 0 0 20px rgba(255,45,120,.6);
+    letter-spacing:.06em;
+  }
+  #titleScreen h2{ font-size:clamp(11px,1.8vw,15px); color:var(--cyn); letter-spacing:.1em; font-weight:normal }
+  #titleScreen p, #endScreen p{ font-size:clamp(10px,1.6vw,13px); color:#b6a8e0; max-width:520px }
+  .blinker{ animation:blink 1.1s steps(2) infinite }
+  @keyframes blink{ 50%{opacity:0} }
+  #startBtn, #againBtn{
+    margin-top:6px; background:var(--mag); color:#fff; border:none;
+    padding:10px 20px; font-family:inherit; font-size:clamp(12px,1.8vw,15px);
+    letter-spacing:.08em; border-radius:4px; cursor:pointer;
+    box-shadow:0 3px 0 #8f0e42;
+  }
+  #startBtn:active, #againBtn:active{ transform:translateY(2px); box-shadow:none }
+  #touchpad{
+    position:absolute; left:0; right:0; bottom:0; display:flex;
+    justify-content:space-between; padding:10px; pointer-events:none;
+  }
+  #touchpad .side{ display:flex; gap:8px; pointer-events:auto }
+  .tbtn{
+    width:52px; height:52px; border-radius:50%;
+    background:rgba(255,255,255,.08); border:2px solid rgba(255,255,255,.35);
+    color:var(--txt); font-size:18px; display:flex; align-items:center; justify-content:center;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .tbtn:active{ background:rgba(255,255,255,.25) }
+  #eBtn{ background:rgba(255,204,85,.18); border-color:var(--amber); color:var(--amber); font-weight:bold; font-size:14px }
+  footer{
+    max-width:900px; font-size:10px; color:#5c4f80; text-align:center; line-height:1.5; padding-bottom:4px;
+  }
+  footer a{ color:#8a7ac0 }
+</style>
+</head>
+<body>
+
+<div id="titlebar">
+  <span>RICHIE.DIGITAL <b>ARCADE</b></span>
+  <span id="fpsHint">ARROW KEYS / WASD · E TO INTERACT · TAP ON MOBILE</span>
+</div>
+
+<div id="wrap">
+  <canvas id="screen" width="320" height="180"></canvas>
+
+  <div id="hud">
+    <div id="promptTag"></div>
+    <div id="dialogue"><span class="who"></span><span class="line"></span><span class="hint">▼ press SPACE / tap to continue</span></div>
+    <div id="cmdBar"><input id="cmdInput" type="text" placeholder="TYPE A COMMAND..." autocomplete="off" autocapitalize="off" spellcheck="false"><button id="cmdGo" type="button">GO</button></div>
+    <div id="touchpad">
+      <div class="side">
+        <div class="tbtn" id="btnLeft">◀</div>
+        <div class="tbtn" id="btnRight">▶</div>
+      </div>
+      <div class="side">
+        <div class="tbtn" id="eBtn">E</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="titleScreen">
+    <h1>ODESSA GOES<br>TO THE MOON</h1>
+    <h2>a low-res crypto caper</h2>
+    <p>Odessa Vance, retired, silver-haired and unbothered, has decided to
+       diversify her portfolio. Walk her downtown. Try not to get scammed.
+       Or do get scammed — she can handle it.</p>
+    <button id="startBtn">▶ START</button>
+    <p class="blinker" style="font-size:10px">tap / click / press any key</p>
+  </div>
+
+  <div id="endScreen" style="display:none">
+    <h1 id="endTitle">THE END</h1>
+    <p id="endBody"></p>
+    <button id="againBtn">↺ PLAY AGAIN</button>
+  </div>
+</div>
+
+<footer>
+  A tiny original parody, spiritually indebted to the janky point-and-click
+  adventures of the early '90s. No real coins, exchanges, or people were
+  harmed — MoonCoin is fictional and a terrible investment either way.
+</footer>
+
+<script>
+(() => {
+"use strict";
+
+const cvs = document.getElementById('screen');
+const ctx = cvs.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+const W = cvs.width, H = cvs.height;
+const GROUND = 138;
+
+// ---------- palette ----------
+const PAL = {
+  sky1:'#3a1f6b', sky2:'#ff8a5c', sky3:'#ffd27a',
+  road:'#2b2438', roadLine:'#665a80',
+  sidewalk:'#4a3f5e',
+  bldgA:'#241a3d', bldgB:'#2f2350', bldgC:'#1c1430',
+  window:'#ffcc55', windowDim:'#5c4a30',
+  neonPink:'#ff2d78', neonCyan:'#3fe0ff', neonAcid:'#c8ff3f',
+  grass:'#1c3a2a', hedge:'#264d34',
+  van:'#8a8a8a', vanDark:'#5c5c5c',
+  atm:'#2a3a5a', atmScreen:'#3fe0ff',
+  skinOdessa:'#8a5a3c', hairOdessa:'#f4f1ea', track:'#d81b6a', trackDark:'#a3134f',
+  skinVan:'#c9a06a', vanGuyShirt:'#5c6b3a',
+  shadow:'rgba(0,0,0,.35)'
+};
+
+function rect(x,y,w,h,c){ ctx.fillStyle=c; ctx.fillRect(x|0,y|0,w|0,h|0); }
+function circ(x,y,r,c){ ctx.fillStyle=c; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); }
+
+// ---------- input ----------
+const keys = {};
+let touchLeft=false, touchRight=false, touchE=false;
+window.addEventListener('keydown', e=>{
+  keys[e.key.toLowerCase()] = true;
+  if(state.mode==='title') startGame();
+  if(e.key===' ') advanceDialogue();
+  if(e.key.toLowerCase()==='e') tryInteract();
+});
+window.addEventListener('keyup', e=>{ keys[e.key.toLowerCase()] = false; });
+
+function bindHold(el, onDown, onUp){
+  el.addEventListener('touchstart', ev=>{ ev.preventDefault(); onDown(); }, {passive:false});
+  el.addEventListener('touchend', ev=>{ ev.preventDefault(); onUp(); }, {passive:false});
+  el.addEventListener('mousedown', onDown);
+  window.addEventListener('mouseup', onUp);
+}
+bindHold(document.getElementById('btnLeft'), ()=>touchLeft=true, ()=>touchLeft=false);
+bindHold(document.getElementById('btnRight'), ()=>touchRight=true, ()=>touchRight=false);
+document.getElementById('eBtn').addEventListener('click', ()=>tryInteract());
+document.getElementById('eBtn').addEventListener('touchstart', ev=>{ev.preventDefault(); tryInteract();}, {passive:false});
+
+cvs.addEventListener('click', ()=>{
+  if(state.mode==='title') startGame();
+  else advanceDialogue();
+});
+
+// ---------- state ----------
+const state = {
+  mode:'title', // title | play | dialogue | cmd | ending | end
+  scene:'street',
+  px: 40, facing:1, walking:false, animT:0,
+  dQueue:[], dCurrent:null, dCallback:null,
+  atmVisited:false, vanTalked:false,
+  endT:0
+};
+window.ODESSA = state; // debug hook — inspect from the console if something misbehaves
+
+const SCENES = {
+  street:{
+    name:'MAPLE STREET RETIREMENT VILLAS',
+    exits:[ {min:295,max:320,to:'strip', enterX:20} ],
+    hotspots:[],
+  },
+  strip:{
+    name:'DOWNTOWN STRIP MALL',
+    exits:[ {min:0,max:14,to:'street', enterX:290} ],
+    hotspots:[
+      {x:70,label:'GUY IN VAN', range:[55,95], action:'van'},
+      {x:250,label:'ENTER SUDS & SUITS', range:[236,272], action:'enterAtm'}
+    ],
+  },
+  atm:{
+    name:'SUDS & SUITS — QUIK-COIN ATM',
+    exits:[ {min:0,max:10,to:'strip', enterX:255} ],
+    hotspots:[
+      {x:170,label:'QUIK-COIN ATM', range:[155,190], action:'useAtm'}
+    ],
+  }
+};
+
+function startGame(){
+  document.getElementById('titleScreen').style.display='none';
+  state.mode='play';
+  state.scene='street';
+  state.px=40;
+}
+
+// ---------- dialogue system ----------
+const dEl = document.getElementById('dialogue');
+const dWho = dEl.querySelector('.who');
+const dLine = dEl.querySelector('.line');
+
+function say(lines, cb){
+  // lines: array of {who,text} or just strings (Odessa default alternating not assumed)
+  state.dQueue = lines.slice();
+  state.dCallback = cb || null;
+  state.mode = 'dialogue';
+  nextLine();
+}
+function nextLine(){
+  if(state.dQueue.length===0){
+    dEl.style.display='none';
+    state.mode='play';
+    if(state.dCallback){ const cb=state.dCallback; state.dCallback=null; cb(); }
+    return;
+  }
+  const l = state.dQueue.shift();
+  const entry = typeof l==='string' ? {who:'', text:l} : l;
+  dWho.textContent = entry.who ? entry.who+':' : '';
+  dWho.className = 'who' + (entry.who==='ODESSA' ? ' odessa' : '');
+  dLine.textContent = entry.text;
+  dEl.style.display='block';
+}
+function advanceDialogue(){
+  if(state.mode==='dialogue') nextLine();
+}
+dEl.addEventListener('click', advanceDialogue);
+dEl.addEventListener('touchstart', ev=>{ ev.preventDefault(); advanceDialogue(); }, {passive:false});
+
+// ---------- command bar (ATM finale) ----------
+const cmdBar = document.getElementById('cmdBar');
+const cmdInput = document.getElementById('cmdInput');
+const SNARK = [
+  "The machine hums, unimpressed.",
+  "That's not a verb the QUIK-COIN ATM recognizes. Neither is your Wi-Fi password, probably.",
+  "Nothing happens. A moth nearby judges you silently.",
+  "The ATM beeps once, which Odessa chooses to interpret as encouragement.",
+  "Error 402: MACHINE DOES NOT CARE.",
+  "Odessa raises an eyebrow. The machine raises nothing, it's a machine."
+];
+function openCmd(){
+  state.mode='cmd';
+  cmdBar.style.display='flex';
+  cmdInput.value='';
+  setTimeout(()=>cmdInput.focus(), 30);
+}
+function submitCmd(){
+  const v = cmdInput.value.toLowerCase();
+  cmdInput.value='';
+  cmdBar.style.display='none';
+  state.mode='play';
+  cmdInput.blur();
+  if(v.includes('buy') || v.includes('crypto') || v.includes('moon') || v.includes('invest')){
+    startEnding();
+  } else {
+    say([{who:'', text: SNARK[Math.floor(Math.random()*SNARK.length)]}], ()=>{
+      openCmd();
+    });
+  }
+}
+cmdInput.addEventListener('keydown', e=>{ if(e.key==='Enter') submitCmd(); });
+document.getElementById('cmdGo').addEventListener('click', submitCmd);
+document.getElementById('cmdGo').addEventListener('touchstart', ev=>{ ev.preventDefault(); submitCmd(); }, {passive:false});
+
+// ---------- interactions ----------
+function promptTagUpdate(){
+  const tag = document.getElementById('promptTag');
+  const sc = SCENES[state.scene];
+  let near = null;
+  for(const h of sc.hotspots){
+    if(state.px >= h.range[0]-6 && state.px <= h.range[1]+6){ near = h; break; }
+  }
+  if(near && state.mode==='play'){
+    tag.style.display='block';
+    tag.textContent = '⤒ E: '+near.label;
+    const screenPct = near.x / W;
+    tag.style.left = (screenPct*100)+'%';
+    tag.style.top = '58%';
+  } else {
+    tag.style.display='none';
+  }
+  return near;
+}
+
+function tryInteract(){
+  if(state.mode!=='play') return;
+  const near = promptTagUpdate();
+  if(!near) return;
+  if(near.action==='van') doVan();
+  else if(near.action==='enterAtm') doEnterAtm();
+  else if(near.action==='useAtm') doUseAtm();
+}
+
+function doVan(){
+  if(!state.vanTalked){
+    state.vanTalked = true;
+    say([
+      {who:'VAN GUY', text:"Psst. Hey. You look like someone who believes in the future of finance."},
+      {who:'ODESSA', text:"I look like someone with a AARP card and a good lawyer. Back it up, Kevin."},
+      {who:'VAN GUY', text:"...it's actually Devin."},
+      {who:'ODESSA', text:"Didn't ask."}
+    ]);
+  } else {
+    say([{who:'VAN GUY', text:"Still cash only. Still no refunds. Still parked illegally."}]);
+  }
+}
+
+function doEnterAtm(){
+  say([{who:'', text:"Odessa steps into Suds & Suits Laundromat. It smells like fabric softener and bad decisions."}], ()=>{
+    state.scene='atm';
+    state.px=30;
+  });
+}
+
+function doUseAtm(){
+  if(!state.atmVisited){
+    state.atmVisited = true;
+    say([
+      {who:'', text:"Wedged between a broken dryer and a vending machine sits the QUIK-COIN ATM."},
+      {who:'ODESSA', text:"Alright. Let's diversify."},
+      {who:'', text:"A command prompt blinks to life."}
+    ], ()=>{ openCmd(); });
+  } else {
+    openCmd();
+  }
+}
+
+// ---------- ending ----------
+let coins = [];
+function startEnding(){
+  state.mode='ending';
+  state.endT = 0;
+  coins = [];
+  for(let i=0;i<26;i++){
+    coins.push({x:Math.random()*W, y:-Math.random()*140, vy:40+Math.random()*60, spin:Math.random()*10});
+  }
+}
+function finishEnding(){
+  state.mode='end';
+  document.getElementById('endScreen').style.display='flex';
+  document.getElementById('endTitle').textContent = 'THE END';
+  document.getElementById('endBody').textContent =
+    "MOONCOIN rockets from $0.02 to $4.80, then quietly returns to earth at $0.03. " +
+    "Odessa cashed out at $4.79. She's now looking at a beachfront condo — and, " +
+    "with some concern, your 401(k).";
+}
+document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('againBtn').addEventListener('click', ()=>{
+  document.getElementById('endScreen').style.display='none';
+  state.mode='play'; state.scene='street'; state.px=40;
+  state.atmVisited=false; state.vanTalked=false;
+});
+
+// ---------- movement / scene transitions ----------
+const touchpadEl = document.getElementById('touchpad');
+function syncTouchpad(){
+  const show = state.mode==='play';
+  touchpadEl.style.display = show ? 'flex' : 'none';
+  if(!show){ touchLeft=false; touchRight=false; touchE=false; }
+}
+
+function update(dt){
+  syncTouchpad();
+  if(state.mode!=='play'){ state.walking=false; return; }
+  const sc = SCENES[state.scene];
+  let dx=0;
+  if(keys['arrowleft']||keys['a']||touchLeft) dx -= 1;
+  if(keys['arrowright']||keys['d']||touchRight) dx += 1;
+  state.walking = dx!==0;
+  if(dx!==0) state.facing = dx>0?1:-1;
+  state.px += dx * 60 * dt;
+  state.px = Math.max(4, Math.min(W-4, state.px));
+  if(state.walking) state.animT += dt;
+
+  for(const ex of sc.exits){
+    if(state.px>=ex.min && state.px<=ex.max){
+      state.scene = ex.to;
+      state.px = ex.enterX;
+      break;
+    }
+  }
+  promptTagUpdate();
+}
+
+// ---------- drawing: backgrounds ----------
+function skyGrad(){
+  const g = ctx.createLinearGradient(0,0,0,GROUND);
+  g.addColorStop(0, PAL.sky1);
+  g.addColorStop(.55, PAL.sky2);
+  g.addColorStop(1, PAL.sky3);
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,GROUND);
+}
+
+function drawStreet(){
+  skyGrad();
+  circ(40,30,14,'#ffe9b0');
+  // distant houses
+  for(let i=0;i<5;i++){
+    const bx = i*70-10;
+    rect(bx,86,54,52,i%2? PAL.bldgB:PAL.bldgA);
+    rect(bx+10,72,34,16,PAL.bldgC);
+    for(let w=0;w<2;w++) rect(bx+10+w*22,98,10,10, (i+w)%2? PAL.window:PAL.windowDim);
+  }
+  rect(0,GROUND,W,H-GROUND, PAL.sidewalk);
+  rect(0,GROUND,W,3,'#241a3d');
+  for(let i=0;i<8;i++) rect(i*44,GROUND+3,2,H-GROUND-3,'#332a48');
+  // mailbox
+  rect(200,120,8,18,'#555');
+  rect(197,112,14,10,PAL.neonPink);
+  // bench
+  rect(120,124,34,4,'#3a2c1a');
+  rect(122,128,4,10,'#3a2c1a'); rect(148,128,4,10,'#3a2c1a');
+  // exit sign
+  rect(300,96,18,10,'#111');
+  ctx.fillStyle=PAL.neonCyan; ctx.font='6px monospace'; ctx.fillText('BUS',303,103);
+}
+
+function drawStrip(){
+  skyGrad();
+  ctx.fillStyle='#160e2b'; ctx.fillRect(0,0,W,GROUND); // dusk over the strip mall
+  const g = ctx.createLinearGradient(0,0,0,GROUND);
+  g.addColorStop(0,'#160e2b'); g.addColorStop(1,'#3a2455');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,GROUND);
+  // strip mall block
+  rect(0,60,W,50,PAL.bldgB);
+  rect(0,55,W,6,PAL.bldgC);
+  // storefronts
+  rect(10,70,90,40,'#241a3d');
+  rect(20,80,30,20,PAL.windowDim);
+  ctx.fillStyle=PAL.neonPink; ctx.font='7px monospace'; ctx.fillText('NAIL BAR',14,78);
+
+  rect(236,66,80,44,'#1e2a45');
+  rect(244,86,64,24,'#0e1626');
+  ctx.fillStyle=PAL.neonCyan; ctx.font='7px monospace'; ctx.fillText('SUDS & SUITS',240,76);
+  ctx.fillStyle=PAL.neonAcid; ctx.font='6px monospace'; ctx.fillText('QUIK-COIN ATM INSIDE',238,110);
+  // door
+  rect(252,88,20,22,'#050a12');
+
+  rect(110,70,110,40,'#2a2140');
+  ctx.fillStyle=PAL.neonAcid; ctx.font='7px monospace'; ctx.fillText('DOLLAR VALUE PLUS',114,78);
+  for(let i=0;i<4;i++) rect(120+i*22,86,14,16, i%2?PAL.window:PAL.windowDim);
+
+  rect(0,GROUND,W,H-GROUND, PAL.road);
+  rect(0,GROUND,W,3,'#0e0a18');
+  for(let i=0;i<7;i++) rect(i*50+6,GROUND+10,20,3, PAL.roadLine);
+
+  // sketchy van
+  rect(48,102,54,26,PAL.van);
+  rect(48,96,20,10,PAL.vanDark);
+  rect(52,90,10,8,'#dfe6ea');
+  circ(58,130,6,'#111'); circ(90,130,6,'#111');
+  circ(58,130,2.5,'#555'); circ(90,130,2.5,'#555');
+  rect(52,106,44,4,'#e8e2c8');
+  ctx.fillStyle='#3a3a3a'; ctx.font='5px monospace';
+  ctx.fillText('CRYPTO - CASH ONLY - NO REFUNDS', 50, 109);
+  drawVanGuy(78,112);
+}
+
+function drawAtmRoom(){
+  ctx.fillStyle='#120c22'; ctx.fillRect(0,0,W,GROUND);
+  rect(0,20,W,20,'#1c1533');
+  ctx.fillStyle=PAL.neonPink; ctx.font='8px monospace'; ctx.fillText("SUDS & SUITS", 110, 33);
+  // washing machines
+  for(let i=0;i<4;i++){
+    const x = 8+i*28;
+    rect(x,80,22,40,'#2a2438');
+    circ(x+11,98,9,'#0c0a16');
+    circ(x+11,98,6,'#3fe0ff33');
+  }
+  // vending machine
+  rect(120,66,30,54,'#1a2a3a');
+  rect(124,72,22,30,'#0c1a26');
+  for(let r=0;r<3;r++) for(let c=0;c<2;c++) rect(126+c*10,74+r*10,7,7, r%2?PAL.neonAcid:PAL.neonPink);
+  // ATM kiosk (hotspot at x=170)
+  rect(155,58,40,64,PAL.atm);
+  rect(160,48,30,12,'#1a2438');
+  ctx.fillStyle=PAL.neonAcid; ctx.font='6px monospace'; ctx.fillText('QUIK-COIN', 162, 56);
+  rect(162,66,26,20, state.mode==='cmd' || state.atmVisited ? PAL.atmScreen : '#0e2230');
+  ctx.fillStyle='#031018'; ctx.font='5px monospace';
+  ctx.fillText('INSERT', 168, 74);
+  ctx.fillText('DESTINY', 166, 82);
+  rect(166,88,18,4,'#0c0c14');
+  rect(172,108,14,10,'#0c0c14');
+
+  rect(0,GROUND,W,H-GROUND,'#241d38');
+  rect(0,GROUND,W,3,'#0e0a18');
+  for(let i=0;i<6;i++) rect(i*54+4,GROUND+2,44,H-GROUND-6,'#2c2444');
+}
+
+function drawVanGuy(x,y){
+  rect(x-5,y,10,18, PAL.vanGuyShirt);
+  rect(x-4,y+18,4,10,'#2a2a2a'); rect(x+1,y+18,4,10,'#2a2a2a');
+  circ(x,y-4,6, PAL.skinVan);
+  rect(x-6,y-8,12,4,'#1a1a1a');
+  rect(x-3,y+4,6,4,'#000'); // sunglasses
+}
+
+// ---------- drawing: Odessa ----------
+function drawOdessa(x, walking, t, facing){
+  const bob = walking ? Math.sin(t*10)*1.4 : 0;
+  const y = GROUND - 26 + bob;
+  const step = walking ? Math.sin(t*10) : 0;
+  ctx.save();
+  ctx.translate(x, 0);
+  ctx.scale(facing, 1);
+
+  // shadow
+  ctx.fillStyle = PAL.shadow;
+  ctx.beginPath(); ctx.ellipse(0, GROUND-1, 9, 2.4, 0,0,Math.PI*2); ctx.fill();
+
+  // legs
+  rect(-5, y+18, 4, 8+Math.max(0,step*3), '#241a3d');
+  rect(1, y+18, 4, 8-Math.max(0,step*3), '#241a3d');
+  // gold sneakers
+  rect(-6, y+25+Math.max(0,step*3), 6, 3, '#e8c548');
+  rect(1, y+25-Math.max(0,step*3), 6, 3, '#e8c548');
+
+  // tracksuit body
+  rect(-7, y+2, 14, 18, PAL.track);
+  rect(-7, y+2, 14, 3, PAL.trackDark);
+  // arms
+  rect(-9, y+4, 3, 12, PAL.trackDark);
+  rect(6, y+4, 3, 12, PAL.trackDark);
+  circ(-7.5, y+16, 2, PAL.skinOdessa);
+  circ(7.5, y+16, 2, PAL.skinOdessa);
+
+  // gold chain / bag strap
+  rect(-6, y+3, 12, 1.5, '#e8c548');
+
+  // head
+  circ(0, y-3, 7, PAL.skinOdessa);
+  // silver afro
+  ctx.fillStyle = PAL.hairOdessa;
+  ctx.beginPath(); ctx.arc(0, y-8, 8.5, Math.PI, 0); ctx.fill();
+  rect(-8.5, y-8, 17, 5, PAL.hairOdessa);
+  // sunglasses
+  rect(-6, y-4, 12, 3, '#111');
+  rect(-1, y-4, 2, 3, PAL.trackDark);
+  // gold hoop earring
+  circ(6.5, y-1, 1.6, '#e8c548');
+  ctx.strokeStyle='#e8c548'; ctx.lineWidth=0.6;
+  ctx.beginPath(); ctx.arc(6.5,y-1,1.6,0,Math.PI*2); ctx.stroke();
+
+  ctx.restore();
+}
+
+// ---------- render loop ----------
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  if(state.mode==='title'){ return; } // title screen handled by DOM
+
+  if(state.scene==='street') drawStreet();
+  else if(state.scene==='strip') drawStrip();
+  else if(state.scene==='atm') drawAtmRoom();
+
+  const groundY = state.scene==='atm' ? GROUND : GROUND;
+  drawOdessa(state.px, state.walking, state.animT, state.facing);
+
+  // scene label chip
+  ctx.fillStyle='rgba(0,0,0,.45)';
+  ctx.fillRect(0,0,W,10);
+  ctx.fillStyle=PAL.neonAcid; ctx.font='6px monospace';
+  ctx.fillText(SCENES[state.scene] ? SCENES[state.scene].name : '', 4, 7);
+
+  if(state.mode==='ending' || state.mode==='end'){
+    drawEnding();
+  }
+}
+
+function drawEnding(){
+  ctx.fillStyle='rgba(5,2,12,.55)';
+  ctx.fillRect(0,0,W,H);
+  for(const c of coins){
+    c.y += c.vy * (1/60);
+    circ(c.x, c.y, 3.5, '#ffd23f');
+    ctx.fillStyle='#a3760a'; ctx.font='5px monospace';
+    ctx.fillText('$', c.x-1.5, c.y+1.5);
+  }
+  state.endT += 1/60;
+  ctx.fillStyle=PAL.neonAcid;
+  ctx.font='9px monospace';
+  const t = state.endT;
+  let priceTxt;
+  if(t<1.2) priceTxt='MOONCOIN: $0.02';
+  else if(t<2.4) priceTxt='MOONCOIN: $2.40 🚀';
+  else if(t<3.2) priceTxt='MOONCOIN: $4.80 🚀🚀🚀';
+  else priceTxt='MOONCOIN: $0.03 📉📉📉';
+  ctx.fillStyle = t<3.2 ? PAL.neonAcid : PAL.neonPink;
+  ctx.fillText(priceTxt, W/2-60, H/2);
+
+  if(t>4.2 && state.mode==='ending'){
+    finishEnding();
+  }
+}
+
+let last = performance.now();
+function loop(now){
+  const dt = Math.min(0.05,(now-last)/1000);
+  last = now;
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>
