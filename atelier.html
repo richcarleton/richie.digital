@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Atelier — IMVU Texture Studio</title>
+<style>
+  :root {
+    --bg: #0f0e11;
+    --panel: #17161b;
+    --line: #26242c;
+    --text: #e8e6ee;
+    --muted: #8a8794;
+    --accent: #c9a96e;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: Georgia, 'Times New Roman', serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+  }
+  h1 {
+    font-weight: normal;
+    letter-spacing: 8px;
+    font-size: 20px;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  h1 span { color: var(--muted); letter-spacing: 3px; font-size: 12px; display: block; text-align: center; margin-top: 6px; }
+  .studio {
+    display: flex;
+    gap: 28px;
+    margin-top: 36px;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-start;
+  }
+  canvas#cv {
+    width: 400px; height: 400px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: #000;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 26px;
+    width: 300px;
+  }
+  .preview-box {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 4px;
