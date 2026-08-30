@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Atelier — IMVU Texture Studio</title>
 <style>
   :root {
@@ -17,11 +18,11 @@
     background: var(--bg);
     color: var(--text);
     font-family: Georgia, 'Times New Roman', serif;
-    min-height: 100vh;
+    min-block-size: 100vh;
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 40px 20px;
+    padding: 40px 20px 80px;
   }
   h1 {
     font-weight: normal;
@@ -30,29 +31,410 @@
     text-transform: uppercase;
     color: var(--accent);
   }
-  h1 span { color: var(--muted); letter-spacing: 3px; font-size: 12px; display: block; text-align: center; margin-top: 6px; }
+  h1 span { color: var(--muted); letter-spacing: 3px; font-size: 12px; display: block; text-align: center; margin-block-start: 6px; }
   .studio {
     display: flex;
     gap: 28px;
-    margin-top: 36px;
+    margin-block-start: 36px;
     flex-wrap: wrap;
     justify-content: center;
     align-items: flex-start;
   }
+  .canvas-col {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    align-items: center;
+  }
   canvas#cv {
-    width: 400px; height: 400px;
+    inline-size: 400px; block-size: 400px;
     border: 1px solid var(--line);
     border-radius: 4px;
     background: #000;
+    image-rendering: pixelated;
+  }
+  .tile-preview {
+    inline-size: 400px;
+    block-size: 160px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background-repeat: repeat;
+    background-size: 80px 80px;
+  }
+  .tile-preview-label {
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: center;
   }
   .panel {
     background: var(--panel);
     border: 1px solid var(--line);
     border-radius: 4px;
     padding: 26px;
-    width: 300px;
+    inline-size: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
   }
-  .preview-box {
-    background: var(--panel);
+  .panel label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .panel select,
+  .panel input[type="range"] {
+    inline-size: 100%;
+  }
+  .panel select {
+    background: var(--bg);
+    color: var(--text);
     border: 1px solid var(--line);
-    border-radius: 4px;
+    border-radius: 3px;
+    padding: 8px;
+    font-family: inherit;
+    font-size: 13px;
+  }
+  .color-row {
+    display: flex;
+    gap: 12px;
+  }
+  .color-row label {
+    flex: 1;
+  }
+  .color-row input[type="color"] {
+    inline-size: 100%;
+    block-size: 34px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    background: var(--bg);
+    padding: 2px;
+  }
+  .range-value {
+    color: var(--accent);
+    font-size: 11px;
+  }
+  .btn-row {
+    display: flex;
+    gap: 10px;
+  }
+  button {
+    flex: 1;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 10px 12px;
+    font-family: inherit;
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  button:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .hint {
+    font-family: Georgia, serif;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--muted);
+    border-block-start: 1px solid var(--line);
+    padding-block-start: 14px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Atelier<span>IMVU Texture Studio — seamless tile generator</span></h1>
+
+<div class="studio">
+  <div class="canvas-col">
+    <canvas id="cv" width="256" height="256"></canvas>
+    <div class="tile-preview-label">Tile preview (repeated)</div>
+    <div class="tile-preview" id="tilePreview"></div>
+  </div>
+
+  <div class="panel">
+    <label>Pattern
+      <select id="patternType">
+        <option value="noise">Grain / Noise</option>
+        <option value="gradient">Gradient Wash</option>
+        <option value="weave">Weave / Fabric</option>
+        <option value="brick">Brick / Tile</option>
+        <option value="dots">Dots / Polka</option>
+        <option value="stripes">Stripes (Diagonal)</option>
+      </select>
+    </label>
+
+    <label>Resolution
+      <select id="resolution">
+        <option value="128">128 × 128</option>
+        <option value="256" selected>256 × 256</option>
+        <option value="512">512 × 512</option>
+        <option value="1024">1024 × 1024</option>
+      </select>
+    </label>
+
+    <div class="color-row">
+      <label>Primary
+        <input type="color" id="color1" value="#c9a96e">
+      </label>
+      <label>Secondary
+        <input type="color" id="color2" value="#17161b">
+      </label>
+    </div>
+
+    <label>Density / Scale
+      <input type="range" id="density" min="1" max="5" step="1" value="3">
+      <span class="range-value" id="densityValue">8</span>
+    </label>
+
+    <label>Roughness
+      <input type="range" id="roughness" min="0" max="100" step="1" value="35">
+      <span class="range-value" id="roughnessValue">35%</span>
+    </label>
+
+    <div class="btn-row">
+      <button type="button" id="randomizeBtn">Randomize</button>
+      <button type="button" id="exportBtn">Export PNG</button>
+    </div>
+
+    <p class="hint">
+      All patterns wrap edge-to-edge, so they tile cleanly on an IMVU mesh
+      without visible seams. 256×256 and 512×512 are the safest bets for
+      product textures — use the preview strip above to sanity-check the
+      repeat before exporting.
+    </p>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var canvas = document.getElementById('cv');
+  var ctx = canvas.getContext('2d');
+  var tilePreview = document.getElementById('tilePreview');
+
+  var patternType = document.getElementById('patternType');
+  var resolution = document.getElementById('resolution');
+  var color1Input = document.getElementById('color1');
+  var color2Input = document.getElementById('color2');
+  var densityInput = document.getElementById('density');
+  var roughnessInput = document.getElementById('roughness');
+  var densityValue = document.getElementById('densityValue');
+  var roughnessValue = document.getElementById('roughnessValue');
+  var randomizeBtn = document.getElementById('randomizeBtn');
+  var exportBtn = document.getElementById('exportBtn');
+
+  var seed = Math.floor(Math.random() * 1e9);
+
+  // ---- seeded PRNG (mulberry32) ----
+  function mulberry32(a) {
+    return function () {
+      a |= 0;
+      a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function smoothstep(t) { return t * t * (3 - 2 * t); }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+
+  // ---- tileable value noise (torus-wrapped lattice) ----
+  function buildNoiseGrid(cells, rngSeed) {
+    var rng = mulberry32(rngSeed);
+    var w = cells + 1;
+    var grid = new Float32Array(w * w);
+    for (var gy = 0; gy < cells; gy++) {
+      for (var gx = 0; gx < cells; gx++) {
+        grid[gy * w + gx] = rng();
+      }
+    }
+    // wrap edges so grid[cells] === grid[0] (seamless torus)
+    for (var y = 0; y < cells; y++) grid[y * w + cells] = grid[y * w + 0];
+    for (var x = 0; x <= cells; x++) grid[cells * w + x] = grid[0 * w + x];
+    return { grid: grid, w: w, cells: cells };
+  }
+
+  function sampleNoise(noiseGrid, x01, y01) {
+    var cells = noiseGrid.cells, w = noiseGrid.w, grid = noiseGrid.grid;
+    var fx = x01 * cells, fy = y01 * cells;
+    var gx0 = Math.floor(fx), gy0 = Math.floor(fy);
+    var gx1 = gx0 + 1, gy1 = gy0 + 1;
+    var tx = smoothstep(fx - gx0), ty = smoothstep(fy - gy0);
+    var v00 = grid[gy0 * w + gx0], v10 = grid[gy0 * w + gx1];
+    var v01 = grid[gy1 * w + gx0], v11 = grid[gy1 * w + gx1];
+    var a = lerp(v00, v10, tx), b = lerp(v01, v11, tx);
+    return lerp(a, b, ty);
+  }
+
+  function hexToRgb(hex) {
+    var v = parseInt(hex.slice(1), 16);
+    return { r: (v >> 16) & 255, g: (v >> 8) & 255, b: v & 255 };
+  }
+
+  // ---- pattern functions, each returns 0..1 for pixel (x01,y01), density = integer 2/4/8/16/32 ----
+  function patternGradient(x01, y01, density) {
+    var freq = Math.max(1, Math.round(density / 4));
+    var v = (Math.sin(2 * Math.PI * freq * x01) + Math.sin(2 * Math.PI * freq * y01)) / 2;
+    return v * 0.5 + 0.5;
+  }
+
+  function patternWeave(x01, y01, density) {
+    var cellX = Math.floor(x01 * density) % density;
+    var cellY = Math.floor(y01 * density) % density;
+    var threadX = Math.abs(Math.sin(Math.PI * density * x01));
+    var threadY = Math.abs(Math.sin(Math.PI * density * y01));
+    var onTop = (cellX + cellY) % 2 === 0;
+    return onTop ? lerp(threadX, 1, 0.15) : threadY * 0.85;
+  }
+
+  function patternBrick(x01, y01, density) {
+    var rows = density;
+    var rowH = 1 / rows;
+    var row = Math.floor(y01 / rowH);
+    var offset = (row % 2 === 0) ? 0 : 0.5 / density;
+    var cols = density;
+    var colW = 1 / cols;
+    var xShifted = (x01 + offset) % 1;
+    var col = Math.floor(xShifted / colW);
+    var localX = (xShifted - col * colW) / colW;
+    var localY = (y01 - row * rowH) / rowH;
+    var mortar = 0.08;
+    var isMortar = localX < mortar || localX > 1 - mortar || localY < mortar || localY > 1 - mortar;
+    return isMortar ? 0.05 : 0.85 + 0.15 * Math.sin((col + row) * 12.9);
+  }
+
+  function patternDots(x01, y01, density) {
+    var spacing = 1 / density;
+    var cellX = Math.floor(x01 / spacing);
+    var cellY = Math.floor(y01 / spacing);
+    var cx = (cellX + 0.5) * spacing;
+    var cy = (cellY + 0.5) * spacing;
+    var dx = x01 - cx, dy = y01 - cy;
+    var dist = Math.sqrt(dx * dx + dy * dy) / spacing;
+    var radius = 0.32;
+    return dist < radius ? 1 - smoothstep(dist / radius) * 0.3 : 0;
+  }
+
+  function patternStripes(x01, y01, density) {
+    var v = Math.floor((x01 + y01) * density) % 2;
+    return v === 0 ? 1 : 0;
+  }
+
+  function computeBase(type, x01, y01, density) {
+    switch (type) {
+      case 'gradient': return patternGradient(x01, y01, density);
+      case 'weave': return patternWeave(x01, y01, density);
+      case 'brick': return patternBrick(x01, y01, density);
+      case 'dots': return patternDots(x01, y01, density);
+      case 'stripes': return patternStripes(x01, y01, density);
+      case 'noise':
+      default: return null; // noise handled separately via lattice sample
+    }
+  }
+
+  function generateTexture() {
+    var size = parseInt(resolution.value, 10);
+    canvas.width = size;
+    canvas.height = size;
+
+    var type = patternType.value;
+    var density = Math.pow(2, parseInt(densityInput.value, 10)); // 2,4,8,16,32
+    var roughness = parseInt(roughnessInput.value, 10) / 100;
+
+    var c1 = hexToRgb(color1Input.value);
+    var c2 = hexToRgb(color2Input.value);
+
+    var mainNoise = buildNoiseGrid(Math.max(2, Math.round(density)), seed);
+    var grainNoise = buildNoiseGrid(Math.max(4, Math.round(size / 8)), seed + 777);
+
+    var imgData = ctx.createImageData(size, size);
+    var data = imgData.data;
+
+    for (var py = 0; py < size; py++) {
+      var y01 = py / size;
+      for (var px = 0; px < size; px++) {
+        var x01 = px / size;
+
+        var base;
+        if (type === 'noise') {
+          base = sampleNoise(mainNoise, x01, y01);
+        } else {
+          base = computeBase(type, x01, y01, density);
+        }
+
+        var grain = sampleNoise(grainNoise, x01, y01);
+        var value = base + (grain - 0.5) * roughness * 0.7;
+        value = Math.max(0, Math.min(1, value));
+
+        var r = Math.round(lerp(c2.r, c1.r, value));
+        var g = Math.round(lerp(c2.g, c1.g, value));
+        var b = Math.round(lerp(c2.b, c1.b, value));
+
+        var idx = (py * size + px) * 4;
+        data[idx] = r;
+        data[idx + 1] = g;
+        data[idx + 2] = b;
+        data[idx + 3] = 255;
+      }
+    }
+
+    ctx.putImageData(imgData, 0, 0);
+    updateTilePreview();
+  }
+
+  function updateTilePreview() {
+    var dataUrl = canvas.toDataURL('image/png');
+    tilePreview.style.backgroundImage = 'url(' + dataUrl + ')';
+  }
+
+  function updateRangeLabels() {
+    var density = Math.pow(2, parseInt(densityInput.value, 10));
+    densityValue.textContent = density;
+    roughnessValue.textContent = roughnessInput.value + '%';
+  }
+
+  function scheduleGenerate() {
+    updateRangeLabels();
+    requestAnimationFrame(generateTexture);
+  }
+
+  patternType.addEventListener('change', scheduleGenerate);
+  resolution.addEventListener('change', scheduleGenerate);
+  color1Input.addEventListener('input', scheduleGenerate);
+  color2Input.addEventListener('input', scheduleGenerate);
+  densityInput.addEventListener('input', scheduleGenerate);
+  roughnessInput.addEventListener('input', scheduleGenerate);
+
+  randomizeBtn.addEventListener('click', function () {
+    seed = Math.floor(Math.random() * 1e9);
+    generateTexture();
+  });
+
+  exportBtn.addEventListener('click', function () {
+    var size = resolution.value;
+    var type = patternType.value;
+    var link = document.createElement('a');
+    link.download = 'atelier-' + type + '-' + size + '.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  });
+
+  updateRangeLabels();
+  generateTexture();
+})();
+</script>
+
+</body>
+</html>
