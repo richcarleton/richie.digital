@@ -98,9 +98,46 @@
   footer{position:relative;z-index:2;padding:20px 5vw 60px;
     font-family:"Courier New",monospace;font-size:10px;font-weight:700;letter-spacing:.14em}
   footer .row{display:flex;flex-wrap:wrap;gap:8px 26px;border-top:4px solid var(--blk);padding-top:12px}
+
+  /* ── site intro: DOS meltdown → mesh face → starfield → reveal ── */
+  #site-content{opacity:0;pointer-events:none;transition:opacity .9s ease}
+  #site-content.revealed{opacity:1;pointer-events:auto}
+
+  #stars{position:fixed;inset:0;width:100%;height:100%;z-index:1;opacity:0;
+    display:block;background:#020203}
+
+  #intro-overlay{position:fixed;inset:0;background:#000;z-index:9999;
+    display:flex;align-items:center;justify-content:flex-start;
+    cursor:wait;overflow:hidden}
+
+  #dos-screen{box-sizing:border-box;width:100%;height:100%;padding:12px;
+    font-family:"Perfect DOS VGA 437","Courier New",Courier,monospace;
+    font-size:16px;line-height:1.15;color:#c0c0c0;white-space:pre-wrap;
+    word-break:break-all;overflow:hidden}
+
+  .dos-cursor{display:inline-block;width:9px;background:#c0c0c0;
+    animation:dos-blink 1s steps(1) infinite}
+  @keyframes dos-blink{50%{background:transparent}}
+
+  .dos-blinking{animation:dos-screenblink .25s steps(1) infinite}
+  @keyframes dos-screenblink{50%{visibility:hidden}}
+
+  #intro-face-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+
+  @media(prefers-reduced-motion:reduce){
+    #site-content{transition:none}
+  }
 </style>
 </head>
 <body>
+
+<canvas id="stars"></canvas>
+
+<div id="intro-overlay">
+  <div id="dos-screen"></div>
+</div>
+
+<div id="site-content">
 
 <a id="home-arrow" href="classic.html" title="classic index" aria-label="back to classic index">&#8592;</a>
 
@@ -279,5 +316,10 @@ if(!reduceMotion) zapTimer=setTimeout(zap,2500);
 
 })();
 </script>
+
+</div><!-- /#site-content -->
+
+<script src="js/stars.js"></script>
+<script src="js/site-intro.js"></script>
 </body>
 </html>
