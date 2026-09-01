@@ -5,7 +5,7 @@ const canvas = document.createElement('canvas');
 canvas.id = 'face-canvas';
 document.body.appendChild(canvas);
 const ctx = canvas.getContext('2d');
-const FACE_RGB = '255,176,0'; // Hercules amber (Claude orange = 217,119,87)
+const FACE_RGB = '224,224,224'; // greyscale phosphor — no amber, no color
 
 function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
 resize();

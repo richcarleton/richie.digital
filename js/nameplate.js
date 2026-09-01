@@ -20,56 +20,56 @@ plate.id = 'nameplate';
 plate.textContent = 'richie.digital';
 document.body.appendChild(plate);
 
-// ── typeface styles — last one triggers settle ────────────────────────────────
+// ── typeface styles — scrappy 80s screen/bitmap fonts, last one triggers settle ─
 const styles = [
   () => apply(`
-    font-family: 'Helvetica Neue', Arial, sans-serif;
-    font-size: clamp(32px, 6vw, 64px);
-    font-weight: 700;
-    letter-spacing: 0.18em;
-    color: #ffb000;
-    text-shadow: 0 0 8px #ffb000, 0 0 30px rgba(255,176,0,0.6), 0 0 60px rgba(255,176,0,0.27);
+    font-family: 'Press Start 2P', 'Courier New', monospace;
+    font-size: clamp(18px, 4vw, 34px);
+    font-weight: 400;
+    letter-spacing: 0.1em;
+    color: #e0e0e0;
+    text-shadow: 0 0 8px rgba(224,224,224,0.6), 0 0 30px rgba(224,224,224,0.25);
   `),
   () => apply(`
-    font-family: Impact, 'Arial Narrow', sans-serif;
-    font-size: clamp(36px, 7vw, 72px);
-    font-weight: 900;
-    letter-spacing: 0.22em;
+    font-family: 'VT323', 'Courier New', monospace;
+    font-size: clamp(44px, 9vw, 88px);
+    font-weight: 400;
+    letter-spacing: 0.16em;
     color: transparent;
     -webkit-text-stroke: 1.5px rgba(255,255,255,0.85);
     text-shadow: none;
   `),
   () => apply(`
-    font-family: 'Helvetica Neue', Arial, sans-serif;
-    font-size: clamp(30px, 5.5vw, 58px);
-    font-weight: 400;
-    letter-spacing: 0.08em;
-    color: #ffb000;
-    text-shadow: 3px 0 0 #ff8a00, -3px 0 0 #ffb000;
+    font-family: 'Silkscreen', 'Courier New', monospace;
+    font-size: clamp(22px, 5vw, 42px);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: #d8d8d8;
+    text-shadow: 2px 0 0 #888, -2px 0 0 #f0f0f0;
   `),
   () => apply(`
-    font-family: Arial, sans-serif;
-    font-size: clamp(34px, 6.5vw, 68px);
-    font-weight: 100;
-    letter-spacing: 0.35em;
-    color: rgba(255,255,255,0.12);
+    font-family: 'Jersey 10', 'Courier New', monospace;
+    font-size: clamp(38px, 8vw, 78px);
+    font-weight: 400;
+    letter-spacing: 0.2em;
+    color: rgba(255,255,255,0.14);
     -webkit-text-stroke: 0.5px rgba(255,255,255,0.5);
     text-shadow: none;
   `),
   () => apply(`
-    font-family: 'Helvetica Neue', Arial, sans-serif;
-    font-size: clamp(28px, 5vw, 54px);
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    color: #ffb000;
-    text-shadow: 0 0 6px rgba(255,176,0,0.67), 0 0 20px rgba(255,176,0,0.33);
+    font-family: 'VT323', 'Courier New', monospace;
+    font-size: clamp(34px, 6.5vw, 64px);
+    font-weight: 400;
+    letter-spacing: 0.1em;
+    color: #ececec;
+    text-shadow: 0 0 6px rgba(236,236,236,0.6), 0 0 20px rgba(236,236,236,0.3);
   `),
   // last — triggers settle (matches the Claude Orange plate it hands off to)
   () => apply(`
-    font-family: 'Helvetica Neue', Helvetica, Roboto, Arial, sans-serif;
-    font-size: clamp(32px, 6vw, 62px);
-    font-weight: 700;
-    letter-spacing: 0.2em;
+    font-family: 'Press Start 2P', 'Courier New', monospace;
+    font-size: clamp(16px, 3.2vw, 30px);
+    font-weight: 400;
+    letter-spacing: 0.12em;
     color: #D97757;
     text-shadow: 0 0 12px rgba(217,119,87,0.5), 0 0 32px rgba(217,119,87,0.2);
   `),
@@ -114,6 +114,7 @@ function settle() {
       setTimeout(() => {
         stage.style.display = 'none';
         plate.classList.add('visible');
+        if (window.revealStars) window.revealStars();
       }, 700);
     }, 800);
   });
