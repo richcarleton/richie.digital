@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Tower · Floor 34</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:#07090F;
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;color:#E9E4DC}
+canvas{display:block}
+#hud{position:fixed;inset:0;pointer-events:none;z-index:5}
+#cross{position:absolute;left:50%;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;
+  border:1px solid rgba(233,228,220,.5);border-radius:50%;transition:transform .12s,border-color .12s}
+#cross.hot{border-color:#7BD98C;transform:scale(1.5)}
+#prompt{position:absolute;left:50%;top:calc(50% + 26px);transform:translateX(-50%);
+  font-size:12px;color:#7BD98C;white-space:nowrap;opacity:0;transition:opacity .12s}
+#prompt.on{opacity:1}
+#tasks{position:absolute;top:max(14px,env(safe-area-inset-top));left:14px;font-size:11.5px;line-height:1.75}
+#tasks h3{font-size:9px;font-weight:500;letter-spacing:.12em;color:#5C6588;margin-bottom:4px}
+#tasks div{color:#98A0C4}
+#tasks div.done{color:#4A5273;text-decoration:line-through}
+#tasks div.now{color:#E9E4DC}
+#floorTag{position:absolute;top:max(14px,env(safe-area-inset-top));right:14px;text-align:right}
+#floorTag b{display:block;font-size:24px;font-weight:200;letter-spacing:-.02em;
+  font-family:"SF Mono",ui-monospace,Menlo,monospace}
+#floorTag span{font-size:9px;letter-spacing:.1em;color:#5C6588}
+#sub{position:absolute;left:0;right:0;bottom:max(70px,env(safe-area-inset-bottom));text-align:center;
+  font-size:13px;padding:0 30px;opacity:0;transition:opacity .5s;text-shadow:0 2px 8px #000}
+#sub.on{opacity:1}
+#flash{position:fixed;inset:0;background:#C9142E;opacity:0;pointer-events:none;z-index:6;
+  transition:opacity .18s}
+#vig{position:fixed;inset:0;pointer-events:none;z-index:4;
+  background:radial-gradient(ellipse at center,transparent 45%,rgba(4,6,12,.85) 100%)}
+#start{position:fixed;inset:0;z-index:10;background:#07090F;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;text-align:center;padding:30px}
+#start h1{font-size:13px;letter-spacing:.3em;color:#5C6588;font-weight:400;margin-bottom:14px}
+#start h2{font-size:34px;font-weight:200;letter-spacing:-.02em;margin-bottom:18px}
+#start p{font-size:12.5px;color:#7E88B6;line-height:1.7;max-width:330px;margin-bottom:26px}
+#start button{border:1px solid #E9E4DC;background:none;color:#E9E4DC;font:inherit;font-size:14px;
+  padding:12px 28px;cursor:pointer;border-radius:2px}
+#nub{position:fixed;left:20px;bottom:calc(20px + env(safe-area-inset-bottom));width:104px;height:104px;
+  border:1px solid rgba(233,228,220,.18);border-radius:50%;z-index:7;display:none}
+#nub i{position:absolute;left:50%;top:50%;width:40px;height:40px;margin:-20px 0 0 -20px;
+  border-radius:50%;background:rgba(233,228,220,.22)}
+body.touch #nub{display:block}
+#act{position:fixed;right:20px;bottom:calc(34px + env(safe-area-inset-bottom));width:76px;height:76px;
+  border:1px solid rgba(123,217,140,.5);border-radius:50%;z-index:7;display:none;color:#7BD98C;
+  font-size:11px;align-items:center;justify-content:center;background:rgba(123,217,140,.08)}
+body.touch #act{display:flex}
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <div id="cross"></div>
+  <div id="prompt"></div>
+  <div id="tasks"><h3>SHIFT LOG</h3><div id="taskList"></div></div>
+  <div id="floorTag"><b id="fnum">--</b><span id="flabel">ASCENDING</span></div>
+  <div id="sub"></div>
+</div>
+<div id="vig"></div>
+<div id="flash"></div>
+<div id="nub"><i></i></div>
+<div id="act">USE</div>
+
+<div id="start">
+  <h1>MERIDIAN AGRITOWER</h1>
+  <h2>Floor 34 · Propagation</h2>
+  <p>Night shift. Three items on the log, then you can go home.<br><br>
+  Mouse to look, WASD to walk, E to use. On a phone: left thumb walks, drag anywhere to look.</p>
+  <button id="go">Clock in</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ═══════════════ setup ═══════════════ */
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x07090F);
+scene.fog=new THREE.Fog(0x07090F,6,34);
+
+const camera=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,0.05,120);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+document.body.appendChild(renderer.domElement);
+addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+
+/* three-step toon ramp — the whole look lives here */
+const ramp=(()=>{
+  const c=new Uint8Array([40,120,255]);
+  const t=new THREE.DataTexture(c,c.length,1,THREE.LuminanceFormat);
+  t.minFilter=t.magFilter=THREE.NearestFilter;t.generateMipmaps=false;t.needsUpdate=true;
+  return t;
+})();
+const toon=(hex)=>new THREE.MeshToonMaterial({color:hex,gradientMap:ramp});
+const flat=(hex)=>new THREE.MeshBasicMaterial({color:hex});
+const INK=new THREE.LineBasicMaterial({color:0x05070C});
+
+const colliders=[];
+/* box(size, pos, colour, {solid, ink}) */
+function box(w,h,d,x,y,z,col,o={}){
+  const g=new THREE.BoxGeometry(w,h,d);
+  const m=new THREE.Mesh(g,o.flat?flat(col):toon(col));
+  m.position.set(x,y,z);
+  scene.add(m);
+  if(o.ink!==false) m.add(new THREE.LineSegments(new THREE.EdgesGeometry(g),INK));
+  if(o.solid) colliders.push({x,z,hw:w/2+0.34,hd:d/2+0.34,y0:y-h/2,y1:y+h/2});
+  return m;
+}
+/* text on a plane, for signage and screens */
+function label(text,w,h,x,y,z,ry,fg,bg,size){
+  const c=document.createElement('canvas');c.width=512;c.height=Math.round(512*h/w);
+  const g=c.getContext('2d');
+  g.fillStyle=bg;g.fillRect(0,0,c.width,c.height);
+  g.fillStyle=fg;g.font=`${size||90}px "Helvetica Neue",Helvetica,Arial`;
+  g.textAlign='center';g.textBaseline='middle';
+  g.fillText(text,c.width/2,c.height/2);
+  const t=new THREE.CanvasTexture(c);
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),
+    new THREE.MeshBasicMaterial({map:t,transparent:true}));
+  m.position.set(x,y,z);m.rotation.y=ry||0;scene.add(m);
+  m.userData.redraw=(txt,f)=>{
+    g.fillStyle=bg;g.fillRect(0,0,c.width,c.height);
+    g.fillStyle=f||fg;g.fillText(txt,c.width/2,c.height/2);t.needsUpdate=true;
+  };
+  return m;
+}
+
+/* ═══════════════ the car ═══════════════ */
+const CAR={x:0,z:0};
+box(3.4,0.1,3.4, 0,-0.05,0, 0x2A3050);                 // car floor
+box(3.4,0.1,3.4, 0,2.85,0, 0x1A1F38);                  // ceiling
+box(0.15,2.9,3.4,-1.7,1.4,0, 0x39406B,{solid:1});      // left wall
+box(0.15,2.9,3.4, 1.7,1.4,0, 0x39406B,{solid:1});      // right wall
+box(3.4,2.9,0.15, 0,1.4,-1.7, 0x39406B,{solid:1});     // back wall
+box(3.0,0.09,0.14, 0,1.0,-1.6, 0x555E93);              // handrail
+const carLight=new THREE.PointLight(0xFFE9C4,1.15,9);
+carLight.position.set(0,2.6,0);scene.add(carLight);
+box(1.1,0.05,1.1, 0,2.78,0, 0xFFF2D8,{flat:1,ink:false});
+
+/* doors — two panels that part */
+const dL=box(1.62,2.7,0.12,-0.82,1.35,1.66,0x4A5286);
+const dR=box(1.62,2.7,0.12, 0.82,1.35,1.66,0x4A5286);
+const doorSeal=[
+  {x:-0.85,z:1.66,hw:1.15,hd:0.4,y0:0,y1:2.7},
+  {x: 0.85,z:1.66,hw:1.15,hd:0.4,y0:0,y1:2.7}
+];
+colliders.push(...doorSeal);
+const counter=label('34',0.8,0.5, 0,2.35,-1.61,0,'#FF5BA0','#0B0E1C',150);
+const callBtn=box(0.16,0.26,0.06, 1.55,1.25,0.9, 0xF0C24A,{flat:1});
+callBtn.rotation.y=Math.PI/2;
+callBtn.userData={interact:'call',prompt:'Call the car'};
+
+/* ═══════════════ vestibule + hall ═══════════════ */
+const F=0x1C2138, W=0x2E3560;
+box(14,0.1,30, 3,-0.05,13, F);                     // deck
+box(14,0.1,30, 3,3.5,13, 0x141830);                // ceiling
+box(0.2,3.6,30,-4,1.8,13, W,{solid:1});            // west wall
+box(0.2,3.6,30,10,1.8,13, W,{solid:1});            // east wall
+box(14,3.6,0.2, 3,1.8,28, W,{solid:1});            // north wall
+box(2.3,3.6,0.2,-2.85,1.8,1.75, W,{solid:1});      // shaft face, left of doors
+box(6.9,3.6,0.2, 5.45,1.8,1.75, W,{solid:1});      // shaft face, right of doors
+
+/* ceiling strips — the only light out here */
+[[0,5],[0,11],[0,17],[6,8],[6,14],[6,20],[3,26]].forEach(([x,z])=>{
+  box(2.6,0.06,0.34, x,3.42,z, 0xD8E4F2,{flat:1,ink:false});
+  const l=new THREE.PointLight(0xBFD4EE,0.62,13);l.position.set(x,3.25,z);scene.add(l);
+});
+
+/* grow racks — the magenta */
+function rack(x,z,ry,tag){
+  const grp=new THREE.Object3D();grp.position.set(x,0,z);grp.rotation.y=ry;scene.add(grp);
+  const frame=(px,py,pz,w,h,d)=>{
+    const g=new THREE.BoxGeometry(w,h,d);
+    const m=new THREE.Mesh(g,toon(0x3F4878));m.position.set(px,py,pz);
+    m.add(new THREE.LineSegments(new THREE.EdgesGeometry(g),INK));grp.add(m);
+  };
+  [-1.3,1.3].forEach(px=>frame(px,1.5,0,0.12,3,0.7));
+  const trays=[];
+  [0.7,1.5,2.3].forEach((py,i)=>{
+    frame(0,py,0,2.7,0.09,0.75);
+    const panel=new THREE.Mesh(new THREE.PlaneGeometry(2.5,0.62),flat(0xFF5BA0));
+    panel.position.set(0,py+0.3,0);panel.rotation.x=-Math.PI/2;grp.add(panel);
+    const canopy=new THREE.Mesh(new THREE.BoxGeometry(2.4,0.14,0.6),toon(0x6FCB80));
+    canopy.position.set(0,py+0.11,0);
+    canopy.add(new THREE.LineSegments(new THREE.EdgesGeometry(canopy.geometry),INK));
+    grp.add(canopy);trays.push(canopy);
+  });
+  const gl=new THREE.PointLight(0xFF5BA0,0.85,7);gl.position.set(0,1.6,0);grp.add(gl);
+  colliders.push({x,z,hw:1.7,hd:0.75,y0:0,y1:3});
+  const sign=label(tag,0.6,0.24,0,2.9,0.42,0,'#E9E4DC','#171C33',110);
+  grp.add(sign);sign.position.set(0,2.9,0.42);
+  return {grp,trays,tag};
+}
+const racks=[
+  rack(-2.2, 8,0,'7-A'), rack(-2.2,13,0,'7-B'), rack(-2.2,18,0,'7-C'),
+  rack( 8.2, 9,0,'8-A'), rack( 8.2,15,0,'8-D'), rack( 8.2,21,0,'8-F')
+];
+
+/* ═══════════════ interactables ═══════════════ */
+const targets=[];
+function makeTarget(mesh,key,prompt){mesh.userData={interact:key,prompt};targets.push(mesh)}
+
+const reader=box(0.3,0.42,0.1, -3.82,1.3,5, 0x39406B);
+const readerLED=box(0.16,0.05,0.04,-3.66,1.42,5, 0xC9762E,{flat:1});
+makeTarget(reader,'badge','Badge in');
+
+const trayC=racks[2].trays[1];
+trayC.userData={interact:'tray',prompt:'Pull tray 7-C'};targets.push(trayC);
+
+const mixer=box(1.5,1.9,0.7, 3,0.95,27.3, 0x39406B,{solid:1});
+const mixScreen=label('EC 3.9',1.1,0.42, 3,1.6,26.93,0,'#C9762E','#0B0E1C',110);
+makeTarget(mixer,'nutrient','Trim the nutrient line');
+
+makeTarget(callBtn,'call','Call the car');
+targets.push(reader,mixer,callBtn);
+
+/* ═══════════════ state ═══════════════ */
+const TASKS=[
+  {k:'badge',t:'Badge in at the deck reader'},
+  {k:'tray', t:'Pull tray 7-C for inspection'},
+  {k:'nutrient',t:'Trim the nutrient line at the mixer'},
+  {k:'call', t:'Take the car back down'}
+];
+let doorT=0, doorOpen=false, phase='ride', rideT=0, shownFloor=34, dead=false;
+const done={};
+
+const el=id=>document.getElementById(id);
+function drawTasks(){
+  let firstOpen=true;
+  el('taskList').innerHTML=TASKS.map(t=>{
+    if(t.k==='call'&&!(done.badge&&done.tray&&done.nutrient)) return '';
+    const isDone=done[t.k];
+    const cls=isDone?'done':(firstOpen?(firstOpen=false,'now'):'');
+    return `<div class="${cls}">${isDone?'✓':'·'} ${t.t}</div>`;
+  }).join('');
+}
+let subT=0;
+function subtitle(txt,dur=3.4){el('sub').textContent=txt;el('sub').classList.add('on');subT=dur}
+
+/* ═══════════════ audio ═══════════════ */
+let AC,hum,humGain;
+function audioInit(){
+  AC=new (window.AudioContext||window.webkitAudioContext)();
+  humGain=AC.createGain();humGain.gain.value=0;humGain.connect(AC.destination);
+  hum=AC.createOscillator();hum.type='sawtooth';hum.frequency.value=54;
+  const lp=AC.createBiquadFilter();lp.type='lowpass';lp.frequency.value=180;
+  hum.connect(lp);lp.connect(humGain);hum.start();
+}
+function blip(f,dur,type='square',vol=0.08){
+  if(!AC)return;
+  const o=AC.createOscillator(),g=AC.createGain();
+  o.type=type;o.frequency.value=f;g.gain.value=vol;
+  o.connect(g);g.connect(AC.destination);o.start();
+  g.gain.exponentialRampToValueAtTime(0.0001,AC.currentTime+dur);
+  o.stop(AC.currentTime+dur);
+}
+
+/* ═══════════════ controls ═══════════════ */
+const player={x:0,y:1.62,z:0,yaw:0,pitch:0};
+const keys={};
+addEventListener('keydown',e=>{keys[e.code]=1;if(e.code==='KeyE')tryUse()});
+addEventListener('keyup',e=>keys[e.code]=0);
+
+const isTouch=matchMedia('(pointer:coarse)').matches;
+if(isTouch)document.body.classList.add('touch');
+
+renderer.domElement.addEventListener('click',()=>{
+  if(!isTouch&&document.pointerLockElement!==renderer.domElement)
+    renderer.domElement.requestPointerLock();
+});
+addEventListener('mousemove',e=>{
+  if(document.pointerLockElement!==renderer.domElement)return;
+  player.yaw-=e.movementX*0.0022;
+  player.pitch=Math.max(-1.4,Math.min(1.4,player.pitch-e.movementY*0.0022));
+});
+
+/* touch: left nub walks, anywhere else looks */
+let move={x:0,y:0}, lookId=null, lastLook={x:0,y:0}, nubId=null, nubO={x:0,y:0};
+const nubEl=el('nub'), nubDot=nubEl.querySelector('i');
+function onDown(e){
+  for(const t of e.changedTouches){
+    const r=nubEl.getBoundingClientRect();
+    if(nubId===null&&t.clientX<innerWidth*0.45&&t.clientY>innerHeight*0.45){
+      nubId=t.identifier;nubO={x:r.left+r.width/2,y:r.top+r.height/2};
+    } else if(lookId===null){lookId=t.identifier;lastLook={x:t.clientX,y:t.clientY}}
+  }
+}
+function onMove(e){
+  for(const t of e.changedTouches){
+    if(t.identifier===nubId){
+      let dx=(t.clientX-nubO.x)/46, dy=(t.clientY-nubO.y)/46;
+      const m=Math.hypot(dx,dy);if(m>1){dx/=m;dy/=m}
+      move={x:dx,y:dy};nubDot.style.transform=`translate(${dx*30}px,${dy*30}px)`;
+    } else if(t.identifier===lookId){
+      player.yaw-=(t.clientX-lastLook.x)*0.0055;
+      player.pitch=Math.max(-1.4,Math.min(1.4,player.pitch-(t.clientY-lastLook.y)*0.0055));
+      lastLook={x:t.clientX,y:t.clientY};
+    }
+  }
+  e.preventDefault();
+}
+function onUp(e){
+  for(const t of e.changedTouches){
+    if(t.identifier===nubId){nubId=null;move={x:0,y:0};nubDot.style.transform='';}
+    if(t.identifier===lookId)lookId=null;
+  }
+}
+addEventListener('touchstart',onDown,{passive:false});
+addEventListener('touchmove',onMove,{passive:false});
+addEventListener('touchend',onUp);
+addEventListener('touchcancel',onUp);
+el('act').addEventListener('touchstart',e=>{e.stopPropagation();tryUse()},{passive:false});
+
+/* ═══════════════ interaction ═══════════════ */
+const ray=new THREE.Raycaster();ray.far=3.2;
+let focused=null;
+function scan(){
+  ray.setFromCamera({x:0,y:0},camera);
+  const hit=ray.intersectObjects(targets,false)[0];
+  const m=hit?hit.object:null;
+  focused=(m&&m.userData.interact)?m:null;
+  if(focused&&focused.userData.interact==='call'&&!(done.badge&&done.tray&&done.nutrient))focused=null;
+  el('cross').classList.toggle('hot',!!focused);
+  el('prompt').classList.toggle('on',!!focused);
+  if(focused)el('prompt').textContent=focused.userData.prompt;
+}
+function tryUse(){
+  if(!focused||dead)return;
+  const k=focused.userData.interact;
+  if(k==='badge'&&!done.badge){
+    done.badge=1;blip(1180,0.14);readerLED.material.color.set(0x7BD98C);
+    subtitle('Reader chirps. Shift 3 open, 02:14.');
+  }
+  if(k==='tray'&&!done.tray){
+    done.tray=1;blip(320,0.3,'sine',0.1);
+    focused.position.z+=0.55;focused.material.color.set(0x8FE39D);
+    subtitle('Canopy looks clean. Nothing wrong on this floor.');
+  }
+  if(k==='nutrient'&&!done.nutrient){
+    done.nutrient=1;blip(720,0.2);
+    mixScreen.userData.redraw('EC 2.0','#7BD98C');
+    subtitle('EC down to two. That is the whole job, most nights.');
+  }
+  if(k==='call'&&phase==='floor'){
+    phase='returning';doorT=0;blip(880,0.12);
+    subtitle('');
+  }
+  drawTasks();
+}
+
+/* ═══════════════ movement ═══════════════ */
+function step(dt){
+  if(phase==='ride'||phase==='descend'||phase==='stall')return;
+  let fx=0,fz=0;
+  if(keys.KeyW||keys.ArrowUp)fz+=1;
+  if(keys.KeyS||keys.ArrowDown)fz-=1;
+  if(keys.KeyA||keys.ArrowLeft)fx-=1;
+  if(keys.KeyD||keys.ArrowRight)fx+=1;
+  fx+=move.x;fz-=move.y;
+  const m=Math.hypot(fx,fz);if(m>1){fx/=m;fz/=m}
+  const sp=3.3*dt, s=Math.sin(player.yaw), c=Math.cos(player.yaw);
+  player.x+=(fx*c-fz*s)*sp;
+  player.z+=(-fx*s-fz*c)*sp;
+  // push out of boxes
+  for(const b of colliders){
+    if(player.y<b.y0||player.y>b.y1+1)continue;
+    const dx=player.x-b.x, dz=player.z-b.z;
+    if(Math.abs(dx)<b.hw&&Math.abs(dz)<b.hd){
+      const px=b.hw-Math.abs(dx), pz=b.hd-Math.abs(dz);
+      if(px<pz)player.x=b.x+Math.sign(dx||1)*b.hw;
+      else player.z=b.z+Math.sign(dz||1)*b.hd;
+    }
+  }
+  // headbob
+  const moving=m>0.05;
+  bob=moving?bob+dt*9:bob*0.9;
+}
+let bob=0;
+
+/* ═══════════════ sequences ═══════════════ */
+function doors(dt,open){
+  const target=open?1:0;
+  doorT+=(target-doorT)*Math.min(1,dt*2.6);
+  dL.position.x=-0.82-doorT*1.55;
+  dR.position.x= 0.82+doorT*1.55;
+  const sealed=doorT<0.55;
+  doorSeal.forEach(s=>s.y1=sealed?2.7:-99);
+}
+
+function tick(dt){
+  if(phase==='ride'){
+    rideT+=dt;
+    if(humGain)humGain.gain.value=Math.min(0.05,rideT*0.03);
+    const f=Math.min(34,12+Math.floor(rideT*7.2));
+    if(f!==shownFloor){shownFloor=f;counter.userData.redraw(String(f));blip(1500,0.03,'square',0.02)}
+    el('fnum').textContent=shownFloor;
+    if(rideT>3.4){
+      phase='arriving';rideT=0;blip(980,0.5,'sine',0.12);
+      el('flabel').textContent='PROPAGATION';
+      subtitle('Floor thirty-four. Propagation.');
+    }
+    doors(dt,false);
+  }
+  else if(phase==='arriving'){
+    doors(dt,true);
+    if(humGain)humGain.gain.value*=0.93;
+    if(doorT>0.97){phase='floor';drawTasks()}
+  }
+  else if(phase==='floor'){
+    doors(dt,true);
+    const inCar=Math.abs(player.x)<1.5&&player.z<1.4;
+    el('flabel').textContent=inCar?'CAR':'PROPAGATION';
+  }
+  else if(phase==='returning'){
+    const inCar=Math.abs(player.x)<1.5&&player.z<1.4;
+    if(!inCar){doors(dt,true);return}
+    doors(dt,false);
+    if(doorT<0.03){phase='descend';rideT=0;el('flabel').textContent='DESCENDING'}
+  }
+  else if(phase==='descend'){
+    rideT+=dt;
+    if(humGain)humGain.gain.value=Math.min(0.055,rideT*0.05);
+    const f=Math.max(12,34-Math.floor(rideT*7.2));
+    if(f!==shownFloor){shownFloor=f;counter.userData.redraw(String(f));blip(1500,0.03,'square',0.02)}
+    el('fnum').textContent=shownFloor;
+    if(shownFloor<=12){
+      phase='stall';rideT=0;
+      counter.userData.redraw('12','#C9142E');
+      carLight.color.set(0xC9142E);carLight.intensity=0.55;
+      el('flabel').textContent='HELD';el('fnum').style.color='#C9142E';
+      el('flash').style.opacity=0.5;setTimeout(()=>el('flash').style.opacity=0,180);
+      if(humGain)humGain.gain.value=0;
+      blip(90,1.6,'sawtooth',0.14);
+      subtitle('The counter stops on twelve. Nobody pressed twelve.',9);
+      dead=true;
+    }
+    doors(dt,false);
+  }
+  else if(phase==='stall'){
+    rideT+=dt;
+    carLight.intensity=0.4+Math.sin(rideT*14)*0.14*Math.max(0,1-rideT/8);
+    if(rideT>3.2&&rideT<3.4)blip(140,0.6,'sawtooth',0.1);
+    doorT=Math.min(0.12,doorT+dt*0.03);          // doors crack open on nothing
+    dL.position.x=-0.82-doorT*1.55;dR.position.x=0.82+doorT*1.55;
+    if(rideT>7)subtitle('End of the slice.',99);
+  }
+}
+
+/* ═══════════════ loop ═══════════════ */
+let last=performance.now();
+function frame(now){
+  requestAnimationFrame(frame);
+  const dt=Math.min(0.05,(now-last)/1000);last=now;
+  step(dt);tick(dt);
+  if(subT>0){subT-=dt;if(subT<=0)el('sub').classList.remove('on')}
+  camera.position.set(player.x,player.y+Math.sin(bob)*0.035,player.z);
+  camera.rotation.set(player.pitch,player.yaw,0,'YXZ');
+  scan();
+  renderer.render(scene,camera);
+}
+
+el('go').onclick=()=>{
+  el('start').style.display='none';
+  audioInit();
+  counter.userData.redraw('12');
+  el('fnum').textContent='12';
+  drawTasks();
+  if(!isTouch)renderer.domElement.requestPointerLock();
+  requestAnimationFrame(frame);
+};
+</script>
+</body>
+</html>
