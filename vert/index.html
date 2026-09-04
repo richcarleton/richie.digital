@@ -13,6 +13,7 @@ canvas{display:block}
 #cross{position:absolute;left:50%;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;
   border:1px solid rgba(233,228,220,.5);border-radius:50%;transition:transform .12s,border-color .12s}
 #cross.hot{border-color:#7BD98C;transform:scale(1.5)}
+#cross.warn{border-color:#C9142E;transform:scale(1.3)}
 #prompt{position:absolute;left:50%;top:calc(50% + 26px);transform:translateX(-50%);
   font-size:12px;color:#7BD98C;white-space:nowrap;opacity:0;transition:opacity .12s}
 #prompt.on{opacity:1}
@@ -67,12 +68,12 @@ body.touch #act{display:flex}
 <div id="start">
   <h1>MERIDIAN AGRITOWER</h1>
   <h2>Floor 34 · Propagation</h2>
-  <p>Night shift. Three items on the log, then you can go home.<br><br>
+  <p>Night shift. Work the log, then find out what's past the north doors.<br><br>
   Mouse to look, WASD to walk, E to use. On a phone: left thumb walks, drag anywhere to look.</p>
   <button id="go">Clock in</button>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="../vendor/three.min.js"></script>
 <script>
 /* ═══════════════ setup ═══════════════ */
 const scene=new THREE.Scene();
@@ -161,7 +162,8 @@ box(14,0.1,30, 3,-0.05,13, F);                     // deck
 box(14,0.1,30, 3,3.5,13, 0x141830);                // ceiling
 box(0.2,3.6,30,-4,1.8,13, W,{solid:1});            // west wall
 box(0.2,3.6,30,10,1.8,13, W,{solid:1});            // east wall
-box(14,3.6,0.2, 3,1.8,28, W,{solid:1});            // north wall
+box(4.6,3.6,0.2, 0.7,1.8,28, W,{solid:1});         // north wall, west of corridor gap
+box(5.4,3.6,0.2, 7.3,1.8,28, W,{solid:1});         // north wall, east of corridor gap
 box(2.3,3.6,0.2,-2.85,1.8,1.75, W,{solid:1});      // shaft face, left of doors
 box(6.9,3.6,0.2, 5.45,1.8,1.75, W,{solid:1});      // shaft face, right of doors
 
@@ -201,6 +203,99 @@ const racks=[
   rack( 8.2, 9,0,'8-A'), rack( 8.2,15,0,'8-D'), rack( 8.2,21,0,'8-F')
 ];
 
+/* ═══════════════ north corridor ═══════════════ */
+/* gap in the north wall at x≈[3,5.6], leads to a long service corridor and 34-B */
+const CORR_X=4.65, CORR_Z0=28, CORR_Z1=48;
+box(2.6,0.1,20, CORR_X,-0.05,(CORR_Z0+CORR_Z1)/2, 0x171B30);              // corridor floor
+box(2.6,0.1,20, CORR_X,3.5,(CORR_Z0+CORR_Z1)/2, 0x101322);               // corridor ceiling
+box(0.2,3.6,20, CORR_X-1.3,1.8,(CORR_Z0+CORR_Z1)/2, 0x262B4C,{solid:1}); // west wall
+box(0.2,3.6,20, CORR_X+1.3,1.8,(CORR_Z0+CORR_Z1)/2, 0x262B4C,{solid:1});// east wall
+
+/* corridor doors — north-facing double doors, part like the car doors, gate the hall */
+const cdL=box(1.3,2.7,0.12, CORR_X-0.66,1.35,CORR_Z0+0.5,0x4A5286);
+const cdR=box(1.3,2.7,0.12, CORR_X+0.66,1.35,CORR_Z0+0.5,0x4A5286);
+const corrSeal=[
+  {x:CORR_X-0.65,z:CORR_Z0+0.5,hw:0.85,hd:0.4,y0:0,y1:2.7},
+  {x:CORR_X+0.65,z:CORR_Z0+0.5,hw:0.85,hd:0.4,y0:0,y1:2.7}
+];
+colliders.push(...corrSeal);
+let corrDoorT=0, corrDoorOpen=false;
+const corrSign=label('NORTH — SERVICE',1.4,0.36,CORR_X,2.55,CORR_Z0+0.44,0,'#98A0C4','#0B0E1C',80);
+const corrBadge=box(0.3,0.42,0.1, CORR_X+1.05,1.3,CORR_Z0+1.05,0x39406B);
+const corrBadgeLED=box(0.16,0.05,0.04,CORR_X+1.21,1.42,CORR_Z0+1.05,0xC9762E,{flat:1});
+corrBadge.rotation.y=Math.PI/2;corrBadgeLED.rotation.y=Math.PI/2;
+corrBadge.userData={interact:'corrbadge',prompt:'Badge into North Service'};
+
+/* corridor lighting — sparse, colder than the grow floor */
+[[CORR_Z0+4],[CORR_Z0+9],[CORR_Z0+14],[CORR_Z0+18]].forEach(([z])=>{
+  box(1.6,0.06,0.28, CORR_X,3.42,z, 0xAFC0E6,{flat:1,ink:false});
+  const l=new THREE.PointLight(0x8FA0D8,0.4,9);l.position.set(CORR_X,3.25,z);scene.add(l);
+});
+
+/* pipes running the corridor length — dressing, also a subtle collider-free detail */
+[-0.95,0.95].forEach(ox=>{
+  const g=new THREE.CylinderGeometry(0.06,0.06,20,8);
+  const m=new THREE.Mesh(g,toon(0x4A5273));
+  m.rotation.x=Math.PI/2;m.position.set(CORR_X+ox,3.0,(CORR_Z0+CORR_Z1)/2);
+  scene.add(m);
+});
+
+/* ═══════════════ 34-B ═══════════════ */
+const B_X=CORR_X, B_Z=CORR_Z1+4;
+box(6,0.1,7, B_X,-0.05,B_Z, 0x181C33);              // 34-B floor
+box(6,0.1,7, B_X,3.5,B_Z, 0x11142A);                // 34-B ceiling
+box(0.2,3.6,7, B_X-3,1.8,B_Z, 0x2E3560,{solid:1});  // west wall
+box(0.2,3.6,7, B_X+3,1.8,B_Z, 0x2E3560,{solid:1});  // east wall
+box(6,3.6,0.2, B_X,1.8,B_Z+3.5, 0x2E3560,{solid:1});// far wall
+/* threshold walls either side of the corridor mouth */
+box(2.3,3.6,0.2, B_X-1.85,1.8,B_Z-3.5, 0x2E3560,{solid:1});
+box(2.3,3.6,0.2, B_X+1.85,1.8,B_Z-3.5, 0x2E3560,{solid:1});
+
+const bSign=label('34-B',1.0,0.5, B_X,2.7,B_Z+3.39,0,'#FF5BA0','#0B0E1C',150);
+const bLight=new THREE.PointLight(0xE9E4DC,0.9,10);bLight.position.set(B_X,3.1,B_Z);scene.add(bLight);
+
+/* a bank of dark, unpowered racks — the reason nobody talks about 34-B */
+function darkRack(x,z){
+  const grp=new THREE.Object3D();grp.position.set(x,0,z);scene.add(grp);
+  const g=new THREE.BoxGeometry(2.6,3,0.7);
+  const m=new THREE.Mesh(g,toon(0x232748));
+  m.position.y=1.5;m.add(new THREE.LineSegments(new THREE.EdgesGeometry(g),INK));
+  grp.add(m);
+  colliders.push({x,z,hw:1.5,hd:0.65,y0:0,y1:3});
+}
+darkRack(B_X-1.9,B_Z-1.2); darkRack(B_X-1.9,B_Z+1.2);
+darkRack(B_X+1.9,B_Z-1.2); darkRack(B_X+1.9,B_Z+1.2);
+
+/* the terminal — last task, sits at the far wall */
+const bTerm=box(1.3,1.1,0.4, B_X,0.85,B_Z+3.1, 0x39406B,{solid:1});
+const bScreen=label('READY',1.0,0.4, B_X,1.25,B_Z+2.89,0,'#C9762E','#0B0E1C',110);
+bTerm.userData={interact:'terminal',prompt:'Wake the terminal'};
+
+/* ═══════════════ drones ═══════════════ */
+/* small patrol units in the corridor: a body, a downlight, a red scan eye */
+function drone(z,swing,speed,phase0){
+  const grp=new THREE.Object3D();grp.position.set(CORR_X,2.55,z);scene.add(grp);
+  const bodyG=new THREE.BoxGeometry(0.4,0.16,0.4);
+  const body=new THREE.Mesh(bodyG,toon(0x3F4878));
+  body.add(new THREE.LineSegments(new THREE.EdgesGeometry(bodyG),INK));
+  grp.add(body);
+  const eyeG=new THREE.SphereGeometry(0.05,8,8);
+  const eye=new THREE.Mesh(eyeG,flat(0xC9142E));
+  eye.position.set(0,-0.1,0.18);grp.add(eye);
+  const scanLight=new THREE.SpotLight(0xC9142E,0.9,6,Math.PI/7,0.4,1.3);
+  scanLight.position.set(0,-0.05,0);
+  const scanTarget=new THREE.Object3D();scanTarget.position.set(0,-4,0.6);
+  grp.add(scanTarget);scanLight.target=scanTarget;grp.add(scanLight);
+  const down=new THREE.PointLight(0x8899CC,0.35,3);down.position.set(0,-0.1,0);grp.add(down);
+  colliders.push({x:CORR_X,z,hw:0.3,hd:0.3,y0:2.3,y1:2.75,drone:grp}); // soft, non-solid marker (unused for push)
+  colliders.pop(); // drones don't block movement — remove the marker again
+  return {grp,z0:z,swing,speed,phase0,body,eye};
+}
+const drones=[
+  drone(CORR_Z0+7,3.4,0.55,0),
+  drone(CORR_Z0+15,3.0,0.7,Math.PI)
+];
+
 /* ═══════════════ interactables ═══════════════ */
 const targets=[];
 function makeTarget(mesh,key,prompt){mesh.userData={interact:key,prompt};targets.push(mesh)}
@@ -217,13 +312,17 @@ const mixScreen=label('EC 3.9',1.1,0.42, 3,1.6,26.93,0,'#C9762E','#0B0E1C',110);
 makeTarget(mixer,'nutrient','Trim the nutrient line');
 
 makeTarget(callBtn,'call','Call the car');
-targets.push(reader,mixer,callBtn);
+makeTarget(corrBadge,'corrbadge','Badge into North Service');
+makeTarget(bTerm,'terminal','Wake the terminal');
+targets.push(reader,mixer,callBtn,corrBadge,bTerm);
 
 /* ═══════════════ state ═══════════════ */
 const TASKS=[
   {k:'badge',t:'Badge in at the deck reader'},
   {k:'tray', t:'Pull tray 7-C for inspection'},
   {k:'nutrient',t:'Trim the nutrient line at the mixer'},
+  {k:'corrbadge',t:'Badge into North Service'},
+  {k:'terminal',t:'Wake the terminal in 34-B'},
   {k:'call', t:'Take the car back down'}
 ];
 let doorT=0, doorOpen=false, phase='ride', rideT=0, shownFloor=34, dead=false;
@@ -233,7 +332,9 @@ const el=id=>document.getElementById(id);
 function drawTasks(){
   let firstOpen=true;
   el('taskList').innerHTML=TASKS.map(t=>{
-    if(t.k==='call'&&!(done.badge&&done.tray&&done.nutrient)) return '';
+    if(t.k==='corrbadge'&&!(done.badge&&done.tray&&done.nutrient)) return '';
+    if(t.k==='terminal'&&!done.corrbadge) return '';
+    if(t.k==='call'&&!(done.badge&&done.tray&&done.nutrient&&done.corrbadge&&done.terminal)) return '';
     const isDone=done[t.k];
     const cls=isDone?'done':(firstOpen?(firstOpen=false,'now'):'');
     return `<div class="${cls}">${isDone?'✓':'·'} ${t.t}</div>`;
@@ -324,7 +425,9 @@ function scan(){
   const hit=ray.intersectObjects(targets,false)[0];
   const m=hit?hit.object:null;
   focused=(m&&m.userData.interact)?m:null;
-  if(focused&&focused.userData.interact==='call'&&!(done.badge&&done.tray&&done.nutrient))focused=null;
+  if(focused&&focused.userData.interact==='corrbadge'&&!(done.badge&&done.tray&&done.nutrient))focused=null;
+  if(focused&&focused.userData.interact==='terminal'&&!done.corrbadge)focused=null;
+  if(focused&&focused.userData.interact==='call'&&!(done.badge&&done.tray&&done.nutrient&&done.corrbadge&&done.terminal))focused=null;
   el('cross').classList.toggle('hot',!!focused);
   el('prompt').classList.toggle('on',!!focused);
   if(focused)el('prompt').textContent=focused.userData.prompt;
@@ -344,7 +447,17 @@ function tryUse(){
   if(k==='nutrient'&&!done.nutrient){
     done.nutrient=1;blip(720,0.2);
     mixScreen.userData.redraw('EC 2.0','#7BD98C');
-    subtitle('EC down to two. That is the whole job, most nights.');
+    subtitle('EC down to two. That is usually the whole job.');
+  }
+  if(k==='corrbadge'&&!done.corrbadge){
+    done.corrbadge=1;blip(1180,0.14);corrBadgeLED.material.color.set(0x7BD98C);
+    corrDoorOpen=true;
+    subtitle('North Service unlocks. Nobody logged a reason.');
+  }
+  if(k==='terminal'&&!done.terminal){
+    done.terminal=1;blip(500,0.4,'sine',0.1);
+    bScreen.userData.redraw('34-B: 0 UNITS','#7BD98C');
+    subtitle('Zero units on 34-B. Zero units, ever.',6);
   }
   if(k==='call'&&phase==='floor'){
     phase='returning';doorT=0;blip(880,0.12);
@@ -391,8 +504,31 @@ function doors(dt,open){
   const sealed=doorT<0.55;
   doorSeal.forEach(s=>s.y1=sealed?2.7:-99);
 }
+function corridorDoors(dt){
+  const target=corrDoorOpen?1:0;
+  corrDoorT+=(target-corrDoorT)*Math.min(1,dt*2.2);
+  cdL.position.x=CORR_X-0.66-corrDoorT*1.2;
+  cdR.position.x=CORR_X+0.66+corrDoorT*1.2;
+  const sealed=corrDoorT<0.55;
+  corrSeal.forEach(s=>s.y1=sealed?2.7:-99);
+}
+function driveDrones(dt,t){
+  let warn=false;
+  for(const d of drones){
+    const ph=d.phase0+t*d.speed;
+    d.grp.position.z=d.z0+Math.sin(ph)*d.swing;
+    d.grp.rotation.y=Math.cos(ph)*0.4;
+    const glow=0.6+Math.sin(t*6+d.phase0)*0.25;
+    d.eye.material.color.setRGB(0.79*glow,0.08*glow,0.18*glow);
+    if(phase==='floor'){
+      const dz=player.z-d.grp.position.z, dx=player.x-CORR_X;
+      if(Math.abs(dz)<1.1&&Math.abs(dx)<1.3)warn=true;
+    }
+  }
+  el('cross').classList.toggle('warn',warn&&!focused);
+}
 
-function tick(dt){
+function tick(dt,t){
   if(phase==='ride'){
     rideT+=dt;
     if(humGain)humGain.gain.value=Math.min(0.05,rideT*0.03);
@@ -413,10 +549,15 @@ function tick(dt){
   }
   else if(phase==='floor'){
     doors(dt,true);
+    corridorDoors(dt);
+    driveDrones(dt,t);
     const inCar=Math.abs(player.x)<1.5&&player.z<1.4;
-    el('flabel').textContent=inCar?'CAR':'PROPAGATION';
+    const inCorr=player.z>CORR_Z0&&Math.abs(player.x-CORR_X)<1.4;
+    const inB=player.z>CORR_Z1;
+    el('flabel').textContent=inCar?'CAR':inB?'34-B':inCorr?'NORTH SERVICE':'PROPAGATION';
   }
   else if(phase==='returning'){
+    corridorDoors(dt);driveDrones(dt,t);
     const inCar=Math.abs(player.x)<1.5&&player.z<1.4;
     if(!inCar){doors(dt,true);return}
     doors(dt,false);
@@ -452,11 +593,11 @@ function tick(dt){
 }
 
 /* ═══════════════ loop ═══════════════ */
-let last=performance.now();
+let last=performance.now(), elapsed=0;
 function frame(now){
   requestAnimationFrame(frame);
-  const dt=Math.min(0.05,(now-last)/1000);last=now;
-  step(dt);tick(dt);
+  const dt=Math.min(0.05,(now-last)/1000);last=now;elapsed+=dt;
+  step(dt);tick(dt,elapsed);
   if(subT>0){subT-=dt;if(subT<=0)el('sub').classList.remove('on')}
   camera.position.set(player.x,player.y+Math.sin(bob)*0.035,player.z);
   camera.rotation.set(player.pitch,player.yaw,0,'YXZ');
