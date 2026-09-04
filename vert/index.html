@@ -84,6 +84,8 @@ const camera=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,0.05,120);
 const renderer=new THREE.WebGLRenderer({antialias:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.setSize(innerWidth,innerHeight);
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.0;
 document.body.appendChild(renderer.domElement);
 addEventListener('resize',()=>{
   camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
@@ -131,6 +133,60 @@ function label(text,w,h,x,y,z,ry,fg,bg,size){
   return m;
 }
 
+/* soft radial glow sprite — cheap stand-in for bloom */
+const GLOW_TEX=(()=>{
+  const c=document.createElement('canvas');c.width=c.height=128;
+  const g=c.getContext('2d'),r=g.createRadialGradient(64,64,0,64,64,64);
+  r.addColorStop(0,'rgba(255,255,255,1)');r.addColorStop(0.4,'rgba(255,255,255,.35)');
+  r.addColorStop(1,'rgba(255,255,255,0)');
+  g.fillStyle=r;g.fillRect(0,0,128,128);
+  return new THREE.CanvasTexture(c);
+})();
+function glow(x,y,z,size,color,opacity=0.5,parent=scene){
+  const mat=new THREE.SpriteMaterial({map:GLOW_TEX,color,transparent:true,
+    opacity,blending:THREE.AdditiveBlending,depthWrite:false});
+  mat.toneMapped=false;
+  const s=new THREE.Sprite(mat);
+  s.position.set(x,y,z);s.scale.set(size,size,1);parent.add(s);
+  return s;
+}
+/* soft downward light shaft — top-fades cone, additive, no depth write */
+const SHAFT_TEX=(()=>{
+  const c=document.createElement('canvas');c.width=8;c.height=128;
+  const g=c.getContext('2d'),r=g.createLinearGradient(0,0,0,128);
+  r.addColorStop(0,'rgba(255,255,255,.55)');r.addColorStop(1,'rgba(255,255,255,0)');
+  g.fillStyle=r;g.fillRect(0,0,8,128);
+  return new THREE.CanvasTexture(c);
+})();
+function shaft(x,y,z,color,radius=0.85,height=2.1,parent=scene){
+  const mat=new THREE.MeshBasicMaterial({map:SHAFT_TEX,color,transparent:true,opacity:0.45,
+    blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide});
+  mat.toneMapped=false;
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(0.05,radius,height,14,1,true),mat);
+  m.position.set(x,y-height/2,z);parent.add(m);
+  return m;
+}
+/* register a light for the subtle fluorescent flicker pass */
+const flickerLights=[];
+function flick(light,amp=0.07,speed=3){
+  flickerLights.push({light,base:light.intensity,amp,speed,ph:Math.random()*10});
+}
+
+/* glazing — tinted, faintly reflective curtain-wall glass */
+const glassMat=new THREE.MeshPhysicalMaterial({
+  color:0x9CC4E8,transparent:true,opacity:0.16,roughness:0.15,metalness:0,
+  reflectivity:0.7,clearcoat:0.4,side:THREE.DoubleSide,depthWrite:false
+});
+function glassWall(w,h,d,x,y,z,solid){
+  const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),glassMat);
+  m.position.set(x,y,z);m.renderOrder=1;scene.add(m);
+  if(solid) colliders.push({x,z,hw:w/2+0.34,hd:d/2+0.34,y0:y-h/2,y1:y+h/2});
+  return m;
+}
+function mullions(x,z0,z1,step){
+  for(let z=z0;z<=z1;z+=step) box(0.07,3.6,0.07,x,1.8,z,0x11142A,{ink:false});
+}
+
 /* ═══════════════ the car ═══════════════ */
 const CAR={x:0,z:0};
 box(3.4,0.1,3.4, 0,-0.05,0, 0x2A3050);                 // car floor
@@ -141,7 +197,10 @@ box(3.4,2.9,0.15, 0,1.4,-1.7, 0x39406B,{solid:1});     // back wall
 box(3.0,0.09,0.14, 0,1.0,-1.6, 0x555E93);              // handrail
 const carLight=new THREE.PointLight(0xFFE9C4,1.15,9);
 carLight.position.set(0,2.6,0);scene.add(carLight);
+flick(carLight,0.05,5);
 box(1.1,0.05,1.1, 0,2.78,0, 0xFFF2D8,{flat:1,ink:false});
+shaft(0,2.78,0,0xFFE9C4,0.5,1.1);
+glow(0,2.72,0,0.7,0xFFE9C4,0.35);
 
 /* doors — two panels that part */
 const dL=box(1.62,2.7,0.12,-0.82,1.35,1.66,0x4A5286);
@@ -160,8 +219,10 @@ callBtn.userData={interact:'call',prompt:'Call the car'};
 const F=0x1C2138, W=0x2E3560;
 box(14,0.1,30, 3,-0.05,13, F);                     // deck
 box(14,0.1,30, 3,3.5,13, 0x141830);                // ceiling
-box(0.2,3.6,30,-4,1.8,13, W,{solid:1});            // west wall
-box(0.2,3.6,30,10,1.8,13, W,{solid:1});            // east wall
+glassWall(0.12,3.6,30,-4,1.8,13,1);                // west wall — curtain glass onto the tower's core
+mullions(-4,-1,27,2.4);
+glassWall(0.12,3.6,30,10,1.8,13,1);                // east wall — curtain glass onto the tower's core
+mullions(10,-1,27,2.4);
 box(4.6,3.6,0.2, 0.7,1.8,28, W,{solid:1});         // north wall, west of corridor gap
 box(5.4,3.6,0.2, 7.3,1.8,28, W,{solid:1});         // north wall, east of corridor gap
 box(2.3,3.6,0.2,-2.85,1.8,1.75, W,{solid:1});      // shaft face, left of doors
@@ -171,6 +232,9 @@ box(6.9,3.6,0.2, 5.45,1.8,1.75, W,{solid:1});      // shaft face, right of doors
 [[0,5],[0,11],[0,17],[6,8],[6,14],[6,20],[3,26]].forEach(([x,z])=>{
   box(2.6,0.06,0.34, x,3.42,z, 0xD8E4F2,{flat:1,ink:false});
   const l=new THREE.PointLight(0xBFD4EE,0.62,13);l.position.set(x,3.25,z);scene.add(l);
+  flick(l,0.06,2.2);
+  shaft(x,3.35,z,0xBFD4EE,0.9,2.4);
+  glow(x,3.35,z,1.5,0xBFD4EE,0.4);
 });
 
 /* grow racks — the magenta */
@@ -193,6 +257,9 @@ function rack(x,z,ry,tag){
     grp.add(canopy);trays.push(canopy);
   });
   const gl=new THREE.PointLight(0xFF5BA0,0.85,7);gl.position.set(0,1.6,0);grp.add(gl);
+  flick(gl,0.08,4);
+  shaft(0,2.55,0,0xFF5BA0,0.55,1.0,grp);
+  glow(0,1.7,0,1.1,0xFF5BA0,0.5,grp);
   colliders.push({x,z,hw:1.7,hd:0.75,y0:0,y1:3});
   const sign=label(tag,0.6,0.24,0,2.9,0.42,0,'#E9E4DC','#171C33',110);
   grp.add(sign);sign.position.set(0,2.9,0.42);
@@ -202,6 +269,30 @@ const racks=[
   rack(-2.2, 8,0,'7-A'), rack(-2.2,13,0,'7-B'), rack(-2.2,18,0,'7-C'),
   rack( 8.2, 9,0,'8-A'), rack( 8.2,15,0,'8-D'), rack( 8.2,21,0,'8-F')
 ];
+
+/* ═══════════════ exterior tower ═══════════════ */
+/* other floors of the agritower, glimpsed above and below through the curtain glass —
+   pure dressing beyond the glass line: no colliders, and their bleed-light spills
+   into the hall exactly like real glazing would (nothing here casts shadows). */
+function extFloor(xEdge,dir,y,hue){
+  const outSpan=1.5, z0=-1, z1=27;
+  const slab=new THREE.Mesh(new THREE.BoxGeometry(outSpan,0.1,z1-z0),
+    new THREE.MeshBasicMaterial({color:0x11142A}));
+  slab.position.set(xEdge+dir*outSpan/2,y,(z0+z1)/2);scene.add(slab);
+  for(let z=z0+2;z<z1;z+=4.6){
+    const trayMat=new THREE.MeshBasicMaterial({color:hue,transparent:true,opacity:0.8});
+    trayMat.toneMapped=false;
+    const tray=new THREE.Mesh(new THREE.PlaneGeometry(outSpan*0.7,0.46),trayMat);
+    tray.rotation.x=-Math.PI/2;tray.position.set(xEdge+dir*outSpan*0.55,y+0.09,z);
+    scene.add(tray);
+  }
+  const bleed=new THREE.PointLight(hue,0.5,10);
+  bleed.position.set(xEdge+dir*0.5,y+0.5,13);scene.add(bleed);
+  flick(bleed,0.1,1.4);
+  glow(xEdge+dir*0.8,y+0.4,13,4.5,hue,0.3);
+}
+[[-7.2,0xFF5BA0],[-3.6,0x6FCB80],[3.6,0xFF5BA0],[7.2,0x6FCB80],[10.8,0xFF5BA0]]
+  .forEach(([y,hue])=>{extFloor(-4,-1,y,hue);extFloor(10,1,y,hue);});
 
 /* ═══════════════ north corridor ═══════════════ */
 /* gap in the north wall at x≈[3,5.6], leads to a long service corridor and 34-B */
@@ -230,6 +321,9 @@ corrBadge.userData={interact:'corrbadge',prompt:'Badge into North Service'};
 [[CORR_Z0+4],[CORR_Z0+9],[CORR_Z0+14],[CORR_Z0+18]].forEach(([z])=>{
   box(1.6,0.06,0.28, CORR_X,3.42,z, 0xAFC0E6,{flat:1,ink:false});
   const l=new THREE.PointLight(0x8FA0D8,0.4,9);l.position.set(CORR_X,3.25,z);scene.add(l);
+  flick(l,0.12,1.6);
+  shaft(CORR_X,3.35,z,0x8FA0D8,0.6,1.9);
+  glow(CORR_X,3.35,z,1.1,0x8FA0D8,0.35);
 });
 
 /* pipes running the corridor length — dressing, also a subtle collider-free detail */
@@ -253,6 +347,9 @@ box(2.3,3.6,0.2, B_X+1.85,1.8,B_Z-3.5, 0x2E3560,{solid:1});
 
 const bSign=label('34-B',1.0,0.5, B_X,2.7,B_Z+3.39,0,'#FF5BA0','#0B0E1C',150);
 const bLight=new THREE.PointLight(0xE9E4DC,0.9,10);bLight.position.set(B_X,3.1,B_Z);scene.add(bLight);
+flick(bLight,0.15,1.1);
+shaft(B_X,3.35,B_Z,0xE9E4DC,1.0,3.0);
+glow(B_X,3.35,B_Z,1.8,0xE9E4DC,0.4);
 
 /* a bank of dark, unpowered racks — the reason nobody talks about 34-B */
 function darkRack(x,z){
@@ -528,7 +625,13 @@ function driveDrones(dt,t){
   el('cross').classList.toggle('warn',warn&&!focused);
 }
 
+function flicker(t){
+  for(const f of flickerLights)
+    f.light.intensity=f.base*(1+Math.sin(t*f.speed+f.ph)*f.amp*0.6+(Math.random()-0.5)*f.amp*0.4);
+}
+
 function tick(dt,t){
+  flicker(t);
   if(phase==='ride'){
     rideT+=dt;
     if(humGain)humGain.gain.value=Math.min(0.05,rideT*0.03);
