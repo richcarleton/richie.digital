@@ -36,6 +36,12 @@ function build() {
     <div class="menu-section">
       <div class="menu-section-label">garage</div>
       ${row('menu-cmd', 'motobang', 'motorcycle circuit')}
+      ${row('menu-cmd', 'ricardo', 'the pyramid awaits')}
+      ${row('menu-cmd', 'train', 'transit departures chyron')}
+      ${row('menu-cmd', 'beatrig', 'stick-figure beat-grid poser')}
+      ${row('menu-cmd', 'vert', 'glass tower corridor')}
+      ${row('menu-cmd', 'atelier', 'tile-safe texture studio')}
+      ${row('menu-cmd', 'catstan', '???')}
     </div>
     <div class="menu-section">
       ${row('menu-cmd-dim', '&lt;anything&gt;', 'text flythrough')}

@@ -44,11 +44,19 @@ input.addEventListener('keydown', e => {
   if (cmd === 'menu' || cmd === 'help' || cmd === '?') {
     if (window.showMenu) window.showMenu();
   } else if (cmd === 'ricardo') {
-    window.location.href = 'ricardo/';   // 🐈 the pyramid awaits
+    window.location.href = '/ricardo/';   // 🐈 the pyramid awaits
   } else if (cmd === 'motobang' || cmd === 'suit' || cmd === 'circuit' || cmd === 'ride') {
-    window.location.href = 'motobang/';  // 🏍 knees are the suspension
+    window.location.href = '/motobang/';  // 🏍 knees are the suspension
   } else if (cmd === 'train') {
-    window.location.href = 'transit-ticker/';  // 🚆 REM departures chyron
+    window.location.href = '/transit-ticker/';  // 🚆 REM departures chyron
+  } else if (cmd === 'beatrig' || cmd === 'stickman' || cmd === 'beatstickman') {
+    window.location.href = '/triganim.html';  // 🕺 poses on a beat grid
+  } else if (cmd === 'vert') {
+    window.location.href = '/vert/';  // 🏙 glass tower corridor
+  } else if (cmd === 'atelier') {
+    window.location.href = '/atelier.html';  // 🧵 tile-safe texture studio
+  } else if (cmd === 'catstan') {
+    window.location.href = '/CATSTAN/';  // 🐈
   } else if (cmd === 'crash') {
     hide();
     if (window.DOSCrash) new window.DOSCrash().init();
