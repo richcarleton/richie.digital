@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Beatrig</title>
+<style>
+  :root{
+    --ink:#12151c; --panel:#1a1f29; --line:#2b3342; --dim:#7c879a;
+    --text:#dde3ec; --stage:#eceae4; --amber:#e0a02c; --cool:#7fb0cc;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--ink);color:var(--text);
+    font:14px/1.45 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+    overscroll-behavior:none}
+  body{max-width:520px;margin:0 auto;padding:10px 10px 28px}
+  h1{font-size:15px;font-weight:600;letter-spacing:.02em;margin:2px 0 10px;color:var(--dim)}
+  h1 b{color:var(--text);font-weight:600}
+  #stage{width:100%;display:block;background:var(--stage);border-radius:3px;touch-action:none}
+  #tl{width:100%;display:block;margin-top:8px;background:var(--panel);
+      border:1px solid var(--line);border-radius:3px;touch-action:none}
+  .row{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center}
+  button{font:inherit;font-size:13px;color:var(--text);background:var(--panel);
+    border:1px solid var(--line);border-radius:3px;padding:9px 11px;cursor:pointer}
+  button:active{background:#232a37}
+  button.on{border-color:var(--amber);color:var(--amber)}
+  button.wide{flex:1}
+  button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+  .tap{min-width:96px;background:#232a37;border-color:#3a4457}
+  label{font-size:12px;color:var(--dim);display:flex;align-items:center;gap:7px;flex:1}
+  input[type=range]{flex:1;accent-color:var(--amber);min-width:110px}
+  .val{color:var(--text);font-variant-numeric:tabular-nums;min-width:34px;text-align:right}
+  .sep{height:1px;background:var(--line);margin:12px 0 2px;border:0}
+  .note{font-size:12px;color:var(--dim);margin:8px 2px 0}
+  select{font:inherit;font-size:13px;color:var(--text);background:var(--panel);
+    border:1px solid var(--line);border-radius:3px;padding:8px}
+</style>
+
+<h1><b>Beatrig</b> — poses on a beat grid</h1>
+<canvas id="stage"></canvas>
+<canvas id="tl"></canvas>
+
+<div class="row">
+  <button id="play" class="wide">Play</button>
+  <button id="tap" class="tap">Tap tempo</button>
+  <button id="click" class="on">Click</button>
+</div>
+<div class="row">
+  <button id="addkey" class="wide">Add key here</button>
+  <button id="delkey" class="wide">Delete key</button>
+  <button id="clear">Clear</button>
+</div>
+<div class="row">
+  <label>Tempo <input type="range" id="bpm" min="40" max="200" value="96"><span class="val" id="bpmv">96</span></label>
+</div>
+<div class="row">
+  <label>Embellishment <input type="range" id="emb" min="0" max="180" value="100"><span class="val" id="embv">1.00</span></label>
+</div>
+<hr class="sep">
+<div class="row">
+  <button id="vside" class="wide on">Side</button>
+  <button id="viso" class="wide">Isometric</button>
+  <button id="vfront" class="wide">Front</button>
+</div>
+<div class="row">
+  <select id="bg">
+    <option value="paper">Paper</option>
+    <option value="grid">Grid</option>
+    <option value="slate">Slate</option>
+    <option value="chroma">Chroma green</option>
+  </select>
+  <button id="onion" class="wide">Onion skin</button>
+</div>
+<div class="row">
+  <select id="cyc">
+    <option value="walk">Walk</option>
+    <option value="run">Run</option>
+    <option value="idle">Idle</option>
+    <option value="wave">Wave</option>
+  </select>
+  <button id="apply" class="wide">Load cycle</button>
+  <select id="bars">
+    <option value="1">1 bar</option>
+    <option value="2">2 bars</option>
+  </select>
+</div>
+<div class="row">
+  <button id="ejson" class="wide">Save JSON</button>
+  <button id="ijson" class="wide">Open JSON</button>
+  <button id="egif" class="wide">Export GIF</button>
+</div>
+<input type="file" id="file" accept=".json,application/json" hidden>
+<p class="note" id="status">Drag a hand or foot and the joint above it solves itself. Everything snaps to half-beats.</p>
+
+<script>
+"use strict";
+const D = Math.PI/180;
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+
+/* ---------- rig ---------------------------------------------------------
+   Bones store LOCAL angles in degrees: world = parentWorld + local.
+   Lengths never change because we only ever interpolate angles. That's the
+   whole reason limbs don't turn to spaghetti between keys.                */
+const BONES=[
+  {n:'spine', p:null,   at:'tip',  len:40},
+  {n:'neck',  p:'spine',at:'tip',  len:14},
+  {n:'armUB', p:'spine',at:'tip',  len:26, z:-10}, {n:'armLB',p:'armUB',at:'tip',len:24},
+  {n:'legUB', p:'spine',at:'base', len:34, z:-7},  {n:'legLB',p:'legUB',at:'tip',len:32},
+  {n:'footB', p:'legLB',at:'tip',  len:12},
+  {n:'armUF', p:'spine',at:'tip',  len:26, z:10},  {n:'armLF',p:'armUF',at:'tip',len:24},
+  {n:'legUF', p:'spine',at:'base', len:34, z:7},   {n:'legLF',p:'legUF',at:'tip',len:32},
+  {n:'footF', p:'legLF',at:'tip',  len:12}
+];
+const BM={}; BONES.forEach(b=>BM[b.n]=b);
+
+const NEUTRAL={spine:0,neck:0,
+  armUB:184,armLB:-8, armUF:176,armLF:-8,
+  legUB:183,legLB:2,footB:-88, legUF:177,legLF:2,footF:-88,
+  rx:0,ry:0,ra:0};
+
+const K=(o)=>Object.assign({},NEUTRAL,o);
+/* Cycles are sparse deltas over neutral, laid out across one 4-beat bar.
+   Mirrored halves = the loop closes on itself by construction.           */
+const CYCLES={
+  walk:[
+    {t:0,pose:K({legUF:155,legLF:4,footF:-92, legUB:207,legLB:16,footB:-70,
+                 armUF:206,armLF:-14, armUB:154,armLB:-30, spine:2,neck:-2,ry:0})},
+    {t:1,pose:K({legUF:186,legLF:3,footF:-88, legUB:170,legLB:48,footB:-62,
+                 armUF:186,armLF:-10, armUB:176,armLB:-18, spine:2,neck:-2,ry:-4})},
+    {t:2,pose:K({legUB:155,legLB:4,footB:-92, legUF:207,legLF:16,footF:-70,
+                 armUB:206,armLB:-14, armUF:154,armLF:-30, spine:2,neck:-2,ry:0})},
+    {t:3,pose:K({legUB:186,legLB:3,footB:-88, legUF:170,legLF:48,footF:-62,
+                 armUB:186,armLB:-10, armUF:176,armLF:-18, spine:2,neck:-2,ry:-4})}
+  ],
+  run:[
+    {t:0,pose:K({legUF:140,legLF:14,footF:-95, legUB:214,legLB:64,footB:-55,
+                 armUF:224,armLF:-72, armUB:140,armLB:-84, spine:12,neck:-10,ry:-2})},
+    {t:1,pose:K({legUF:172,legLF:8,footF:-90, legUB:150,legLB:104,footB:-50,
+                 armUF:184,armLF:-80, armUB:176,armLB:-80, spine:12,neck:-10,ry:-13})},
+    {t:2,pose:K({legUB:140,legLB:14,footB:-95, legUF:214,legLF:64,footF:-55,
+                 armUB:224,armLB:-72, armUF:140,armLF:-84, spine:12,neck:-10,ry:-2})},
+    {t:3,pose:K({legUB:172,legLB:8,footB:-90, legUF:150,legLF:104,footF:-50,
+                 armUB:184,armLB:-80, armUF:176,armLF:-80, spine:12,neck:-10,ry:-13})}
+  ],
+  idle:[
+    {t:0,pose:K({ry:0})},
+    {t:2,pose:K({spine:1.5,neck:1,armUF:176,armUB:184,ry:2.5})}
+  ],
+  wave:[
+    {t:0,pose:K({armUF:44,armLF:-28,spine:-2,neck:3})},
+    {t:1,pose:K({armUF:40,armLF:26,spine:-2,neck:3})},
+    {t:2,pose:K({armUF:44,armLF:-28,spine:-2,neck:3})},
+    {t:3,pose:K({armUF:40,armLF:26,spine:-2,neck:3})}
+  ]
+};
+
+/* ---------- state ------------------------------------------------------ */
+let keys=CYCLES.walk.map(k=>({t:k.t,pose:Object.assign({},k.pose)}));
+let bpm=96, bars=1, BPB=4, emb=1, beat=0, playing=false, click=true, sel=null;
+const total=()=>bars*BPB;
+const snap=b=>Math.round(b*2)/2;
+
+/* ---------- forward kinematics ----------------------------------------- */
+const BASE={x:170,y:200};
+function solve(pose){
+  const j={}, seg={}, world={}, zm={};
+  const hip={x:BASE.x+pose.rx, y:BASE.y+pose.ry, z:0};
+  j.root=hip;
+  for(const b of BONES){
+    const pw = b.p===null ? (-90+pose.ra) : world[b.p];
+    const w  = pw + (pose[b.n]||0);
+    world[b.n]=w;
+    /* A limb keeps its own depth; children inherit it. The z jump at the
+       shoulder IS the shoulder width — no separate torso geometry needed. */
+    const z = (b.z!==undefined) ? b.z : (b.p===null ? 0 : zm[b.p]);
+    zm[b.n]=z;
+    const s = b.p===null ? hip : (b.at==='tip' ? seg[b.p].e : seg[b.p].s);
+    const e = {x:s.x+Math.cos(w*D)*b.len, y:s.y+Math.sin(w*D)*b.len};
+    seg[b.n]={s,e,w,z};
+  }
+  const at=(p,z)=>({x:p.x,y:p.y,z});
+  j.chest=at(seg.spine.e,0); j.head=at(seg.neck.e,0);
+  j.elbowB=at(seg.armUB.e,zm.armUB); j.handB=at(seg.armLB.e,zm.armLB);
+  j.elbowF=at(seg.armUF.e,zm.armUF); j.handF=at(seg.armLF.e,zm.armLF);
+  j.kneeB=at(seg.legUB.e,zm.legUB); j.ankleB=at(seg.legLB.e,zm.legLB); j.toeB=at(seg.footB.e,zm.footB);
+  j.kneeF=at(seg.legUF.e,zm.legUF); j.ankleF=at(seg.legLF.e,zm.legLF); j.toeF=at(seg.footF.e,zm.footF);
+  return {seg,j,world};
+}
+
+/* ---------- camera -----------------------------------------------------
+   Yaw about the figure's own vertical axis, optional pitch. The rig stays
+   flat; only the projection changes, so saved poses are camera-agnostic. */
+const VIEWS={side:{yaw:10,pitch:0}, iso:{yaw:42,pitch:18}, front:{yaw:90,pitch:0}};
+let view='side';
+const FLOOR=340;
+function cam(){const V=VIEWS[view];return{
+  cy:Math.cos(V.yaw*D),sy:Math.sin(V.yaw*D),
+  cp:Math.cos(V.pitch*D),sp:Math.sin(V.pitch*D)};}
+function proj(p){
+  const c=cam(), x=p.x-BASE.x, z=p.z||0;
+  const X=x*c.cy+z*c.sy, Z=-x*c.sy+z*c.cy;
+  return {x:BASE.x+X, y:FLOOR+(p.y-FLOOR)*c.cp+Z*c.sp, z:Z};
+}
+function unproj(px,py,z){
+  const c=cam();
+  const x=((px-BASE.x)-z*c.sy)/c.cy;
+  const Z=-x*c.sy+z*c.cy;
+  return {x:BASE.x+x, y:FLOOR+((py-FLOOR)-Z*c.sp)/c.cp};
+}
+const poseable=()=>Math.abs(cam().cy)>0.2;
+
+/* ---------- interpolation ---------------------------------------------- */
+const FIELDS=BONES.map(b=>b.n).concat(['rx','ry','ra']);
+function lerpPose(a,b,u){
+  const o={}; for(const f of FIELDS) o[f]=a[f]+(b[f]-a[f])*u; return o;
+}
+function rawAt(t){
+  if(!keys.length) return Object.assign({},NEUTRAL);
+  if(keys.length===1) return Object.assign({},keys[0].pose);
+  const T=total(), ks=keys;
+  let i=-1;
+  for(let n=0;n<ks.length;n++) if(ks[n].t<=t) i=n;
+  let A,B,span,u;
+  if(i<0){ A=ks[ks.length-1]; B=ks[0]; span=B.t+T-A.t; u=(t+T-A.t)/span; }
+  else if(i===ks.length-1){ A=ks[i]; B=ks[0]; span=B.t+T-A.t; u=(t-A.t)/span; }
+  else { A=ks[i]; B=ks[i+1]; span=B.t-A.t; u=(t-A.t)/span; }
+  u=clamp(u,0,1); u=u*u*(3-2*u);              // smoothstep, no snappy corners
+  return lerpPose(A.pose,B.pose,u);
+}
+/* Embellishment scales every channel away from neutral. 0 = mannequin,
+   1 = the cycle as authored, 1.8 = Ministry of Silly Walks.              */
+function poseAt(t){
+  const p=rawAt(t), o={};
+  for(const f of FIELDS) o[f]=NEUTRAL[f]+(p[f]-NEUTRAL[f])*emb;
+  return o;
+}
+
+/* ---------- drawing ----------------------------------------------------- */
+const stage=document.getElementById('stage'), sx=stage.getContext('2d');
+const tl=document.getElementById('tl'), tx=tl.getContext('2d');
+const W=340,H=400, TW=340,TH=64;
+function limb(g,seg,names,col,w){
+  g.strokeStyle=col; g.lineWidth=w; g.lineCap='round'; g.lineJoin='round';
+  g.beginPath();
+  for(const n of names){
+    const s=seg[n];
+    const a=proj({x:s.s.x,y:s.s.y,z:s.z}), b=proj({x:s.e.x,y:s.e.y,z:s.z});
+    g.moveTo(a.x,a.y); g.lineTo(b.x,b.y);
+  }
+  g.stroke();
+}
+const CHAINS=[
+  {b:['armUB','armLB']}, {b:['legUB','legLB','footB']},
+  {b:['armUF','armLF']}, {b:['legUF','legLF','footF']},
+  {b:['spine','neck'],torso:true}
+];
+/* Far limbs need a tone that reads as "further away", not "faded out" —
+   a washed tint is exactly what onion skinning looks like, so it gets
+   mistaken for one. Solid mid-tone, slightly thinner stroke instead. */
+const THEMES={
+  paper: {bg:'#eceae4',near:'#1a1d24',far:'#8f897b',ground:'#c9c5b8',grid:null,     ghost:'#b5462f'},
+  grid:  {bg:'#f5f7f9',near:'#16202b',far:'#7d95a8',ground:'#aebecd',grid:'#dde6ee',ghost:'#b5462f'},
+  slate: {bg:'#1d222b',near:'#f0ece3',far:'#7a8492',ground:'#333c4a',grid:null,     ghost:'#e07a4f'},
+  chroma:{bg:'#00b140',near:'#101010',far:'#4c4c4c',ground:null,    grid:null,     ghost:'#7a2be2'}
+};
+let theme='paper', onion=false;
+
+function drawBG(g){
+  const T=THEMES[theme];
+  g.fillStyle=T.bg; g.fillRect(0,0,W,H);
+  if(T.grid){
+    g.strokeStyle=T.grid; g.lineWidth=1; g.beginPath();
+    for(let x=20;x<W;x+=20){g.moveTo(x+.5,0);g.lineTo(x+.5,H);}
+    for(let y=20;y<H;y+=20){g.moveTo(0,y+.5);g.lineTo(W,y+.5);}
+    g.stroke();
+  }
+  if(T.ground){
+    g.strokeStyle=T.ground; g.lineWidth=1; g.beginPath();
+    g.moveTo(0,340.5); g.lineTo(W,340.5); g.stroke();
+  }
+}
+function drawFig(g,pose,opt){
+  opt=opt||{};
+  const T=THEMES[theme], {seg,j}=solve(pose);
+  if(opt.tint) g.globalAlpha=0.3;
+  /* Which limb is "far" depends on the camera, not on its name — at 42°
+     the back arm can swing in front of the torso. Sort every frame. */
+  const order=CHAINS.map(c=>{
+    let z=0;
+    for(const n of c.b) z+=proj({x:seg[n].s.x,y:seg[n].s.y,z:seg[n].z}).z;
+    return {c,z:z/c.b.length};
+  }).sort((a,b)=>a.z-b.z);
+  for(const it of order){
+    const back=it.z<-0.5;
+    const col=opt.tint||(it.c.torso?T.near:(back?T.far:T.near));
+    limb(g,seg,it.c.b,col,it.c.torso?6:(back?4.5:5.5));
+    if(it.c.torso){
+      const h=proj(j.head);
+      g.fillStyle=col; g.beginPath(); g.arc(h.x,h.y,11,0,7); g.fill();
+    }
+  }
+  g.globalAlpha=1;
+  if(opt.joints){
+    g.fillStyle='#e0a02c';
+    for(const k in j){ const q=proj(j[k]); g.beginPath(); g.arc(q.x,q.y,3.2,0,7); g.fill(); }
+  }
+}
+/* Onion skin shows the key before and after, wrapping round the loop. */
+function neighbours(){
+  if(keys.length<2) return [];
+  let prev=null,nxt=null;
+  for(const k of keys) if(k.t<beat-1e-6) prev=k;
+  for(const k of keys) if(k.t>beat+1e-6){ nxt=k; break; }
+  return [(prev||keys[keys.length-1]).t,(nxt||keys[0]).t];
+}
+function render(){
+  sx.setTransform(1,0,0,1,0,0);
+  const s=stage.width/W; sx.scale(s,s);
+  drawBG(sx);
+  if(onion&&!playing)
+    for(const t of neighbours()) drawFig(sx,poseAt(t),{tint:THEMES[theme].ghost});
+  drawFig(sx,poseAt(beat),{joints:!playing});
+  drawTL();
+}
+function drawTL(){
+  tx.setTransform(1,0,0,1,0,0);
+  const s=tl.width/TW; tx.scale(s,s);
+  tx.fillStyle='#1a1f29'; tx.fillRect(0,0,TW,TH);
+  const T=total(), pad=10, w=TW-pad*2;
+  const X=b=>pad+(b/T)*w;
+  for(let b=0;b<=T;b+=0.5){
+    const on=Math.abs(b-Math.round(b))<1e-6, down=on&&(b%BPB===0);
+    tx.strokeStyle=down?'#5a6578':on?'#3b4557':'#262e3b';
+    tx.lineWidth=1; tx.beginPath();
+    tx.moveTo(X(b)+.5,down?12:on?20:26); tx.lineTo(X(b)+.5,44); tx.stroke();
+  }
+  tx.fillStyle='#7c879a'; tx.font='10px ui-sans-serif,system-ui';
+  for(let b=0;b<T;b+=BPB) tx.fillText('bar '+(b/BPB+1),X(b)+3,10);
+  for(const k of keys){
+    const x=X(k.t), on=sel!==null&&keys[sel]===k;
+    tx.fillStyle=on?'#ffffff':'#e0a02c';
+    tx.beginPath(); tx.moveTo(x,48); tx.lineTo(x+5,54); tx.lineTo(x,60); tx.lineTo(x-5,54);
+    tx.closePath(); tx.fill();
+  }
+  tx.strokeStyle='#e0a02c'; tx.lineWidth=2; tx.beginPath();
+  tx.moveTo(X(beat),8); tx.lineTo(X(beat),46); tx.stroke();
+}
+
+/* ---------- editing: hit test, FK drag, 2-bone IK ---------------------- */
+const CHAIN={
+  handF:['armUF','armLF'], handB:['armUB','armLB'],
+  ankleF:['legUF','legLF'], ankleB:['legUB','legLB']
+};
+const ROT={chest:'spine',head:'neck',
+  elbowF:'armUF',elbowB:'armUB',kneeF:'legUF',kneeB:'legUB',
+  toeF:'footF',toeB:'footB'};
+
+function ensureKey(){
+  const t=snap(beat);
+  let i=keys.findIndex(k=>Math.abs(k.t-t)<1e-6);
+  if(i<0){ keys.push({t,pose:rawAt(t)}); keys.sort((a,b)=>a.t-b.t);
+           i=keys.findIndex(k=>Math.abs(k.t-t)<1e-6); }
+  sel=i; beat=t; return keys[i];
+}
+/* Two-bone analytic IK. bendSign is read off the current joint so the
+   elbow doesn't suddenly invert mid-drag.                                */
+function ik(pose,chain,target){
+  const [u,l]=chain, l1=BM[u].len, l2=BM[l].len;
+  const S=solve(pose), root=S.seg[u].s, pw=S.world[BM[u].p];
+  let dx=target.x-root.x, dy=target.y-root.y;
+  let d=clamp(Math.hypot(dx,dy), Math.abs(l1-l2)+0.01, (l1+l2)*0.999);
+  const base=Math.atan2(dy,dx);
+  const a=Math.acos(clamp((d*d+l1*l1-l2*l2)/(2*d*l1),-1,1));
+  const b=Math.acos(clamp((l1*l1+l2*l2-d*d)/(2*l1*l2),-1,1));
+  const sgn = (pose[l]<=0) ? 1 : -1;
+  const w1=base+sgn*a, w2=w1-sgn*(Math.PI-b);
+  pose[u]=w1/D-pw; pose[l]=(w2-w1)/D;
+}
+let drag=null;
+function pt(e,c,w){
+  const r=c.getBoundingClientRect();
+  return {x:(e.clientX-r.left)*(w/r.width), y:(e.clientY-r.top)*(w/r.width)};
+}
+stage.addEventListener('pointerdown',e=>{
+  const p=pt(e,stage,W), {j}=solve(poseAt(beat));
+  let best=null,bd=22,bz=0;
+  for(const k in j){
+    const q=proj(j[k]), d=Math.hypot(q.x-p.x,q.y-p.y);
+    if(d<bd){bd=d;best=k;bz=j[k].z;}
+  }
+  if(!best) return;
+  /* Head-on, screen X carries no information about rig X — the inverse
+     doesn't exist. Front is a checking camera, not an editing one. */
+  if(!poseable()){ status('Front view is for checking and export. Pose from side or isometric.'); return; }
+  stage.setPointerCapture(e.pointerId);
+  const key=ensureKey(), q=proj(j[best]);
+  drag={h:best,key,z:bz,off:{x:q.x-p.x,y:q.y-p.y}};
+  status(best==='root'?'Moving the whole figure':'Posing '+best);
+  render();
+});
+stage.addEventListener('pointermove',e=>{
+  if(!drag) return;
+  const p=pt(e,stage,W), pose=drag.key.pose;
+  const t=unproj(p.x+drag.off.x, p.y+drag.off.y, drag.z);
+  if(drag.h==='root'){ pose.rx=t.x-BASE.x; pose.ry=t.y-BASE.y; }
+  else if(CHAIN[drag.h]) ik(pose,CHAIN[drag.h],t);
+  else if(ROT[drag.h]){
+    const bn=ROT[drag.h], S=solve(pose), s=S.seg[bn].s, pw=S.world[BM[bn].p];
+    pose[bn]=Math.atan2(t.y-s.y,t.x-s.x)/D-pw;
+  }
+  render();
+});
+addEventListener('pointerup',()=>{drag=null;});
+
+/* ---------- timeline scrub --------------------------------------------- */
+function tlSeek(e){
+  const p=pt(e,tl,TW), T=total(), pad=10, w=TW-pad*2;
+  const b=clamp((p.x-pad)/w,0,0.9999)*T;
+  if(p.y>46){                              // tapped the key ribbon: select
+    let bi=-1,bd=0.4;
+    keys.forEach((k,i)=>{const d=Math.abs(k.t-b); if(d<bd){bd=d;bi=i;}});
+    if(bi>=0){ sel=bi; beat=keys[bi].t; render(); return; }
+  }
+  beat=snap(b); sel=keys.findIndex(k=>Math.abs(k.t-beat)<1e-6); sel=sel<0?null:sel;
+  render();
+}
+tl.addEventListener('pointerdown',e=>{tl.setPointerCapture(e.pointerId);tlSeek(e);});
+tl.addEventListener('pointermove',e=>{if(e.buttons)tlSeek(e);});
+
+/* ---------- audio: one oscillator, 15ms envelope, nothing fancy -------- */
+let AC=null;
+function tick(down){
+  if(!click) return;
+  try{
+    AC=AC||new (window.AudioContext||window.webkitAudioContext)();
+    if(AC.state==='suspended') AC.resume();
+    const o=AC.createOscillator(), g=AC.createGain(), n=AC.currentTime;
+    o.type='sine'; o.frequency.value=down?1400:950;
+    g.gain.setValueAtTime(0,n);
+    g.gain.linearRampToValueAtTime(down?0.16:0.09,n+0.002);
+    g.gain.exponentialRampToValueAtTime(0.0001,n+0.015);
+    o.connect(g).connect(AC.destination); o.start(n); o.stop(n+0.03);
+  }catch(err){}
+}
+
+/* ---------- transport --------------------------------------------------- */
+let last=0, lastBeat=-1;
+function loop(ts){
+  if(playing){
+    if(!last) last=ts;
+    beat=(beat+((ts-last)/1000)*(bpm/60))%total();
+    last=ts;
+    const ib=Math.floor(beat);
+    if(ib!==lastBeat){ lastBeat=ib; tick(ib%BPB===0); }
+    render();
+  }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* ---------- tap tempo --------------------------------------------------- */
+let taps=[];
+document.getElementById('tap').onclick=()=>{
+  const now=performance.now();
+  if(taps.length && now-taps[taps.length-1]>2500) taps=[];
+  taps.push(now); if(taps.length>6) taps.shift();
+  tick(false);
+  if(taps.length>1){
+    let s=0; for(let i=1;i<taps.length;i++) s+=taps[i]-taps[i-1];
+    bpm=Math.round(clamp(60000/(s/(taps.length-1)),40,200));
+    document.getElementById('bpm').value=bpm;
+    document.getElementById('bpmv').textContent=bpm;
+    status(bpm+' bpm from '+taps.length+' taps');
+  } else status('Keep tapping…');
+};
+
+/* ---------- controls ---------------------------------------------------- */
+const $=id=>document.getElementById(id);
+const status=m=>$('status').textContent=m;
+$('play').onclick=e=>{playing=!playing;last=0;lastBeat=-1;
+  e.target.textContent=playing?'Stop':'Play';e
