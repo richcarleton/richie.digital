@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>CAT·WISENSE // CSI MONITOR</title>
+<style>
+html,body{margin:0;height:100%;background:#040704;overflow:hidden;cursor:crosshair}
+canvas{display:block;width:100vw;height:100vh}
+</style></head><body><canvas id="c"></canvas>
+<script>
+// ───────────────────────── CAT·WISENSE  vector console ─────────────────────────
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+let W,H,DPR=1;
+function rs(){DPR=Math.min(devicePixelRatio||1,2);W=cv.width=innerWidth*DPR;H=cv.height=innerHeight*DPR;}
+addEventListener('resize',rs);rs();
+
+const G='#6cff8e',GD='rgba(108,255,142,',A='#ffb454',AD='rgba(255,180,84,',R='#ff5c5c';
+const N=52,HIST=40;
+let t=0,frame=0,amp=new Array(N).fill(0.5),phase=new Array(N).fill(0),hist=[];
+let motion=0,motionHist=new Array(160).fill(0),rssi=-52,event=0,live=null,boot=0;
+
+// ── REAL DATA HOOK ─────────────────────────────────────────────────────────────
+// When the board serves {amp:[52 floats 0..1], rssi:-51}, uncomment:
+// setInterval(()=>fetch('/csi.json').then(r=>r.json()).then(d=>live=d).catch(()=>live=null),150);
+
+const base=i=>0.55+0.25*Math.sin(i*0.31+1.2)+0.12*Math.sin(i*0.9+0.4);
+function sim(){
+  t+=1/60;frame++;boot=Math.min(1,boot+0.012);
+  if(!live&&Math.random()<0.003)event=1+Math.random()*1.6;      // a cat wanders through
+  event*=0.986;
+  let dev=0;
+  for(let i=0;i<N;i++){
+    let target;
+    if(live&&live.amp)target=live.amp[i]||0;
+    else target=base(i)+event*0.35*Math.sin(t*3.1+i*0.45)*Math.sin(t*0.7+i*0.1)+(Math.random()-0.5)*0.03;
+    dev+=Math.abs(target-amp[i]);
+    amp[i]+=(target-amp[i])*0.5;
+    phase[i]=i*0.24+t*0.5+event*0.9*Math.sin(t*4+i*0.3);
+  }
+  motion+=(Math.min(1,dev/N*9)-motion)*0.12;
+  motionHist.push(motion);motionHist.shift();
+  const tr=live?live.rssi:-52-event*4+(Math.random()-0.5)*1.5;
+  rssi+=(tr-rssi)*0.1;
+  if(frame%3===0){hist.unshift(amp.slice());if(hist.length>HIST)hist.pop();}
+}
+
+// ── vector helpers ─────────────────────────────────────────────────────────────
+function poly(pts,col,w,glow){ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));
+  ctx.strokeStyle=col;ctx.lineWidth=w*DPR;ctx.shadowColor=col;ctx.shadowBlur=(glow||0)*DPR;ctx.stroke();ctx.shadowBlur=0;}
+function txt(s,x,y,size,col,align){ctx.font=`${size*DPR}px "Courier New",monospace`;ctx.fillStyle=col||G;ctx.textAlign=align||'left';
+  ctx.shadowColor=col||G;ctx.shadowBlur=6*DPR;ctx.fillText(s,x,y);ctx.shadowBlur=0;}
+function panel(x,y,w,h,title){
+  const c=8*DPR;                                   // notched corners, very Bryce
+  poly([[x+c,y],[x+w-c,y],[x+w,y+c],[x+w,y+h-c],[x+w-c,y+h],[x+c,y+h],[x,y+h-c],[x,y+c],[x+c,y]],GD+'0.55)',1,4);
+  poly([[x+c,y],[x+w*0.42,y]],G,1.5,8);           // hot accent on title bar
+  ctx.fillStyle='#040704';ctx.fillRect(x+14*DPR,y-7*DPR,ctx.measureText(title).width+ (title.length*8.2+12)*DPR,14*DPR);
+  txt(title,x+20*DPR,y+4*DPR,11,G);
+  return{x,y,w,h};
+}
+function grid(p,cols,rows){
+  for(let i=1;i<cols;i++){const gx=p.x+p.w*i/cols;poly([[gx,p.y],[gx,p.y+p.h]],GD+'0.08)',1);}
+  for(let j=1;j<rows;j++){const gy=p.y+p.h*j/rows;poly([[p.x,gy],[p.x+p.w,gy]],GD+'0.08)',1);}
+}
+
+// ── panels ─────────────────────────────────────────────────────────────────────
+function drawSpectrum(p){
+  grid(p,13,4);
+  const pad=14*DPR,x0=p.x+pad,w=p.w-pad*2,y1=p.y+p.h-pad,hh=p.h-pad*2.4;
+  const pts=amp.map((a,i)=>[x0+w*i/(N-1),y1-a*hh*boot]);
+  // stems
+  pts.forEach(pt=>poly([[pt[0],y1],[pt[0],pt[1]]],GD+'0.28)',1));
+  poly(pts,G,1.6,10);
+  poly(pts.map(pt=>[pt[0],pt[1]-3*DPR]),GD+'0.25)',1);
+  txt('SC-26',x0,y1+12*DPR,9,GD+'0.7)');txt('SC+26',x0+w,y1+12*DPR,9,GD+'0.7)','right');
+  txt(`|H(f)|  ${live?'LIVE':'SIM'}`,p.x+p.w-14*DPR,p.y+18*DPR,10,A,'right');
+}
+function drawRidges(p){
+  const pad=16*DPR,x0=p.x+pad,w=p.w-pad*2,top=p.y+pad*1.6,rowH=(p.h-pad*3)/HIST,ah=rowH*9;
+  for(let k=hist.length-1;k>=0;k--){
+    const row=hist[k],yb=top+k*rowH+ah;
+    const pts=row.map((a,i)=>[x0+w*(0.08+0.84*i/(N-1)),yb-a*ah*boot]);
+    pts.unshift([x0,yb]);pts.push([x0+w,yb]);
+    // occlude what's behind (classic ridgeline)
+    ctx.beginPath();pts.forEach((q,i)=>i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]));ctx.lineTo(x0+w,yb+ah*2);ctx.lineTo(x0,yb+ah*2);ctx.closePath();
+    ctx.fillStyle='#040704';ctx.fill();
+    const al=0.25+0.75*(1-k/HIST);
+    poly(pts,k===0?G:GD+al.toFixed(2)+')',k===0?1.5:1,k===0?8:0);
+  }
+  txt('t−0',p.x+p.w-pad,top+8*DPR,9,GD+'0.7)','right');
+  txt(`t−${(HIST*3/60).toFixed(1)}s`,p.x+p.w-pad,top+HIST*rowH+ah,9,GD+'0.5)','right');
+}
+function drawOrbit(p){
+  const cx=p.x+p.w/2,cy=p.y+p.h/2+8*DPR,R0=Math.min(p.w,p.h)*0.18,RR=Math.min(p.w,p.h)*0.22;
+  // reticle
+  [0.5,1,1.55].forEach(k=>{ctx.beginPath();ctx.arc(cx,cy,(R0+RR*0.6)*k,0,Math.PI*2);ctx.strokeStyle=GD+'0.15)';ctx.lineWidth=DPR;ctx.stroke();});
+  for(let i=0;i<12;i++){const a=i*Math.PI/6,r1=R0*0.35,r2=(R0+RR*0.6)*1.6;poly([[cx+Math.cos(a)*r1,cy+Math.sin(a)*r1],[cx+Math.cos(a)*r2,cy+Math.sin(a)*r2]],GD+'0.08)',1);}
+  // amplitude ring
+  const pts=amp.map((a,i)=>{const th=i/N*Math.PI*2-Math.PI/2,r=R0+a*RR*boot;return[cx+Math.cos(th)*r,cy+Math.sin(th)*r];});
+  pts.push(pts[0]);poly(pts,G,1.5,10);
+  // phase ticks
+  for(let i=0;i<N;i++){const th=i/N*Math.PI*2-Math.PI/2,r=R0+amp[i]*RR*boot;const ph=phase[i];
+    const dx=Math.cos(th+ph)*6*DPR,dy=Math.sin(th+ph)*6*DPR;
+    poly([[pts[i][0]-dx,pts[i][1]-dy],[pts[i][0]+dx,pts[i][1]+dy]],AD+'0.85)',1,4);}
+  // sweep
+  const sw=t*1.4;const r2=(R0+RR*0.6)*1.6;
+  poly([[cx,cy],[cx+Math.cos(sw)*r2,cy+Math.sin(sw)*r2]],GD+'0.6)',1,8);
+  for(let k=1;k<14;k++){const a=sw-k*0.045;poly([[cx,cy],[cx+Math.cos(a)*r2,cy+Math.sin(a)*r2]],GD+(0.25-k*0.017).toFixed(3)+')',1);}
+  ctx.beginPath();ctx.arc(cx,cy,3*DPR,0,Math.PI*2);ctx.fillStyle=G;ctx.fill();
+  txt('∠H(f) PHASE ORBIT',p.x+p.w-14*DPR,p.y+18*DPR,10,A,'right');
+  txt('φ',cx,cy-r2-6*DPR,10,GD+'0.6)','center');
+}
+function drawMotion(p){
+  const pad=16*DPR;
+  // gauge
+  const gx=p.x+p.w*0.24,gy=p.y+p.h*0.62,gr=Math.min(p.w*0.2,p.h*0.42);
+  ctx.beginPath();ctx.arc(gx,gy,gr,Math.PI,Math.PI*2);ctx.strokeStyle=GD+'0.35)';ctx.lineWidth=DPR;ctx.stroke();
+  for(let i=0;i<=10;i++){const a=Math.PI+i/10*Math.PI,l=i%5?6:12;poly([[gx+Math.cos(a)*gr,gy+Math.sin(a)*gr],[gx+Math.cos(a)*(gr-l*DPR),gy+Math.sin(a)*(gr-l*DPR)]],GD+'0.6)',1);}
+  const na=Math.PI+motion*Math.PI*boot,ncol=motion>0.7?R:motion>0.4?A:G;
+  poly([[gx,gy],[gx+Math.cos(na)*gr*0.92,gy+Math.sin(na)*gr*0.92]],ncol,2,12);
+  ctx.beginPath();ctx.arc(gx,gy,4*DPR,0,Math.PI*2);ctx.fillStyle=ncol;ctx.fill();
+  txt('0',gx-gr,gy+12*DPR,9,GD+'0.6)','center');txt('1',gx+gr,gy+12*DPR,9,GD+'0.6)','center');
+  txt('MOTION INDEX',gx,gy+26*DPR,10,GD+'0.8)','center');
+  // history trace
+  const hx=p.x+p.w*0.48,hw=p.w*0.48,hy=p.y+p.h*0.30,hh=p.h*0.42;
+  poly([[hx,hy+hh],[hx+hw,hy+hh]],GD+'0.25)',1);
+  poly([[hx,hy+hh*0.6],[hx+hw,hy+hh*0.6]],AD+'0.25)',1);
+  poly([[hx,hy+hh*0.3],[hx+hw,hy+hh*0.3]],'rgba(255,92,92,0.25)',1);
+  poly(motionHist.map((m,i)=>[hx+hw*i/(motionHist.length-1),hy+hh-m*hh*boot]),G,1.4,8);
+  // state readout
+  const st=motion<0.15?['VOID','no perturbation',G]:motion<0.4?['DRIFT','ambient sway',G]:motion<0.7?['PRESENCE','biomass in field',A]:['MOTION','subject moving',R];
+  const blink=Math.floor(t*3)%2===0||motion<0.4;
+  txt(blink?st[0]:'',hx,p.y+p.h*0.22,26,st[2]);
+  txt(st[1].toUpperCase(),hx,p.y+p.h*0.22+16*DPR,10,GD+'0.7)');
+  txt(`RSSI ${rssi.toFixed(1)} dBm`,p.x+p.w-pad,p.y+p.h-pad*0.8,11,A,'right');
+  txt(`Δ ${(motion*100).toFixed(0).padStart(3,'0')}`,hx,p.y+p.h-pad*0.8,11,GD+'0.8)');
+}
+function header(){
+  const y=H*0.055;
+  txt('CAT·WISENSE',W*0.025,y,22,G);
+  txt('// CSI FIELD MONITOR  ·  802.11n  ·  HT20  ·  52 SC',W*0.025+165*DPR,y,11,GD+'0.7)');
+  const on=Math.floor(t*2)%2===0;
+  txt((on?'●':'○')+' LINK',W*0.975,y,11,live?G:A,'right');
+  txt(`T+${t.toFixed(1).padStart(7,'0')}s`,W*0.975-70*DPR,y,11,GD+'0.7)','right');
+  poly([[W*0.025,y+10*DPR],[W*0.975,y+10*DPR]],GD+'0.35)',1,4);
+}
+function footer(){
+  txt('SPACE inject event   ·   L toggle link',W*0.025,H*0.985,9,GD+'0.45)');
+  txt(live?'SOURCE: /csi.json':'SOURCE: SIMULATED FIELD',W*0.975,H*0.985,9,GD+'0.45)','right');
+}
+function scanlines(){
+  ctx.fillStyle='rgba(0,0,0,0.18)';for(let y=0;y<H;y+=3*DPR)ctx.fillRect(0,y,W,DPR);
+  const g=ctx.createRadialGradient(W/2,H/2,H*0.3,W/2,H/2,H*0.85);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,0,0,0.55)');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+}
+
+// ── main loop ──────────────────────────────────────────────────────────────────
+function draw(){
+  sim();
+  ctx.fillStyle='#040704';ctx.fillRect(0,0,W,H);
+  header();
+  const m=W*0.025,gap=W*0.02,top=H*0.11,bot=H*0.955,colW=(W-m*2-gap)/2;
+  drawSpectrum(panel(m,top,colW,(bot-top)*0.36,'SUBCARRIER AMPLITUDE'));
+  drawRidges  (panel(m,top+(bot-top)*0.40,colW,(bot-top)*0.60,'TEMPORAL RIDGELINE'));
+  drawOrbit   (panel(m+colW+gap,top,colW,(bot-top)*0.56,'PHASE ORBIT'));
+  drawMotion  (panel(m+colW+gap,top+(bot-top)*0.60,colW,(bot-top)*0.40,'PRESENCE'));
+  footer();scanlines();
+  requestAnimationFrame(draw);
+}
+addEventListener('keydown',e=>{if(e.code==='Space'){event=2.2;e.preventDefault();}if(e.key==='l'||e.key==='L')live=live?null:{amp:amp.slice(),rssi:-49};});
+addEventListener('pointerdown',()=>event=2.2);
+draw();
+</script></body></html>
