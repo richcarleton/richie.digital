@@ -1,0 +1,23 @@
+# dev box only — never deploys
+.claude/
+.vscode/
+.hintrc
+package-lock.json
+node_modules/
+
+# OS + editor cruft
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~
+*.bak
+*.orig
+
+# local secrets / tunnels — belt and braces
+.env
+.env.*
+*.key
+*.pem
+cloudflared/
+*.log
