@@ -3,156 +3,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Laurentian Echoes: Mikey's Ride - GOG.com</title>
+    <title>Laurentian Echoes: Mikey's Ride - Free Demo</title>
     <style>
         body {
-            font-family: 'Open Sans', sans-serif; /* A common, readable web font */
+            font-family: 'Open Sans', sans-serif;
             line-height: 1.6;
             margin: 0;
             padding: 0;
-            background-color: #1a1a1a; /* Dark background like GOG */
-            color: #e0e0e0; /* Light text for contrast */
-        }
-        .container {
-            max-width: 960px;
-            margin: 20px auto;
-            padding: 20px;
-            background-color: #2b2b2b; /* Slightly lighter inner container */
-            border-radius: 8px;
-            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
-        }
-        header {
+            background-color: #121212; /* Darker, more atmospheric background */
+            color: #e0e0e0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh; /* Full viewport height */
             text-align: center;
-            margin-bottom: 40px;
         }
-        header h1 {
-            font-family: 'Lora', serif; /* A more distinct font for titles */
-            font-size: 3.2em;
+        .demo-container {
+            max-width: 800px;
+            padding: 30px;
+            background-color: #202020; /* Dark grey for the container */
+            border-radius: 10px;
+            box-shadow: 0 0 25px rgba(0, 0, 0, 0.7);
+            border: 1px solid #4CAF50; /* Green accent border */
+        }
+        h1 {
+            font-family: 'Lora', serif;
+            font-size: 2.8em;
             color: #f0f0f0;
-            margin-bottom: 10px;
-        }
-        header p {
-            font-size: 1.2em;
-            color: #b0b0b0;
-            font-style: italic;
-        }
-        .hero-image {
-            width: 100%;
-            height: 450px; /* Placeholder height */
-            background-image: url('placeholder_hero_image.jpg'); /* Replace with actual game art */
-            background-size: cover;
-            background-position: center;
-            border-radius: 8px;
-            margin-bottom: 30px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
-        }
-        .buy-box {
-            background-color: #4CAF50; /* GOG-like green for buy button */
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .buy-box .price {
-            font-size: 2.5em;
-            font-weight: bold;
-            color: #ffffff;
-            margin-bottom: 10px;
-        }
-        .buy-box button {
-            background-color: #388E3C;
-            color: white;
-            padding: 15px 30px;
-            border: none;
-            border-radius: 5px;
-            font-size: 1.5em;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-        }
-        .buy-box button:hover {
-            background-color: #2e7d32;
+            margin-bottom: 15px;
+            text-shadow: 0 0 10px rgba(76, 175, 80, 0.5); /* Subtle glow */
         }
         h2 {
-            font-family: 'Lora', serif;
-            font-size: 2em;
-            color: #f0f0f0;
-            border-bottom: 2px solid #4CAF50;
-            padding-bottom: 10px;
-            margin-top: 40px;
-            margin-bottom: 20px;
+            font-size: 1.5em;
+            color: #b0b0b0;
+            margin-bottom: 30px;
+            font-style: italic;
         }
-        .section-content {
+        .play-button {
+            background-color: #4CAF50; /* Vibrant green */
+            color: white;
+            padding: 20px 40px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.8em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            text-decoration: none; /* For anchor tag */
+            display: inline-block;
             margin-bottom: 30px;
         }
-        .feature-list {
-            list-style: none;
-            padding: 0;
+        .play-button:hover {
+            background-color: #388E3C; /* Darker green on hover */
+            transform: scale(1.05); /* Slight zoom effect */
         }
-        .feature-list li {
-            background-color: #3a3a3a;
-            padding: 15px;
-            margin-bottom: 10px;
-            border-left: 5px solid #4CAF50;
-            border-radius: 4px;
+        .description {
+            font-size: 1.1em;
+            margin-bottom: 25px;
         }
-        .feature-list li strong {
-            color: #f0f0f0;
-        }
-        .gallery {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 15px;
+        .small-print {
+            font-size: 0.9em;
+            color: #888;
             margin-top: 20px;
         }
-        .gallery img {
-            width: 100%;
-            height: auto;
-            border-radius: 6px;
-            box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
-        }
-        footer {
-            text-align: center;
-            margin-top: 50px;
-            padding-top: 20px;
-            border-top: 1px solid #444;
-            color: #888;
-            font-size: 0.9em;
+        .warning {
+            color: #FFC107; /* Amber for warnings */
+            font-weight: bold;
+            margin-top: 15px;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>LAURENTIAN ECHOES: MIKEY'S RIDE</h1>
-            <p>A first-person e-bike mystery where the peaceful turns unsettling.</p>
-        </header>
+    <div class="demo-container">
+        <h1>LAURENTIAN ECHOES: MIKEY'S RIDE</h1>
+        <h2>Experience the Free Demo</h2>
 
-        <div class="hero-image" style="background-image: url('https://via.placeholder.com/960x450/333333/FFFFFF?text=Epic+Game+Key+Art+Here');"></div>
+        <p class="description">
+            Hop on Mikey's overpowered e-bike and dive into a first-person journey through the serene yet unsettling Quebec Laurentians. What starts as a peaceful ride quickly unravels into a psychological mystery, where every shadow holds a secret and reality blurs with Mikey's own mind.
+        </p>
 
-        <div class="buy-box">
-            <div class="price">€19.99</div>
-            <button>ADD TO CART</button>
-            <p style="margin-top: 15px; font-size: 0.9em;">DRM-FREE. Play on Windows, macOS, Linux.</p>
-        </div>
+        <a href="[LINK_TO_DEMO_BUILD_OR_WEBGL_GAME]" class="play-button">START YOUR RIDE NOW</a>
 
-        <section class="section-content">
-            <h2>About the Game</h2>
-            <p>Step into the helmet of Mikey, a tough-looking softy navigating the serene yet sometimes suffocating suburbs of the Quebec Laurentians. On his overpowered e-bike, Mikey seeks solace and escape, finding peace in the region's sprawling bike paths, tranquil parks, and secluded beaches. But a quiet, unsettling mystery begins to stir beneath the surface, challenging his perception of reality and testing his resilience.</p>
-            <p>As Mikey adjusts to new psychotropic meds, his senses are both heightened and clouded, making him an unlikely investigator in a world where the beautiful can quickly become menacing. What starts as a series of strange occurrences soon escalates into a chilling enigma, forcing Mikey to confront not only external threats but also the turbulent landscape of his own mind.</p>
-        </section>
+        <p class="warning">
+            <strong>WARNING:</strong> This demo contains atmospheric tension and unsettling themes. Player discretion is advised.
+        </p>
 
-        <section class="section-content">
-            <h2>Key Features</h2>
-            <ul class="feature-list">
-                <li>
-                    <strong>First-Person E-Bike Immersion:</strong> Experience the Laurentian landscape directly from Mikey's perspective, feeling the rush of wind, the hum of the motor, and the immediate thrill of exploration.
-                </li>
-                <li>
-                    <strong>A Unique Protagonist:</strong> Guide Mikey through moments of brooding introspection and boisterous defiance. Navigate his "angy" moods and deep sensitivity as he unravels a captivating mystery.
-                </li>
-                <li>
-                    <strong>Laurentian World:</strong> Explore a beautifully rendered environment of bike paths, dense forests, tranquil lakeshores, and suburban streets, each holding secrets waiting to be uncovered.
-                </li>
-                <li>
-                    <strong>Mystery with a Twist:</strong> What begins as a fun, intriguing puzzle gradually escalates into a genuinely scary psychological thriller. The line between reality and Mikey's internal struggles blurs.
-                </li>
+        <p class="small-print">
+            Optimized for a wide range of systems. For best experience, use a modern browser (if WebGL) or download the standalone client.
+            <br>No downloads, no installations, just pure exploration. (If WebGL)
+            <br>
+            Developed by Codespace.
+        </p>
+    </div>
+</body>
+</html>
