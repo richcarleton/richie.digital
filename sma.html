@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Spider Monkey Adventures — WebGL Vector Demo</title>
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: #070812;
+      overflow: hidden;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+    /* Full-screen scalable frame */
+    #wrap {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+    }
+    canvas {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+    }
+    .hud {
+      position: fixed;
+      left: 14px;
+      top: 12px;
+      color: rgba(255,255,255,.85);
+      font-size: 12px;
+      letter-spacing: .3px;
+      user-select: none;
+      text-shadow: 0 2px 10px rgba(0,0,0,.6);
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <canvas id="c"></canvas>
+  </div>
+  <div class="hud">Spider Monkey Adventures (WebGL vector-fragment demo)</div>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const gl = canvas.getContext('webgl', {
+      antialias: false,
+      alpha: false,
+      depth: false,
+      stencil: false,
+      premultipliedAlpha: false,
+      preserveDrawingBuffer: false
+    });
+
+    if (!gl) alert("WebGL not supported");
+
+    // --- Minimal, efficient full-screen program (one draw call) ---
+    const vs = `
+      attribute vec2 a_pos;
+      varying vec2 v_uv;
+      void main() {
+        v_uv = a_pos * 0.5 + 0.5;
+        gl_Position = vec4(a_pos, 0.0, 1.0);
+      }
+    `;
+
+    // Fragment shader draws "vector-like" shapes using analytic SDFs.
+    // This is very scalable: no geometry rebuild per resize—only a viewport.
+    const fs = `
+      precision highp float;
+      uniform vec2 u_res;
+      uniform float u_time;
+      uniform vec2 u_mouse;
+      varying vec2 v_uv;
+
+      // Signed distance helpers
+      float sdCircle(vec2 p, float r) { return length(p) - r; }
+
+      float sdSegment(vec2 p, vec2 a, vec2 b) {
+        vec2 pa = p - a;
+        vec2 ba = b - a;
+        float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+        return length(pa - ba * h);
+      }
+
+      // Distance to a polyline-ish "arm" thickness (multiple segments)
+      float armDist(vec2 p) {
+        float d = 1e9;
+
+        // Rope/branch line segments
+        d = min(d, sdSegment(p, vec2(-0.75, 0.25), vec2( 0.65, 0.35)) - 0.004);
+        d = min(d, sdSegment(p, vec2(-0.65,-0.10), vec2( 0.45,-0.05)) - 0.004);
+
+        // Monkey tail arc approximation (few segments)
+        d = min(d, sdSegment(p, vec2( 0.45,-0.05), vec2( 0.60, 0.05)) - 0.003);
+        d = min(d, sdSegment(p, vec2( 0.60, 0.05), vec2( 0.58, 0.18)) - 0.003);
+        return d;
+      }
+
+      // Soft stroke from distance
+      float stroke(float d, float w) {
+        // d ~ 0 is on the curve; w is thickness
+        return smoothstep(w, 0.0, abs(d));
+      }
+
+      // Color utilities
+      vec3 palette(float t) {
+        // cool vibrant palette
+        vec3 a = vec3(0.25, 0.30, 0.60);
+        vec3 b = vec3(0.80, 0.25, 0.55);
+        vec3 c = vec3(0.35, 0.85, 0.65);
+        vec3 d = vec3(0.20, 0.20, 0.25);
+        return a + b*cos(6.28318*(c*t + d));
+      }
+
+      void main() {
+        // Normalized coordinates: keep aspect correct
+        vec2 uv = v_uv;                 // 0..1
+        vec2 p = uv * 2.0 - 1.0;       // -1..1
+        float aspect = u_res.x / u_res.y;
+        p.x *= aspect;
+
+        float t = u_time;
+
+        // Background vignette + subtle motion gradient
+        float r = length(p);
+        vec3 col = vec3(0.03, 0.04, 0.08);
+        col += 0.10 * vec3(0.1, 0.3, 0.6) * (1.0 - smoothstep(0.0, 1.2, r));
+        col += 0.06 * palette(0.12 + 0.08*sin(t*0.12 + p.y*2.0)) * (1.0 - smoothstep(0.1, 1.3, r));
+
+        // Web / spider in left-middle
+        vec2 wp = p - vec2(-0.55, -0.05);
+
+        // Web center pulsing
+        float pulse = 0.5 + 0.5*sin(t*1.4);
+        vec2 webC = vec2(0.0, 0.0);
+
+        // Radial spokes
+        float spokes = 0.0;
+        float spokeCount = 8.0;
+        for (int i = 0; i < 12; i++) {
+          float fi = float(i);
+          if (fi >= spokeCount) break;
+          float ang = fi / spokeCount * 3.14159265;
+          // map to both sides by symmetry around x axis
+          vec2 dir = vec2(cos(ang), sin(ang));
+          // distance from ray from center
+          // Use segment from center outwards
+          vec2 a = webC;
+          vec2 b = dir * 0.75;
+          float d = sdSegment(wp, a, b);
+          spokes = max(spokes, stroke(d, 0.003));
+        }
+
+        // Concentric circles (rings)
+        float rings = 0.0;
+        float rr = length(wp);
+        for (int i = 1; i <= 4; i++) {
+          float rad = 0.18 * float(i);
+          float d = abs(rr - rad);
+          rings = max(rings, smoothstep(0.010, 0.0, d) * 0.85);
+        }
+
+        // Spider body + head
+        vec2 sp = wp - vec2(0.10, 0.05);
+        float body = sdCircle(sp, 0.08);
+        float head = sdCircle(sp + vec2(0.00, 0.06), 0.055);
+        float bodyMask = stroke(body, 0.010);
+        float headMask = stroke(head, 0.010);
+
+        // Legs (4 per side-ish) using segment strokes
+        float leg = 0.0;
+        // left legs
+        leg = max(leg, stroke(sdSegment(wp, sp + vec2(-0.06, 0.02), sp + vec2(-0.23, 0.08)), 0.004));
+        leg = max(leg, stroke(sdSegment(wp, sp + vec2(-0.05, 0.00), sp + vec2(-0.28, -0.02)), 0.004));
+        leg = max(leg, stroke(sdSegment(wp, sp + vec2(-0.06, -0.02), sp + vec2(-0.22, -0.10)), 0.004));
+        // right legs
+        leg = max(leg, stroke(sdSegment(wp, sp + vec2( 0.06, 0.02), sp + vec2( 0.24, 0.10)), 0.004));
+        leg = max(leg, stroke(sdSegment(wp, sp + vec2( 0.05, 0.00), sp + vec2( 0.30,-0.03)), 0.004));
+        leg = max(leg, stroke(sdSegment(wp, sp + vec2( 0.06,-0.02), sp + vec2( 0.22,-0.12)), 0.004));
+
+        // Spider glow
+        float spiderGlow = exp(-rr*3.2) * (0.25 + 0.75*pulse);
+
+        // Monkey on the right
+        vec2 mp = p - vec2(0.50, -0.10);
+
+        // Rope/branch
+        float ropeD = armDist(p);
+        float ropeStroke = stroke(ropeD, 0.008);
+
+        // Monkey head + body silhouette (analytic circles + a "cap")
+        vec2 headP = mp - vec2(0.02, 0.08);
+        float dh = sdCircle(headP, 0.10);
+        float db = sdCircle(mp + vec2(0.00, -0.02), 0.13);
+
+        // Ears (small circles)
+        float earL = sdCircle(headP + vec2(-0.09, 0.02), 0.03);
+        float earR = sdCircle(headP + vec2( 0.09, 0.02), 0.03);
+
+        // Face cut line (simple eye dots)
+        vec2 eyeL = headP + vec2(-0.03, 0.05);
+        vec2 eyeR = headP + vec2( 0.03, 0.05);
+        float eyeDot = 0.0;
+        eyeDot = max(eyeDot, 1.0 - smoothstep(0.020, 0.0, length(eyeL)));
+        eyeDot = max(eyeDot, 1.0 - smoothstep(0.020, 0.0, length(eyeR)));
+
+        // Monkey arms/legs as strokes from segments
+        float limbs = 0.0;
+        // Arm grabbing rope
+        vec2 armA = mp + vec2(-0.02, 0.02);
+        vec2 armB = mp + vec2(-0.18, 0.18);
+        limbs = max(limbs, stroke(sdSegment(p, armA, armB), 0.006));
+
+        // Arm down
+        vec2 armC = mp + vec2(0.02, -0.02);
+        vec2 armD = mp + vec2(0.14, -0.16);
+        limbs = max(limbs, stroke(sdSegment(p, armC, armD), 0.006));
+
+        float headMask = stroke(dh, 0.010);
+        float bodyMask2 = stroke(db, 0.012);
+        float earMask = max(stroke(earL, 0.008), stroke(earR, 0.008));
+
+        // Monkey body fill-ish via soft distance (not strict silhouette, but "vector feel")
+        float fill = smoothstep(0.18, 0.00, abs(dh)) * 0.65 + smoothstep(0.22, 0.00, abs(db)) * 0.55;
+        fill *= 0.9;
+
+        // Text-like "adventure" rays (vector streaks)
+        float rays = 0.0;
+        for (int i = 0; i < 5; i++) {
+          float ang = (float(i) - 2.0) * 0.25;
+          vec2 d = vec2(cos(ang), sin(ang));
+          vec2 a = vec2(-0.1, 0.55);
+          vec2 b = a + d * 0.9;
+          float dd = sdSegment(p, a, b);
+          rays = max(rays, stroke(dd, 0.002));
+        }
+
+        // Combine layers
+        vec3 webCol = vec3(0.18, 0.70, 0.90);
+        vec3 webGlowCol = vec3(0.05, 0.25, 0.45);
+
+        vec3 spiderCol = vec3(0.95, 0.60, 0.20);
+
+        // Animate slight jitter offsets for "hand-drawn" feel
+        vec2 jitter = 0.0015 * vec2(sin(t*2.0 + p.y*9.0), cos(t*1.7 + p.x*9.0));
+
+        // Web lines
+        float webLines = max(spokes, rings) * (0.65 + 0.35*pulse);
+        col += webGlowCol * (spiderGlow * 0.55);
+        col += webCol * webLines * 0.65;
+
+        // Spider strokes
+        float spiderStrokes = bodyMask + headMask + leg;
+        col += spiderCol * spiderStrokes * 0.95;
+
+        // Subtle eyes on spider (two tiny bright points)
+        vec2 eyeS1 = sp + vec2(-0.03, 0.07);
+        vec2 eyeS2 = sp + vec2( 0.03, 0.07);
+        float spiderEyes = 0.0;
+        spiderEyes = max(spiderEyes, 1.0 - smoothstep(0.012, 0.0, length((wp+ jitter) - eyeS1)));
+        spiderEyes = max(spiderEyes, 1.0 - smoothstep(0.012, 0.0, length((wp+ jitter) - eyeS2)));
+        col += vec3(1.0, 0.85, 0.35) * spiderEyes * 0.9;
+
+        // Rope/branch
+        col += vec3(0.45, 0.95, 0.75) * ropeStroke * 0.35;
+
+        // Monkey colors
+        vec3 monkeyBody = vec3(0.60, 0.40, 0.95);
+        col += monkeyBody * (bodyMask2 * 0.95 + headMask * 0.95 + earMask * 0.75) * 0.90;
+        col += vec3(0.25, 0.90, 0.70) * limbs * 0.45;
+
+        // Monkey fill glow
+        col += vec3(0.55, 0.20, 0.95) * fill * 0.18;
+
+        // Monkey eyes
+        col += vec3(1.0, 0.98, 0.85) * eyeDot * 0.25;
+
+        // Rays / title accents
+        col += vec3(0.20, 0.75, 1.00) * rays * 0.22;
+
+        // Vignette
+        float vig = smoothstep(1.55, 0.2, r);
+        col *= 0.55 + 0.45*vig;
+
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `;
+
+    function compile(type, src) {
+      const sh = gl.createShader(type);
+      gl.shaderSource(sh, src);
+      gl.compileShader(sh);
+      if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+        const log = gl.getShaderInfoLog(sh);
+        console.error(log);
+        throw new Error(log);
+      }
+      return sh;
+    }
+
+    const prog = gl.createProgram();
+    gl.attachShader(prog, compile(gl.VERTEX_SHADER, vs));
+    gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+      throw new Error(gl.getProgramInfoLog(prog));
+    }
+    gl.useProgram(prog);
+
+    // Fullscreen triangle (2D vec2 positions)
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    const verts = new Float32Array([
+      -1, -1,
+       3, -1,
+      -1,  3
+    ]);
+    gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
+
+    const aPos = gl.getAttribLocation(prog, 'a_pos');
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+    const uRes = gl.getUniformLocation(prog, 'u_res');
+    const uTime = gl.getUniformLocation(prog, 'u_time');
+    const uMouse = gl.getUniformLocation(prog, 'u_mouse');
+
+    // Resize + DPR handling (important for performance)
+    let dpr = Math.min(2, window.devicePixelRatio || 1);
+
+    function resize() {
+      dpr = Math.min(2, window.devicePixelRatio || 1);
+      const w = Math.max(1, Math.floor(window.innerWidth * dpr));
+      const h = Math.max(1, Math.floor(window.innerHeight * dpr));
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+        gl.viewport(0, 0, w, h);
+      }
+    }
+
+    window.addEventListener('resize', resize, { passive: true });
+    resize();
+
+    // Mouse (optional)
+    const mouse = { x: 0, y: 0, in: 0 };
+    window.addEventListener('pointermove', (e) => {
+      mouse.x = e.clientX / Math.max(1, window.innerWidth);
+      mouse.y = 1.0 - e.clientY / Math.max(1, window.innerHeight);
+      mouse.in = 1;
+    }, { passive: true });
+
+    const start = performance.now();
+    function frame(now) {
+      const time = (now - start) * 0.001;
+
+      gl.uniform2f(uRes, canvas.width, canvas.height);
+      gl.uniform1f(uTime, time);
+      gl.uniform2f(uMouse, mouse.x - 0.5, mouse.y - 0.5);
+
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  </script>
+</body>
+</html>
