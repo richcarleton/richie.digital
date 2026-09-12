@@ -61,6 +61,17 @@
     }
     .credit a { color: rgba(255,255,255,.7); text-decoration: none; }
     .credit a:hover { color: #fff; }
+    .diag {
+      position: fixed;
+      right: 14px;
+      bottom: 12px;
+      z-index: 1;
+      color: rgba(255,255,255,.35);
+      font-size: 10px;
+      letter-spacing: .2px;
+      text-shadow: 0 2px 10px rgba(0,0,0,.6);
+      text-align: right;
+    }
     @media(prefers-reduced-motion: reduce){
       #bg { display: none; }
       html, body { background: #05030a; }
@@ -72,6 +83,7 @@
   <div id="bg" aria-hidden="true"></div>
   <div class="hud"><b>Tesseract</b> — 4D wireframe, mouse-reactive</div>
   <div class="credit">background effect: <a href="https://seer-js.com/" target="_blank" rel="noopener">Seer.js</a> (MIT) on three.js — donated tech, thanks</div>
+  <div class="diag" id="diag"></div>
 
   <!-- Effect-only build: three.js r128 first, then the Tesseract module. Both
        vendored locally (see vendor/) rather than pulled from seer-js.com at
@@ -92,6 +104,31 @@
         touchControls: true
       });
     }
+
+    /* Small always-on diagnostic line, so a "still blank" report comes with
+       real numbers instead of another guessing round: which context got
+       used, what GPU/driver is behind it, and whether frames are actually
+       being drawn. Low-contrast, out of the way, not worth its own toggle. */
+    (function diag() {
+      const el = document.getElementById('diag');
+      if (!el) return;
+      const c = document.querySelector('#bg canvas');
+      if (!c) { el.textContent = 'diag: no canvas created'; return; }
+      const gl = c.getContext('webgl2') || c.getContext('webgl') || c.getContext('experimental-webgl');
+      if (!gl) { el.textContent = 'diag: no WebGL context'; return; }
+      const glType = c.getContext('webgl2') ? 'webgl2' : 'webgl1';
+      let renderer = 'unknown GPU';
+      const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+      if (dbg) renderer = gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL);
+      let frames = 0;
+      const origRender = gl.drawArrays ? gl.drawArrays.bind(gl) : null;
+      if (origRender) gl.drawArrays = (...a) => { frames++; return origRender(...a); };
+      const origElements = gl.drawElements ? gl.drawElements.bind(gl) : null;
+      if (origElements) gl.drawElements = (...a) => { frames++; return origElements(...a); };
+      setTimeout(() => {
+        el.textContent = `diag: ${glType} · ${renderer} · ${frames} draw calls/1.5s`;
+      }, 1500);
+    })();
   </script>
 </body>
 </html>
