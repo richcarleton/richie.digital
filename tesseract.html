@@ -179,8 +179,20 @@
             tmp.width = c.width; tmp.height = c.height;
             tmp.getContext('2d').drawImage(c, 0, 0);
             const data = tmp.getContext('2d').getImageData(0, 0, tmp.width, tmp.height).data;
-            for (let i = 0; i < data.length; i += 977 * 4) { // sparse sample, cheap
-              if (data[i] > 8 || data[i + 1] > 8 || data[i + 2] > 8) { drew = true; break; }
+            // "Any non-black pixel" isn't a safe test: canvas-fingerprint
+            // defenses (Firefox resistFingerprinting, several privacy
+            // extensions/browser shields) don't block getImageData, they
+            // POISON it with random per-pixel noise so reads never error
+            // but never tell the truth either — that alone would fool a
+            // plain non-black check into wrongly hiding the real fallback.
+            // Look for our specific accent hue (strong red, clearly ahead
+            // of blue) in real quantity instead of a single stray sample —
+            // generic noise doesn't know to fake that, and doesn't fake it
+            // consistently across many pixels.
+            let hits = 0;
+            for (let i = 0; i < data.length; i += 4 * 61) { // sparse, coprime-ish stride
+              if (data[i] > 60 && data[i] - data[i + 2] > 30) hits++;
+              if (hits >= 6) { drew = true; break; }
             }
           } catch (err) { /* canvas read blocked or errored — treat as not drawing */ }
 
