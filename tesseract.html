@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tesseract — 4D Hypercube</title>
+  <meta name="description" content="A rotating 4D hypercube projected into 3D, rendered with Seer.js on top of three.js.">
+  <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+    /* z-index:0, not -1: on at least one real Chrome/GPU combination tested,
+       a fixed-position WebGL canvas given a NEGATIVE z-index simply renders
+       nothing (verified — 0 draws the hypercube, -1 draws a blank canvas).
+       0 plus normal DOM order (this div comes first) still keeps it behind
+       the .hud/.back/.credit text below without touching their stacking. */
+    #bg {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+    }
+    .hud {
+      position: fixed;
+      left: 14px;
+      top: 12px;
+      z-index: 1;
+      color: rgba(255,255,255,.85);
+      font-size: 12px;
+      letter-spacing: .3px;
+      user-select: none;
+      text-shadow: 0 2px 10px rgba(0,0,0,.6);
+      pointer-events: none;
+    }
+    .hud b { color: #ff5c00; }
+    .back {
+      position: fixed;
+      right: 14px;
+      top: 12px;
+      z-index: 1;
+      color: rgba(255,255,255,.85);
+      font-size: 12px;
+      letter-spacing: .3px;
+      text-decoration: none;
+      text-shadow: 0 2px 10px rgba(0,0,0,.6);
+    }
+    .back:hover { color: #fff; }
+    .credit {
+      position: fixed;
+      left: 14px;
+      bottom: 12px;
+      z-index: 1;
+      color: rgba(255,255,255,.5);
+      font-size: 11px;
+      letter-spacing: .2px;
+      text-shadow: 0 2px 10px rgba(0,0,0,.6);
+    }
+    .credit a { color: rgba(255,255,255,.7); text-decoration: none; }
+    .credit a:hover { color: #fff; }
+    @media(prefers-reduced-motion: reduce){
+      #bg { display: none; }
+      html, body { background: #05030a; }
+    }
+  </style>
+</head>
+<body>
+  <a class="back" href="/">&#8592; richie.digital</a>
+  <div id="bg" aria-hidden="true"></div>
+  <div class="hud"><b>Tesseract</b> — 4D wireframe, mouse-reactive</div>
+  <div class="credit">background effect: <a href="https://seer-js.com/" target="_blank" rel="noopener">Seer.js</a> (MIT) on three.js — donated tech, thanks</div>
+
+  <!-- Effect-only build: three.js r128 first, then the Tesseract module. Both
+       vendored locally (see vendor/) rather than pulled from seer-js.com at
+       runtime, so this page doesn't depend on their server staying up. -->
+  <script src="vendor/three.min.js"></script>
+  <script src="vendor/seer.tesseract.min.js"></script>
+  <script>
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      Seer.Tesseract({
+        el: document.getElementById('bg'),
+        color: '#ff5c00',
+        backgroundColor: '#000000',
+        size: 0.62,
+        depth: 4,
+        layers: 3,
+        speed: 0.45,
+        mouseControls: true,
+        touchControls: true
+      });
+    }
+  </script>
+</body>
+</html>
