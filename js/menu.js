@@ -35,6 +35,7 @@ function build() {
     </div>
     <div class="menu-section">
       <div class="menu-section-label">garage</div>
+      ${row('menu-cmd', 'catalog', '90s-catalogue grid — every unit')}
       ${row('menu-cmd', 'motobang', 'motorcycle circuit')}
       ${row('menu-cmd', 'ricardo', 'the pyramid awaits')}
       ${row('menu-cmd', 'train', 'transit departures chyron')}

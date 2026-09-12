@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>richie.digital™ — R-D CONSUMER UNIT</title>
+<meta name="description" content="An interactive catalogue of richie.digital's web toys — a starfield flight sim, Ricardo's planet platformer, motobang, and more.">
+<meta name="theme-color" content="#ff5c00">
+<meta property="og:title" content="richie.digital™ — R-D CONSUMER UNIT">
+<meta property="og:description" content="An interactive catalogue of richie.digital's web toys — a starfield flight sim, Ricardo's planet platformer, motobang, and more.">
+<meta property="og:type" content="website">
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<style>
+  :root{
+    --org:#ff5c00; --blk:#0a0a0a; --wht:#f4f1ea;
+    --cyn:#00b7d8; --mag:#ff2d78; --acid:#d8e000;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:var(--org);color:var(--blk);
+    font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;overflow-x:hidden}
+  a{color:inherit;text-decoration:none}
+  ::selection{background:var(--blk);color:var(--org)}
+
+  /* ── global home arrow ── */
+  #home-arrow{position:fixed;top:0;left:0;width:52px;height:52px;background:var(--blk);
+    color:var(--wht);display:flex;align-items:center;justify-content:center;
+    font-size:28px;font-weight:900;z-index:90;border-right:4px solid var(--wht);
+    border-bottom:4px solid var(--wht)}
+  #home-arrow:hover{background:var(--wht);color:var(--blk);border-color:var(--blk)}
+
+  /* ── background star dots ── */
+  .bgstar{position:fixed;width:5px;height:5px;background:var(--blk);z-index:0;
+    animation:twk 3s infinite}
+  @keyframes twk{0%,100%{opacity:.9;transform:scale(1)}50%{opacity:.15;transform:scale(.4)}}
+
+  @media(prefers-reduced-motion:reduce){
+    .bgstar{animation:none;opacity:.5}
+    #ticker span{animation:none;padding-left:0}
+    .mod{transition:none}
+  }
+
+  /* ── masthead ── */
+  header{position:relative;z-index:2;padding:64px 5vw 18px}
+  .supra{font-family:"Courier New",monospace;font-size:11px;letter-spacing:.28em;
+    font-weight:700;margin-bottom:4px}
+  h1{font-size:clamp(44px,11vw,140px);font-weight:900;letter-spacing:-0.05em;
+    line-height:.86;text-transform:uppercase}
+  h1 .tm{font-size:.25em;vertical-align:super;letter-spacing:0}
+  h1 .alt{color:var(--wht);-webkit-text-stroke:3px var(--blk)}
+  .specline{display:flex;flex-wrap:wrap;gap:10px 22px;margin-top:14px;
+    font-family:"Courier New",monospace;font-size:10px;font-weight:700;letter-spacing:.14em}
+  .specline b{background:var(--blk);color:var(--org);padding:1px 6px}
+
+  /* ── ticker ── */
+  #ticker{position:relative;z-index:2;background:var(--blk);color:var(--org);
+    overflow:hidden;white-space:nowrap;font-weight:900;font-size:15px;
+    letter-spacing:.18em;text-transform:uppercase;padding:8px 0;
+    border-top:3px solid var(--blk);border-bottom:3px solid var(--blk)}
+  #ticker span{display:inline-block;padding-left:100%;animation:tick 26s linear infinite}
+  @keyframes tick{to{transform:translateX(-100%)}}
+
+  /* ── module grid ── */
+  #grid{position:relative;z-index:2;display:grid;gap:4px;padding:4px 5vw 4px;
+    grid-template-columns:repeat(4,1fr)}
+  @media(max-width:900px){#grid{grid-template-columns:repeat(2,1fr)}}
+  .mod{background:var(--wht);border:4px solid var(--blk);min-height:210px;
+    position:relative;padding:14px;overflow:hidden;
+    transition:transform .25s ease, background .25s ease}
+  .mod .tag{font-family:"Courier New",monospace;font-size:9px;font-weight:700;
+    letter-spacing:.2em;display:flex;justify-content:space-between}
+  .mod h2{font-size:clamp(18px,2.4vw,26px);font-weight:900;letter-spacing:-0.03em;
+    text-transform:uppercase;line-height:.95;margin-top:4px}
+  .mod .sub{font-family:"Courier New",monospace;font-size:9px;font-weight:700;
+    letter-spacing:.12em;margin-top:2px}
+  .mod svg{position:absolute;right:8px;bottom:8px;width:56%;height:56%;
+    max-width:170px;max-height:150px}
+  .mod.link{cursor:pointer;display:block}
+  .mod.link:focus-visible{outline:4px solid var(--blk);outline-offset:-4px}
+  .mod.link:hover{background:var(--acid)}
+  .mod.link:active{transform:scale(.97)}
+  .mod .go{position:absolute;left:12px;bottom:10px;font-weight:900;font-size:20px}
+  /* colorways the randomizer cycles */
+  .mod.cw1{background:var(--wht)}
+  .mod.cw2{background:var(--cyn);color:var(--blk)}
+  .mod.cw3{background:var(--blk);color:var(--wht)}
+  .mod.cw3 svg .ink{stroke:var(--wht)}
+  .mod.cw3 svg .inkf{fill:var(--wht)}
+  .mod.flash{background:var(--mag)!important}
+  .wide{grid-column:span 2}
+
+  /* decor tiles */
+  .bigno{font-size:96px;font-weight:900;letter-spacing:-.06em;line-height:.8;
+    position:absolute;right:10px;bottom:0}
+
+  /* ── footer ── */
+  footer{position:relative;z-index:2;padding:20px 5vw 60px;
+    font-family:"Courier New",monospace;font-size:10px;font-weight:700;letter-spacing:.14em}
+  footer .row{display:flex;flex-wrap:wrap;gap:8px 26px;border-top:4px solid var(--blk);padding-top:12px}
+
+  /* ── site intro: DOS meltdown → mesh face → starfield → reveal ── */
+  #site-content{opacity:0;pointer-events:none;transition:opacity .9s ease}
+  #site-content.revealed{opacity:1;pointer-events:auto}
+
+  #stars{position:fixed;inset:0;width:100%;height:100%;z-index:1;opacity:0;
+    display:block;background:#020203}
+
+  #intro-overlay{position:fixed;inset:0;background:#000;z-index:9999;
+    display:flex;align-items:center;justify-content:flex-start;
+    cursor:wait;overflow:hidden}
+
+  #dos-screen{box-sizing:border-box;width:100%;height:100%;padding:12px;
+    font-family:"Perfect DOS VGA 437","Courier New",Courier,monospace;
+    font-size:16px;line-height:1.15;color:#c0c0c0;white-space:pre-wrap;
+    word-break:break-all;overflow:hidden}
+
+  .dos-cursor{display:inline-block;width:9px;background:#c0c0c0;
+    animation:dos-blink 1s steps(1) infinite}
+  @keyframes dos-blink{50%{background:transparent}}
+
+  .dos-blinking{animation:dos-screenblink .25s steps(1) infinite}
+  @keyframes dos-screenblink{50%{visibility:hidden}}
+
+  #intro-face-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+
+  @media(prefers-reduced-motion:reduce){
+    #site-content{transition:none}
+  }
+</style>
+</head>
+<body>
+
+<canvas id="stars"></canvas>
+
+<div id="intro-overlay">
+  <div id="dos-screen"></div>
+</div>
+
+<div id="site-content">
+
+<a id="home-arrow" href="index.html" title="classic index" aria-label="back to classic index">&#8592;</a>
+
+<header>
+  <div class="supra">R-D CONSUMER ELECTRONICS DIVISION · EST. QUÉBEC · UNIT №1506</div>
+  <h1>RICHIE<span class="alt">.DIGITAL</span><span class="tm">™</span></h1>
+  <div class="specline">
+    <span><b>MODE</b> CONSUMER</span>
+    <span><b>BUILD</b> NONE (VANILLA)</span>
+    <span><b>SHIPPING</b> CLOUDFLARE ORBITAL</span>
+    <span><b>WARRANTY</b> VOID WHERE PROHIBITED</span>
+  </div>
+</header>
+
+<div id="ticker"><span>
+  SCROLL · CLICK · RENDER · REPEAT ··· ALL UNITS TESTED ON ACTUAL HUMANS ···
+  KNEES ARE THE SUSPENSION™ ··· NO BUILD STEP · NO MERCY ···
+  SATISFACTION SIMULATED ··· SCROLL · CLICK · RENDER · REPEAT ···
+</span></div>
+
+<div id="grid">
+
+  <!-- ═══ interactive units (randomized) ═══ -->
+  <a class="mod link cw1" data-rand href="motobang/">
+    <div class="tag"><span>UNIT 04</span><span>PLAYABLE®</span></div>
+    <h2>Motobang</h2>
+    <div class="sub">DUAL-WHEEL PERSONNEL VEHICLE / NIGHT CIRCUIT</div>
+    <svg viewBox="0 0 120 100">
+      <circle class="ink" cx="38" cy="78" r="16" fill="none" stroke="#0a0a0a" stroke-width="5"/>
+      <circle class="ink" cx="82" cy="78" r="16" fill="none" stroke="#0a0a0a" stroke-width="5"/>
+      <line class="ink" x1="60" y1="14" x2="60" y2="48" stroke="#0a0a0a" stroke-width="6"/>
+      <circle class="inkf" cx="60" cy="10" r="7" fill="#0a0a0a"/>
+      <line class="ink" x1="30" y1="26" x2="90" y2="26" stroke="#0a0a0a" stroke-width="5"/>
+      <line class="ink" x1="60" y1="48" x2="42" y2="66" stroke="#0a0a0a" stroke-width="5"/>
+      <line class="ink" x1="60" y1="48" x2="78" y2="66" stroke="#0a0a0a" stroke-width="5"/>
+      <rect x="88" y="20" width="10" height="12" fill="#ff5c00"/>
+    </svg>
+    <div class="go">&#8594;</div>
+  </a>
+
+  <a class="mod link cw1" data-rand href="ricardo/">
+    <div class="tag"><span>UNIT 02</span><span>ORBITAL®</span></div>
+    <h2>Planet Body</h2>
+    <div class="sub">RICARDO GRAVITATIONAL SYSTEM / THE PYRAMID AWAITS</div>
+    <svg viewBox="0 0 120 100">
+      <circle class="ink" cx="60" cy="50" r="28" fill="none" stroke="#0a0a0a" stroke-width="5"/>
+      <ellipse class="ink" cx="60" cy="50" rx="48" ry="12" fill="none" stroke="#0a0a0a" stroke-width="4"/>
+      <circle class="inkf" cx="60" cy="50" r="6" fill="#0a0a0a"/>
+      <circle class="inkf" cx="104" cy="46" r="4" fill="#0a0a0a"/>
+    </svg>
+    <div class="go">&#8594;</div>
+  </a>
+
+  <a class="mod link cw1" data-rand href="index.html">
+    <div class="tag"><span>UNIT 03</span><span>BIOMETRIC®</span></div>
+    <h2>Face Mesh</h2>
+    <div class="sub">EMOTIONAL RESPONSE MODULE / 30FPS MOCAP REPLAY</div>
+    <svg viewBox="0 0 120 100">
+      <polygon class="ink" points="60,12 40,34 44,62 60,84 76,62 80,34" fill="none" stroke="#0a0a0a" stroke-width="4"/>
+      <line class="ink" x1="60" y1="12" x2="44" y2="62" stroke="#0a0a0a" stroke-width="2.5"/>
+      <line class="ink" x1="60" y1="12" x2="76" y2="62" stroke="#0a0a0a" stroke-width="2.5"/>
+      <line class="ink" x1="40" y1="34" x2="80" y2="34" stroke="#0a0a0a" stroke-width="2.5"/>
+      <line class="ink" x1="44" y1="62" x2="76" y2="62" stroke="#0a0a0a" stroke-width="2.5"/>
+      <circle class="inkf" cx="52" cy="42" r="3.5" fill="#0a0a0a"/>
+      <circle class="inkf" cx="68" cy="42" r="3.5" fill="#0a0a0a"/>
+    </svg>
+    <div class="go">&#8594;</div>
+  </a>
+
+  <a class="mod link cw1" data-rand href="webGL/">
+    <div class="tag"><span>UNIT 01</span><span>DEEP FIELD®</span></div>
+    <h2>Star Field</h2>
+    <div class="sub">INFINITE POINTS / WINDSHIELD OPTIONAL</div>
+    <svg viewBox="0 0 120 100">
+      <g class="inkf" fill="#0a0a0a">
+        <path d="M30 30 l4 8 8 4 -8 4 -4 8 -4-8 -8-4 8-4z"/>
+        <path d="M82 22 l3 6 6 3 -6 3 -3 6 -3-6 -6-3 6-3z"/>
+        <path d="M64 66 l3 6 6 3 -6 3 -3 6 -3-6 -6-3 6-3z"/>
+        <circle cx="98" cy="58" r="3"/><circle cx="22" cy="72" r="3"/>
+        <circle cx="50" cy="14" r="2.4"/><circle cx="104" cy="86" r="2.4"/>
+      </g>
+    </svg>
+    <div class="go">&#8594;</div>
+  </a>
+
+  <a class="mod link cw1" data-rand href="spline/spline-domain.html">
+    <div class="tag"><span>UNIT 05</span><span>TOOLPATH®</span></div>
+    <h2>Spline Domain</h2>
+    <div class="sub">DRAGGABLE FLOW FIELD / INK BURST ON CONTACT</div>
+    <svg viewBox="0 0 120 100">
+      <path class="ink" d="M14 78 C 40 12, 80 12, 106 78" fill="none" stroke="#0a0a0a" stroke-width="4"/>
+      <circle class="inkf" cx="14" cy="78" r="5" fill="#0a0a0a"/>
+      <circle class="inkf" cx="42" cy="30" r="5" fill="#0a0a0a"/>
+      <circle class="inkf" cx="78" cy="30" r="5" fill="#0a0a0a"/>
+      <circle class="inkf" cx="106" cy="78" r="5" fill="#0a0a0a"/>
+    </svg>
+    <div class="go">&#8594;</div>
+  </a>
+
+  <a class="mod link cw1" data-rand href="triganim.html">
+    <div class="tag"><span>UNIT 06</span><span>CADENCE®</span></div>
+    <h2>Beatrig</h2>
+    <div class="sub">STICK-FIGURE POSER / SNAPS TO THE BEAT GRID</div>
+    <svg viewBox="0 0 120 100">
+      <circle class="inkf" cx="60" cy="20" r="9" fill="#0a0a0a"/>
+      <line class="ink" x1="60" y1="29" x2="60" y2="62" stroke="#0a0a0a" stroke-width="5"/>
+      <line class="ink" x1="60" y1="40" x2="36" y2="30" stroke="#0a0a0a" stroke-width="5"/>
+      <line class="ink" x1="60" y1="40" x2="88" y2="52" stroke="#0a0a0a" stroke-width="5"/>
+      <line class="ink" x1="60" y1="62" x2="40" y2="90" stroke="#0a0a0a" stroke-width="5"/>
+      <line class="ink" x1="60" y1="62" x2="82" y2="90" stroke="#0a0a0a" stroke-width="5"/>
+      <line x1="10" y1="94" x2="110" y2="94" stroke="#0a0a0a" stroke-width="2" stroke-dasharray="3,4"/>
+    </svg>
+    <div class="go">&#8594;</div>
+  </a>
+
+  <a class="mod link cw1" data-rand href="vert/">
+    <div class="tag"><span>UNIT 07</span><span>HIGH-RISE®</span></div>
+    <h2>Vert</h2>
+    <div class="sub">GLASS TOWER CORRIDOR / DRONES ON EVERY FLOOR</div>
+    <svg viewBox="0 0 120 100">
+      <rect class="ink" x="34" y="8" width="52" height="86" fill="none" stroke="#0a0a0a" stroke-width="4"/>
+      <line class="ink" x1="34" y1="26" x2="86" y2="26" stroke="#0a0a0a" stroke-width="2.5"/>
+      <line class="ink" x1="34" y1="44" x2="86" y2="44" stroke="#0a0a0a" stroke-width="2.5"/>
+      <line class="ink" x1="34" y1="62" x2="86" y2="62" stroke="#0a0a0a" stroke-width="2.5"/>
+      <line class="ink" x1="34" y1="80" x2="86" y2="80" stroke="#0a0a0a" stroke-width="2.5"/>
+      <circle class="inkf" cx="100" cy="34" r="3.5" fill="#0a0a0a"/>
+      <circle class="inkf" cx="20" cy="58" r="3.5" fill="#0a0a0a"/>
+    </svg>
+    <div class="go">&#8594;</div>
+  </a>
+
+  <a class="mod link cw1" data-rand href="atelier.html">
+    <div class="tag"><span>UNIT 08</span><span>WEAVE®</span></div>
+    <h2>Atelier</h2>
+    <div class="sub">TILE-SAFE TEXTURE STUDIO / SEAMLESS GENERATORS</div>
+    <svg viewBox="0 0 120 100">
+      <rect class="ink" x="10" y="10" width="46" height="38" fill="none" stroke="#0a0a0a" stroke-width="3"/>
+      <rect class="ink" x="64" y="10" width="46" height="38" fill="none" stroke="#0a0a0a" stroke-width="3"/>
+      <rect class="ink" x="10" y="52" width="46" height="38" fill="none" stroke="#0a0a0a" stroke-width="3"/>
+      <rect class="ink" x="64" y="52" width="46" height="38" fill="none" stroke="#0a0a0a" stroke-width="3"/>
+      <circle class="inkf" cx="33" cy="29" r="5" fill="#0a0a0a"/>
+      <circle class="inkf" cx="87" cy="71" r="5" fill="#0a0a0a"/>
+    </svg>
+    <div class="go">&#8594;</div>
+  </a>
+
+  <a class="mod link cw1" data-rand href="CATSTAN/">
+    <div class="tag"><span>UNIT 09</span><span>FELINE®</span></div>
+    <h2>Catstan</h2>
+    <div class="sub">UNCLASSIFIED / PROCEED WITH CURIOSITY</div>
+    <svg viewBox="0 0 120 100">
+      <path class="ink" d="M40 60 L34 24 L52 40 L68 40 L86 24 L80 60 Z" fill="none" stroke="#0a0a0a" stroke-width="4"/>
+      <circle class="inkf" cx="50" cy="50" r="3" fill="#0a0a0a"/>
+      <circle class="inkf" cx="70" cy="50" r="3" fill="#0a0a0a"/>
+      <line class="ink" x1="60" y1="60" x2="60" y2="86" stroke="#0a0a0a" stroke-width="4"/>
+    </svg>
+    <div class="go">&#8594;</div>
+  </a>
+
+  <a class="mod link cw1" data-rand href="Mikeygame.html">
+    <div class="tag"><span>UNIT 10</span><span>ALPINE®</span></div>
+    <h2>Mikey&rsquo;s Ride</h2>
+    <div class="sub">LAURENTIAN ECHOES / UNITY WEBGL DEMO 0.1</div>
+    <svg viewBox="0 0 120 100">
+      <path class="ink" d="M8 82 L34 40 L50 62 L68 26 L96 82 Z" fill="none" stroke="#0a0a0a" stroke-width="4"/>
+      <circle class="inkf" cx="90" cy="20" r="8" fill="#0a0a0a"/>
+      <path class="ink" d="M4 90 C 40 78, 60 96, 116 84" fill="none" stroke="#0a0a0a" stroke-width="4" stroke-dasharray="2,6"/>
+    </svg>
+    <div class="go">&#8594;</div>
+  </a>
+
+  <a class="mod link cw1" data-rand href="sma.html">
+    <div class="tag"><span>UNIT 11</span><span>CANOPY®</span></div>
+    <h2>Spider Monkey</h2>
+    <div class="sub">SDF SHADER CANVAS / WEB, VINE &amp; TAIL PHYSICS</div>
+    <svg viewBox="0 0 120 100">
+      <line class="ink" x1="60" y1="10" x2="60" y2="60" stroke="#0a0a0a" stroke-width="2.5"/>
+      <line class="ink" x1="30" y1="20" x2="90" y2="50" stroke="#0a0a0a" stroke-width="2.5"/>
+      <line class="ink" x1="90" y1="20" x2="30" y2="50" stroke="#0a0a0a" stroke-width="2.5"/>
+      <circle class="ink" cx="60" cy="35" r="14" fill="none" stroke="#0a0a0a" stroke-width="2.5"/>
+      <circle class="ink" cx="60" cy="35" r="26" fill="none" stroke="#0a0a0a" stroke-width="2.5"/>
+      <circle class="inkf" cx="60" cy="78" r="10" fill="#0a0a0a"/>
+      <path class="ink" d="M60 88 C 76 92, 84 82, 78 70" fill="none" stroke="#0a0a0a" stroke-width="4"/>
+    </svg>
+    <div class="go">&#8594;</div>
+  </a>
+
+  <!-- ═══ decor / catalogue filler ═══ -->
+
+  <div class="mod cw3">
+    <div class="tag"><span>SERIAL</span><span>&#8734;</span></div>
+    <h2>№</h2>
+    <div class="bigno" id="serial">00</div>
+  </div>
+
+</div>
+
+<footer>
+  <div class="row">
+    <span>&copy;2026 RICHIE.DIGITAL — A TRIBUTE TO 90s GRAPHIC MAXIMALISM</span>
+    <span>ALL WRONGS RESERVED&reg;</span>
+    <span>PRESS &#8592; TO EXIT THE CATALOGUE</span>
+    <span id="stamp"></span>
+  </div>
+</footer>
+
+<script>
+(function(){
+"use strict";
+
+/* random serial + timestamp stamp */
+document.getElementById('serial').textContent=String(Math.floor(Math.random()*90)+10);
+document.getElementById('stamp').textContent='BATCH '+new Date().toISOString().slice(0,10).replace(/-/g,'.');
+
+/* background star dots */
+for(let i=0;i<26;i++){
+  const s=document.createElement('div');s.className='bgstar';
+  s.style.left=Math.random()*100+'vw';
+  s.style.top=Math.random()*100+'vh';
+  s.style.animationDelay=(Math.random()*3)+'s';
+  s.style.animationDuration=(2+Math.random()*3)+'s';
+  document.body.appendChild(s);
+}
+
+/* shuffle the interactive units into random grid slots each load */
+const grid=document.getElementById('grid');
+const units=[...grid.querySelectorAll('[data-rand]')];
+units.forEach(u=>{
+  const others=[...grid.children];
+  grid.insertBefore(u,others[Math.floor(Math.random()*others.length)]);
+});
+
+/* the randomizer: every few seconds a unit jumps colorway / rotation / position
+   — skipped entirely for reduced-motion, paused while the tab is hidden */
+const reduceMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const cw=['cw1','cw2','cw3'];
+let zapTimer=null;
+function zap(){
+  if(document.hidden){zapTimer=setTimeout(zap,1000);return;}
+  const u=units[Math.floor(Math.random()*units.length)];
+  u.classList.remove('cw1','cw2','cw3');
+  u.classList.add(cw[Math.floor(Math.random()*cw.length)]);
+  u.style.transform='rotate('+((Math.random()*8-4).toFixed(1))+'deg)';
+  u.classList.add('flash');
+  setTimeout(()=>u.classList.remove('flash'),110);
+  if(Math.random()<0.35){                        // occasional relocation
+    const others=[...grid.children].filter(c=>c!==u);
+    grid.insertBefore(u,others[Math.floor(Math.random()*others.length)]);
+  }
+  zapTimer=setTimeout(zap,2200+Math.random()*3200);
+}
+if(!reduceMotion) zapTimer=setTimeout(zap,2500);
+
+})();
+</script>
+
+</div><!-- /#site-content -->
+
+<script src="js/stars.js"></script>
+<script src="js/site-intro.js"></script>
+</body>
+</html>

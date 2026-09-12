@@ -57,6 +57,8 @@ input.addEventListener('keydown', e => {
     window.location.href = '/atelier.html';  // 🧵 tile-safe texture studio
   } else if (cmd === 'catstan') {
     window.location.href = '/CATSTAN/';  // 🐈
+  } else if (cmd === 'catalog' || cmd === 'catalogue' || cmd === 'grid' || cmd === 'units') {
+    window.location.href = '/catalog.html';  // 📦 the 90s-catalogue grid
   } else if (cmd === 'crash') {
     hide();
     if (window.DOSCrash) new window.DOSCrash().init();
