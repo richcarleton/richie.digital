@@ -81,9 +81,14 @@
       50%  { transform: rotate3d(0.3, 1, 0, 180deg); }
       100% { transform: rotate3d(0.3, 1, 0, 360deg); }
     }
+    /* Reduced motion means freeze the animation, not hide the page — the
+       SVG fallback stays fully visible, just static. Only the (never-
+       initialized, see the script below) WebGL layer is skipped. Hiding
+       both, as an earlier version of this rule did, would leave a reduced-
+       motion visitor looking at a blank page for no reason at all. */
     @media(prefers-reduced-motion: reduce){
-      #bg, #fallback svg { display: none; }
-      html, body { background: #05030a; }
+      #bg { display: none; }
+      #fallback svg { animation: none; }
     }
   </style>
 </head>
