@@ -32,7 +32,34 @@ document.addEventListener('keydown', e => {
   show();
 });
 
+/* ── mobile: no hardware key ever fires the listener above, so a screen
+   tap has to do the same job. show() already calls input.focus() — on
+   browsers that allow focusing an input from a delegated handler, that
+   one tap both reveals the bar and raises the keyboard; on the stricter
+   ones (notably iOS Safari), it just reveals it and a second tap on the
+   now-visible input raises the keyboard, same as tapping any text field. */
+document.addEventListener('pointerdown', e => {
+  if (e.pointerType === 'touch') show();
+});
+
 input.addEventListener('input', resetHide);
+
+/* ── keep the bar above the on-screen keyboard instead of behind it ──────
+   position:fixed measures against the full layout viewport, which iOS
+   Safari never shrinks for the keyboard (Android usually does, but not
+   always) — so a plain `bottom: 36px` can end up hidden behind it. Track
+   window.visualViewport instead, which always reports the space the
+   keyboard leaves visible, and lift the bar to sit just above it.        */
+if (window.visualViewport) {
+  const baseBottom = 36; // matches #terminal{bottom:36px} in css/style.css
+  const avoidKeyboard = () => {
+    const vv = window.visualViewport;
+    const covered = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    terminal.style.bottom = (baseBottom + covered) + 'px';
+  };
+  window.visualViewport.addEventListener('resize', avoidKeyboard);
+  window.visualViewport.addEventListener('scroll', avoidKeyboard);
+}
 
 input.addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
