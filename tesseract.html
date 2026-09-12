@@ -64,23 +64,63 @@
     .diag {
       position: fixed;
       right: 14px;
-      bottom: 12px;
+      bottom: 30px; /* stacked above .credit, not beside it — both can run long */
       z-index: 1;
+      max-width: min(60vw, 380px);
       color: rgba(255,255,255,.35);
       font-size: 10px;
       letter-spacing: .2px;
       text-shadow: 0 2px 10px rgba(0,0,0,.6);
       text-align: right;
     }
+    /* ── static fallback: the actual default, not an afterthought. No WebGL,
+       no three.js, no JS at all required — pure CSS/SVG so it's already
+       correct before a single script has had a chance to run or fail.
+       The WebGL layer only gets to cover it once it's proven it can draw. */
+    #fallback {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #fallback svg {
+      width: min(64vmin, 420px);
+      height: auto;
+      animation: fallback-spin 16s linear infinite;
+      opacity: .9;
+    }
+    @keyframes fallback-spin {
+      0%   { transform: rotate3d(0.3, 1, 0, 0deg); }
+      50%  { transform: rotate3d(0.3, 1, 0, 180deg); }
+      100% { transform: rotate3d(0.3, 1, 0, 360deg); }
+    }
     @media(prefers-reduced-motion: reduce){
-      #bg { display: none; }
+      #bg, #fallback svg { display: none; }
       html, body { background: #05030a; }
     }
   </style>
 </head>
 <body>
   <a class="back" href="/">&#8592; richie.digital</a>
+
+  <div id="fallback" aria-hidden="true">
+    <svg viewBox="0 0 120 100">
+      <polygon points="18,12 98,12 98,88 18,88" fill="none" stroke="#ff5c00" stroke-width="1.6"/>
+      <polygon points="42,34 74,34 74,66 42,66" fill="none" stroke="#ff5c00" stroke-width="1.6"/>
+      <line x1="18" y1="12" x2="42" y2="34" stroke="#ff5c00" stroke-width="1.3"/>
+      <line x1="98" y1="12" x2="74" y2="34" stroke="#ff5c00" stroke-width="1.3"/>
+      <line x1="98" y1="88" x2="74" y2="66" stroke="#ff5c00" stroke-width="1.3"/>
+      <line x1="18" y1="88" x2="42" y2="66" stroke="#ff5c00" stroke-width="1.3"/>
+      <circle cx="18" cy="12" r="1.8" fill="#ff5c00"/><circle cx="98" cy="12" r="1.8" fill="#ff5c00"/>
+      <circle cx="98" cy="88" r="1.8" fill="#ff5c00"/><circle cx="18" cy="88" r="1.8" fill="#ff5c00"/>
+      <circle cx="42" cy="34" r="1.8" fill="#ff5c00"/><circle cx="74" cy="34" r="1.8" fill="#ff5c00"/>
+      <circle cx="74" cy="66" r="1.8" fill="#ff5c00"/><circle cx="42" cy="66" r="1.8" fill="#ff5c00"/>
+    </svg>
+  </div>
   <div id="bg" aria-hidden="true"></div>
+
   <div class="hud"><b>Tesseract</b> — 4D wireframe, mouse-reactive</div>
   <div class="credit">background effect: <a href="https://seer-js.com/" target="_blank" rel="noopener">Seer.js</a> (MIT) on three.js — donated tech, thanks</div>
   <div class="diag" id="diag"></div>
@@ -91,44 +131,83 @@
   <script src="vendor/three.min.js"></script>
   <script src="vendor/seer.tesseract.min.js"></script>
   <script>
-    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      Seer.Tesseract({
-        el: document.getElementById('bg'),
-        color: '#ff5c00',
-        backgroundColor: '#000000',
-        size: 0.62,
-        depth: 4,
-        layers: 3,
-        speed: 0.45,
-        mouseControls: true,
-        touchControls: true
-      });
+    const diagEl = document.getElementById('diag');
+    const fallback = document.getElementById('fallback');
+    const bg = document.getElementById('bg');
+
+    /* The static SVG above is the real default — correct with zero JS. From
+       here on we only try to earn the WebGL upgrade, and only keep it if we
+       can PROVE pixels landed on screen. "It didn't throw" isn't proof —
+       the exact bug reported against this page was a context that creates
+       fine and draws every frame while showing nothing, on some GPU/driver/
+       browser-profile combinations. So: render, sample the real pixels,
+       and only then decide. Anything that fails leaves the SVG in place. */
+    function keepFallback(reason) {
+      if (diagEl) diagEl.textContent = 'diag: static fallback (' + reason + ')';
     }
 
-    /* Small always-on diagnostic line, so a "still blank" report comes with
-       real numbers instead of another guessing round: which context got
-       used, what GPU/driver is behind it, and whether frames are actually
-       being drawn. Low-contrast, out of the way, not worth its own toggle. */
-    (function diag() {
-      const el = document.getElementById('diag');
-      if (!el) return;
-      const c = document.querySelector('#bg canvas');
-      if (!c) { el.textContent = 'diag: no canvas created'; return; }
-      const gl = c.getContext('webgl2') || c.getContext('webgl') || c.getContext('experimental-webgl');
-      if (!gl) { el.textContent = 'diag: no WebGL context'; return; }
-      const glType = c.getContext('webgl2') ? 'webgl2' : 'webgl1';
-      let renderer = 'unknown GPU';
-      const dbg = gl.getExtension('WEBGL_debug_renderer_info');
-      if (dbg) renderer = gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL);
-      let frames = 0;
-      const origRender = gl.drawArrays ? gl.drawArrays.bind(gl) : null;
-      if (origRender) gl.drawArrays = (...a) => { frames++; return origRender(...a); };
-      const origElements = gl.drawElements ? gl.drawElements.bind(gl) : null;
-      if (origElements) gl.drawElements = (...a) => { frames++; return origElements(...a); };
-      setTimeout(() => {
-        el.textContent = `diag: ${glType} · ${renderer} · ${frames} draw calls/1.5s`;
-      }, 1500);
-    })();
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      // reduced motion: the fallback SVG is already display:none via CSS,
+      // and spinning up WebGL just to hide it immediately isn't worth it.
+      if (diagEl) diagEl.textContent = '';
+    } else if (typeof Seer === 'undefined' || typeof THREE === 'undefined') {
+      keepFallback('three.js/Seer.js failed to load');
+    } else {
+      let inst = null;
+      try {
+        inst = Seer.Tesseract({
+          el: bg,
+          color: '#ff5c00',
+          backgroundColor: '#000000',
+          size: 0.62,
+          depth: 4,
+          layers: 3,
+          speed: 0.45,
+          scaleMobile: 0.75,   // lighter render resolution on small/weak screens
+          mouseControls: true,
+          touchControls: true
+        });
+      } catch (err) {
+        keepFallback('init threw — ' + err.message);
+      }
+
+      if (inst) {
+        setTimeout(() => {
+          let drew = false;
+          let glType = 'none', renderer = 'unknown GPU';
+          try {
+            const c = bg.querySelector('canvas');
+            const gl = c && (c.getContext('webgl2') || c.getContext('webgl'));
+            if (gl) {
+              glType = c.getContext('webgl2') ? 'webgl2' : 'webgl1';
+              const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+              if (dbg) renderer = gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL);
+            }
+            // Force one fresh frame and sample it in the SAME task, so we
+            // read the real buffer rather than one the browser may already
+            // have cleared (WebGL's preserveDrawingBuffer default is false —
+            // reading it back later, in a separate task, isn't reliable).
+            if (typeof inst.renderNow === 'function') inst.renderNow();
+            const tmp = document.createElement('canvas');
+            tmp.width = c.width; tmp.height = c.height;
+            tmp.getContext('2d').drawImage(c, 0, 0);
+            const data = tmp.getContext('2d').getImageData(0, 0, tmp.width, tmp.height).data;
+            for (let i = 0; i < data.length; i += 977 * 4) { // sparse sample, cheap
+              if (data[i] > 8 || data[i + 1] > 8 || data[i + 2] > 8) { drew = true; break; }
+            }
+          } catch (err) { /* canvas read blocked or errored — treat as not drawing */ }
+
+          if (drew) {
+            fallback.style.display = 'none';
+            if (diagEl) diagEl.textContent = `diag: ${glType} · ${renderer} · rendering`;
+          } else {
+            if (inst.destroy) inst.destroy();
+            bg.innerHTML = '';
+            keepFallback(`canvas stayed blank — ${glType} · ${renderer}`);
+          }
+        }, 1200);
+      }
+    }
   </script>
 </body>
 </html>
