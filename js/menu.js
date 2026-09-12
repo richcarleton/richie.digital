@@ -7,8 +7,15 @@ document.body.appendChild(panel);
 
 const mediaLabels = { svg: 'svg viewer', image: 'image', zod: 'zod mode', planet: '3d planet' };
 
-function row(cmdClass, key, desc) {
-  return `<div class="menu-row"><span class="${cmdClass}">${key}</span><span class="menu-desc">${desc}</span></div>`;
+/* `runnable` commands get a real tap target (data-cmd + role=button) that
+   the delegated handler below fires through window.runCommand — same
+   dispatch the typed terminal uses. The "<anything>" hint row is just
+   illustrative, so it stays inert. */
+function row(cmdClass, key, desc, runnable) {
+  const cmdEl = runnable
+    ? `<span class="${cmdClass} menu-cmd-run" data-cmd="${key}" role="button" tabindex="0">${key}</span>`
+    : `<span class="${cmdClass}">${key}</span>`;
+  return `<div class="menu-row">${cmdEl}<span class="menu-desc">${desc}</span></div>`;
 }
 
 function build() {
@@ -16,11 +23,11 @@ function build() {
   const media   = window.SITE_MEDIA   || {};
 
   const contentRows = Object.keys(content)
-    .map(k => row('menu-cmd', k, content[k].title || k))
+    .map(k => row('menu-cmd', k, content[k].title || k, true))
     .join('');
 
   const mediaRows = Object.keys(media)
-    .map(k => row('menu-cmd', k, mediaLabels[media[k].type] || media[k].type || ''))
+    .map(k => row('menu-cmd', k, mediaLabels[media[k].type] || media[k].type || '', true))
     .join('');
 
   panel.innerHTML = `
@@ -35,20 +42,20 @@ function build() {
     </div>
     <div class="menu-section">
       <div class="menu-section-label">garage</div>
-      ${row('menu-cmd', 'catalog', '90s-catalogue grid — every unit')}
-      ${row('menu-cmd', 'tesseract', '4D hypercube, mouse-reactive')}
-      ${row('menu-cmd', 'motobang', 'motorcycle circuit')}
-      ${row('menu-cmd', 'ricardo', 'the pyramid awaits')}
-      ${row('menu-cmd', 'train', 'transit departures chyron')}
-      ${row('menu-cmd', 'beatrig', 'stick-figure beat-grid poser')}
-      ${row('menu-cmd', 'vert', 'glass tower corridor')}
-      ${row('menu-cmd', 'atelier', 'tile-safe texture studio')}
-      ${row('menu-cmd', 'catstan', '???')}
+      ${row('menu-cmd', 'catalog', '90s-catalogue grid — every unit', true)}
+      ${row('menu-cmd', 'tesseract', '4D hypercube, mouse-reactive', true)}
+      ${row('menu-cmd', 'motobang', 'motorcycle circuit', true)}
+      ${row('menu-cmd', 'ricardo', 'the pyramid awaits', true)}
+      ${row('menu-cmd', 'train', 'transit departures chyron', true)}
+      ${row('menu-cmd', 'beatrig', 'stick-figure beat-grid poser', true)}
+      ${row('menu-cmd', 'vert', 'glass tower corridor', true)}
+      ${row('menu-cmd', 'atelier', 'tile-safe texture studio', true)}
+      ${row('menu-cmd', 'catstan', '???', true)}
     </div>
     <div class="menu-section">
       ${row('menu-cmd-dim', '&lt;anything&gt;', 'text flythrough')}
     </div>
-    <div class="menu-hint">esc &nbsp;·&nbsp; click outside</div>
+    <div class="menu-hint">tap a command · esc / tap outside to close</div>
   `;
 }
 
@@ -69,7 +76,26 @@ document.addEventListener('keydown', e => {
   }
 });
 
-document.addEventListener('click', e => {
+/* run the tapped/clicked command, then close — same dispatch the typed
+   terminal uses, so a menu item does exactly what typing it would.      */
+panel.addEventListener('click', e => {
+  const el = e.target.closest('[data-cmd]');
+  if (!el) return;
+  close();
+  if (window.runCommand) window.runCommand(el.dataset.cmd);
+});
+panel.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const el = e.target.closest('[data-cmd]');
+  if (!el) return;
+  e.preventDefault();
+  close();
+  if (window.runCommand) window.runCommand(el.dataset.cmd);
+});
+
+/* pointerdown, not click: fires immediately on touch (no synthetic-click
+   delay/quirks) so tapping outside the panel reliably dismisses it.     */
+document.addEventListener('pointerdown', e => {
   if (panel.classList.contains('open') && !panel.contains(e.target)) close();
 });
 

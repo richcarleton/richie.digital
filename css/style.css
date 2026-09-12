@@ -447,7 +447,7 @@ html, body {
   display: flex;
   gap: 18px;
   align-items: baseline;
-  padding: 3px 0;
+  padding: 6px 0;
 }
 
 .menu-cmd {
@@ -456,6 +456,25 @@ html, body {
   text-shadow: 0 0 8px rgba(var(--rd), 0.4);
   letter-spacing: 0.08em;
   min-width: 80px;
+}
+
+.menu-cmd-run {
+  cursor: pointer;
+  border-radius: 2px;
+  margin: -4px -6px;
+  padding: 4px 6px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.menu-cmd-run:hover,
+.menu-cmd-run:focus-visible {
+  background: rgba(var(--rd), 0.12);
+  color: #fff;
+  outline: none;
+}
+
+.menu-cmd-run:active {
+  background: rgba(var(--rd), 0.22);
 }
 
 .menu-cmd-dim {

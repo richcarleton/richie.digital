@@ -61,11 +61,11 @@ if (window.visualViewport) {
   window.visualViewport.addEventListener('scroll', avoidKeyboard);
 }
 
-input.addEventListener('keydown', e => {
-  if (e.key !== 'Enter') return;
-  const cmd = input.value.trim().toLowerCase();
-  input.value = '';
-  resetHide();
+/* ── command dispatch — shared by the typed terminal AND the "?" menu, so
+   tapping a listed command (menu.js) does the exact same thing as typing
+   it. Keep this the single place new commands get wired up.             */
+function runCommand(raw) {
+  const cmd = (raw || '').trim().toLowerCase();
   if (!cmd) return;
 
   if (cmd === 'menu' || cmd === 'help' || cmd === '?') {
@@ -98,6 +98,15 @@ input.addEventListener('keydown', e => {
   } else if (cmd && window.showTextFlythrough) {
     window.showTextFlythrough(cmd);
   }
+}
+window.runCommand = runCommand;
+
+input.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const cmd = input.value;
+  input.value = '';
+  resetHide();
+  runCommand(cmd);
 });
 
 })();
