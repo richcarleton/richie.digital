@@ -81,15 +81,12 @@
       50%  { transform: rotate3d(0.3, 1, 0, 180deg); }
       100% { transform: rotate3d(0.3, 1, 0, 360deg); }
     }
-    /* Reduced motion means freeze the animation, not hide the page — the
-       SVG fallback stays fully visible, just static. Only the (never-
-       initialized, see the script below) WebGL layer is skipped. Hiding
-       both, as an earlier version of this rule did, would leave a reduced-
-       motion visitor looking at a blank page for no reason at all. */
-    @media(prefers-reduced-motion: reduce){
-      #bg { display: none; }
-      #fallback svg { animation: none; }
-    }
+    /* No prefers-reduced-motion handling here, deliberately: this whole
+       page IS the motion — it's a decorative hypercube demo, not content
+       with an animated backdrop. An earlier version respected reduced
+       motion (freezing/hiding parts of it), which is the right default
+       for most animated UI. Overridden here on purpose, for this page
+       only — motion is the point, not a background flourish on top of it. */
   </style>
 </head>
 <body>
@@ -138,11 +135,9 @@
       if (diagEl) diagEl.textContent = 'diag: static fallback (' + reason + ')';
     }
 
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      // reduced motion: the fallback SVG is already display:none via CSS,
-      // and spinning up WebGL just to hide it immediately isn't worth it.
-      if (diagEl) diagEl.textContent = '';
-    } else if (typeof Seer === 'undefined' || typeof THREE === 'undefined') {
+    // No reduced-motion branch here — see the CSS comment above, this page
+    // always animates on purpose.
+    if (typeof Seer === 'undefined' || typeof THREE === 'undefined') {
       keepFallback('three.js/Seer.js failed to load');
     } else {
       let inst = null;
