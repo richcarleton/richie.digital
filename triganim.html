@@ -85,7 +85,7 @@
 <div class="row">
   <button id="ejson" class="wide">Save JSON</button>
   <button id="ijson" class="wide">Open JSON</button>
-  <button id="egif" class="wide">Export GIF</button>
+  <button id="egif" class="wide">Export video</button>
 </div>
 <input type="file" id="file" accept=".json,application/json" hidden>
 <p class="note" id="status">Drag a hand or foot and the joint above it solves itself. Everything snaps to half-beats.</p>
@@ -475,5 +475,141 @@ document.getElementById('tap').onclick=()=>{
 /* ---------- controls ---------------------------------------------------- */
 const $=id=>document.getElementById(id);
 const status=m=>$('status').textContent=m;
-$('play').onclick=e=>{playing=!playing;last=0;lastBeat=-1;
-  e.target.textContent=playing?'Stop':'Play';e
+$('play').onclick=e=>{
+  playing=!playing; last=0; lastBeat=-1;
+  e.target.textContent=playing?'Stop':'Play';
+  e.target.classList.toggle('on',playing);
+  if(!playing) render();
+};
+
+$('click').onclick=e=>{
+  click=!click;
+  e.target.classList.toggle('on',click);
+};
+
+$('addkey').onclick=()=>{
+  ensureKey();
+  status('Key added at beat '+beat);
+  render();
+};
+
+$('delkey').onclick=()=>{
+  if(sel===null){ status('No key selected.'); return; }
+  if(keys.length<=1){ status('Need at least one key.'); return; }
+  keys.splice(sel,1); sel=null;
+  render();
+};
+
+$('clear').onclick=()=>{
+  keys=[{t:0,pose:Object.assign({},NEUTRAL)}];
+  sel=null; beat=0; render();
+  status('Cleared to neutral.');
+};
+
+const bpmEl=$('bpm'), bpmv=$('bpmv');
+bpmEl.oninput=()=>{ bpm=+bpmEl.value; bpmv.textContent=bpm; };
+
+const embEl=$('emb'), embv=$('embv');
+embEl.oninput=()=>{ emb=+embEl.value/100; embv.textContent=emb.toFixed(2); render(); };
+
+function setView(v,btn){
+  view=v;
+  for(const id of ['vside','viso','vfront']) $(id).classList.remove('on');
+  btn.classList.add('on');
+  render();
+}
+$('vside').onclick=e=>setView('side',e.target);
+$('viso').onclick=e=>setView('iso',e.target);
+$('vfront').onclick=e=>setView('front',e.target);
+
+$('bg').onchange=e=>{ theme=e.target.value; render(); };
+
+$('onion').onclick=e=>{ onion=!onion; e.target.classList.toggle('on',onion); render(); };
+
+$('bars').onchange=e=>{
+  bars=+e.target.value;
+  beat=beat%total();
+  sel=keys.findIndex(k=>Math.abs(k.t-beat)<1e-6); sel=sel<0?null:sel;
+  render();
+};
+
+$('apply').onclick=()=>{
+  const name=$('cyc').value, src=CYCLES[name];
+  if(!src) return;
+  keys=src.map(k=>({t:k.t,pose:Object.assign({},k.pose)}));
+  sel=null; beat=0; render();
+  status('Loaded "'+name+'" cycle.');
+};
+
+/* ---------- JSON save / open --------------------------------------------- */
+$('ejson').onclick=()=>{
+  const data={bpm,bars,emb,keys};
+  const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='beatrig.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  status('Saved '+keys.length+' keys.');
+};
+
+$('ijson').onclick=()=>$('file').click();
+$('file').onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const data=JSON.parse(r.result);
+      if(!Array.isArray(data.keys)||!data.keys.length) throw 0;
+      keys=data.keys.map(k=>({t:k.t, pose:Object.assign({},NEUTRAL,k.pose)}));
+      bpm=clamp(data.bpm||96,40,200); bars=data.bars===2?2:1; emb=data.emb||1;
+      bpmEl.value=bpm; bpmv.textContent=bpm;
+      embEl.value=Math.round(emb*100); embv.textContent=emb.toFixed(2);
+      $('bars').value=String(bars);
+      sel=null; beat=0; render();
+      status('Loaded '+keys.length+' keys from '+f.name);
+    }catch(err){ status('Could not read that file.'); }
+  };
+  r.readAsText(f);
+  e.target.value='';
+};
+
+/* ---------- export: MediaRecorder capture, one full loop, no libraries -- */
+$('egif').onclick=()=>{
+  if(!stage.captureStream||!window.MediaRecorder){
+    status('Recording is not supported in this browser.'); return;
+  }
+  const wasPlaying=playing, startBeat=beat;
+  playing=true; last=0; lastBeat=-1; beat=0;
+  const stream=stage.captureStream(30);
+  const chunks=[];
+  const mime=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm']
+    .find(m=>MediaRecorder.isTypeSupported(m))||'video/webm';
+  const rec=new MediaRecorder(stream,{mimeType:mime});
+  rec.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
+  rec.onstop=()=>{
+    const blob=new Blob(chunks,{type:mime});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob); a.download='beatrig.webm'; a.click();
+    URL.revokeObjectURL(a.href);
+    playing=wasPlaying; beat=startBeat; last=0; lastBeat=-1; render();
+    status('Exported one loop as beatrig.webm.');
+  };
+  status('Recording one loop…');
+  rec.start();
+  setTimeout(()=>rec.stop(), (total()/(bpm/60))*1000 + 60);
+};
+
+/* ---------- sizing: canvases carry no intrinsic size, so fit on load/resize
+   and after every DPR-relevant change. Aspect is fixed (W:H, TW:TH) so a
+   single scale factor in render()/drawTL() always maps cleanly.          */
+function fit(cv,lw,lh){
+  const dpr=Math.min(devicePixelRatio||1,2);
+  const w=cv.getBoundingClientRect().width||cv.parentElement.clientWidth||lw;
+  cv.width=Math.round(w*dpr);
+  cv.height=Math.round(w*dpr*(lh/lw));
+}
+function resize(){ fit(stage,W,H); fit(tl,TW,TH); render(); }
+addEventListener('resize',resize);
+resize();
+</script>
