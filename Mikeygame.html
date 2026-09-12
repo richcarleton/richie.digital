@@ -60,9 +60,22 @@
         border-radius: 3px;
         display: none; /* Hidden until game loaded */
       }
+      #home-back {
+        position: absolute;
+        top: 12px;
+        right: 14px;
+        color: rgba(255,255,255,.85);
+        font-family: sans-serif;
+        font-size: 12px;
+        letter-spacing: .3px;
+        text-decoration: none;
+        z-index: 10;
+      }
+      #home-back:hover { color: #fff; }
     </style>
   </head>
   <body>
+    <a id="home-back" href="/">&#8592; richie.digital</a>
     <div id="unity-container">
       <canvas id="unity-canvas" width=960 height=600 tabindex="-1"></canvas>
       <div id="unity-loading-bar">
