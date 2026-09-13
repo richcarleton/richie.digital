@@ -27,3 +27,124 @@
     font-size:11px;color:var(--dim);text-align:right;min-height:1.4em}
 
   .rig{position:absolute;left:16px;right:16px;bottom:52px;pointer-events:auto;
+    display:flex;gap:8px;flex-wrap:wrap;align-content:flex-end}
+  .rig>*{flex:0 0 auto}
+  
+  button{background:var(--hot);color:var(--stage);border:none;padding:6px 12px;
+    border-radius:3px;cursor:pointer;font-size:11px;font-family:inherit;font-weight:500;
+    transition:background 200ms}
+  button:hover{background:var(--cool)}
+  button:active{transform:scale(0.98)}
+  
+  input[type=range]{width:120px;cursor:pointer}
+  input[type=text]{background:transparent;border:1px solid var(--dim);
+    color:var(--ink);padding:4px 8px;font-family:inherit;font-size:11px}
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<div class="chrome">
+  <div class="ident"><b>bap and boom</b> — strudel rig</div>
+  <div class="shot" id="status">ready</div>
+</div>
+<div class="rig">
+  <button id="play">▶ play</button>
+  <button id="stop">⏹ stop</button>
+  <input type="range" id="tempo" min="60" max="240" value="120">
+  <input type="text" id="pattern" placeholder="enter strudel pattern...">
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const statusEl = document.getElementById('status');
+const playBtn = document.getElementById('play');
+const stopBtn = document.getElementById('stop');
+const tempoInput = document.getElementById('tempo');
+const patternInput = document.getElementById('pattern');
+
+// Canvas setup
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// Animation state
+let isPlaying = false;
+let tempo = 120;
+let startTime = 0;
+let frameCount = 0;
+
+// Draw background
+function clear() {
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--stage').trim();
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+// Animated waves/particles for musical visualization
+function drawWaves(time) {
+  const centerX = canvas.width / 2;
+  const centerY = canvas.height / 2;
+  const beatPhase = (time / 1000) * (tempo / 60);
+  
+  for (let i = 0; i < 5; i++) {
+    const radius = 50 + i * 40 + Math.sin(beatPhase + i * 0.5) * 20;
+    const opacity = Math.max(0, 1 - (beatPhase % 1));
+    
+    ctx.strokeStyle = i % 2 === 0 
+      ? `hsla(327, 100%, 50%, ${opacity * 0.6})`
+      : `hsla(185, 100%, 50%, ${opacity * 0.6})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
+// Animation loop
+function animate(time) {
+  if (startTime === 0 && isPlaying) startTime = time;
+  
+  clear();
+  
+  if (isPlaying) {
+    const elapsed = time - startTime;
+    drawWaves(elapsed);
+    statusEl.textContent = `🎵 ${Math.floor(elapsed / 1000)}s`;
+  } else {
+    statusEl.textContent = 'ready';
+  }
+  
+  frameCount++;
+  requestAnimationFrame(animate);
+}
+
+// Controls
+playBtn.addEventListener('click', () => {
+  isPlaying = true;
+  startTime = 0;
+});
+
+stopBtn.addEventListener('click', () => {
+  isPlaying = false;
+  startTime = 0;
+});
+
+tempoInput.addEventListener('input', (e) => {
+  tempo = parseInt(e.target.value);
+  statusEl.textContent = `${tempo} BPM`;
+});
+
+patternInput.addEventListener('input', (e) => {
+  if (e.target.value) {
+    statusEl.textContent = `pattern: ${e.target.value}`;
+  }
+});
+
+// Start animation loop
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
