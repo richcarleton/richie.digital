@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cattrig — richie.digital</title>
+<meta name="description" content="A cat solves the minimum-speed launch angle for a randomly generated ledge, then jumps the arc it drew.">
+<meta name="theme-color" content="#12302b">
+<link rel="icon" href="../img/favicon.svg" type="image/svg+xml">
+<style>
+  html,body{margin:0;height:100%;background:#12302b;overflow:hidden;
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;}
+  canvas{display:block;width:100%;height:100%;touch-action:manipulation;cursor:pointer}
+  #home{position:fixed;top:max(10px,env(safe-area-inset-top));left:12px;z-index:5;
+    width:42px;height:42px;display:flex;align-items:center;justify-content:center;
+    color:#eaf1e0;opacity:.45;font-size:24px;text-decoration:none;line-height:1}
+  #home:hover,#home:focus-visible{opacity:1;outline:none}
+  #hint{position:fixed;left:50%;bottom:max(14px,env(safe-area-inset-bottom));transform:translateX(-50%);
+    color:#e9f0e2;opacity:.34;font-size:13px;letter-spacing:.02em;pointer-events:none}
+</style>
+</head>
+<body>
+<a id="home" href="../catalog.html" title="catalogue" aria-label="back to the catalogue">&#8592;</a>
+<canvas id="c"></canvas>
+<div id="hint">tap for sound, and a new ledge</div>
+<script>
+(() => {
+  const cvs = document.getElementById('c'), ctx = cvs.getContext('2d');
+  const CHALK = '#eaf1e0', DIM = 'rgba(234,241,224,0.34)', AMBER = '#f2a93b';
+  const G = 9.81;
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  let W=0, H=0, PPM=100, groundY=0, catX=0;
+  function resize(){
+    const dpr = Math.min(devicePixelRatio||1, 2);
+    W = innerWidth; H = innerHeight;
+    cvs.width = W*dpr; cvs.height = H*dpr;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    PPM = Math.min(W/4.4, H/3.6);
+    groundY = H*0.82;
+    catX = W*0.17;
+  }
+  addEventListener('resize', resize); resize();
+
+  // ---- chalk drawing helpers -------------------------------------------
+  function chalk(path, {color=CHALK, w=2.2, alpha=1, dash=null}={}){
+    ctx.save();
+    ctx.lineCap='round'; ctx.lineJoin='round';
+    if(dash) ctx.setLineDash(dash);
+    ctx.strokeStyle=color; ctx.globalAlpha=alpha*0.55; ctx.lineWidth=w*1.9;
+    path(); ctx.stroke();
+    ctx.globalAlpha=alpha; ctx.lineWidth=w;
+    path(); ctx.stroke();
+    ctx.restore();
+  }
+  function text(str, x, y, {size=15, color=CHALK, alpha=1, italic=false, align='left'}={}){
+    ctx.save();
+    ctx.globalAlpha=alpha; ctx.fillStyle=color; ctx.textAlign=align; ctx.textBaseline='alphabetic';
+    ctx.font=`${italic?'italic ':''}${size}px "Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif`;
+    ctx.fillText(str,x,y);
+    ctx.restore();
+  }
+
+  // ---- the problem ------------------------------------------------------
+  let P = null;
+  const INSET = 0.62;                                  // land this far in from the edge
+  function newProblem(){
+    const dx = 1.55 + Math.random()*1.45;              // metres across
+    const dy = 0.55 + Math.random()*1.35;              // metres up
+    const theta = Math.PI/4 + 0.5*Math.atan2(dy,dx);   // minimum-speed launch
+    const v0 = Math.sqrt(G*(dy + Math.hypot(dx,dy)));  // ...and its speed
+    const vx = v0*Math.cos(theta), vy = v0*Math.sin(theta);
+    P = {dx, dy, theta, v0, vx, vy, tFlight: dx/vx};
+  }
+  newProblem();
+
+  const ledge = () => ({ x: catX + (P.dx-INSET)*PPM, y: groundY - P.dy*PPM });
+
+  // ---- voice: grammelot, no words, all attitude ------------------------
+  let AC=null, master=null;
+  const VOW = { a:[860,1320], e:[560,1960], i:[330,2450], o:[520,940], u:[350,760] };
+  const KEYS = Object.keys(VOW);
+  function initAudio(){
+    if(AC){ if(AC.state==='suspended') AC.resume(); return; }
+    AC = new (window.AudioContext||window.webkitAudioContext)();
+    const comp = AC.createDynamicsCompressor();
+    master = AC.createGain(); master.gain.value = 0.5;
+    master.connect(comp).connect(AC.destination);
+  }
+  function syll(t0, dur, fA, fB, vowel, vol){
+    const [F1,F2] = vowel;
+    const o = AC.createOscillator(); o.type='sawtooth';
+    o.frequency.setValueAtTime(fA, t0);
+    o.frequency.exponentialRampToValueAtTime(Math.max(80,fB), t0+dur);
+    const lfo = AC.createOscillator(), lg = AC.createGain();
+    lfo.frequency.value = 10 + Math.random()*4; lg.gain.value = fA*0.035;
+    lfo.connect(lg).connect(o.frequency); lfo.start(t0); lfo.stop(t0+dur+0.05);
+    const mk = (f,q,g) => { const b=AC.createBiquadFilter(); b.type='bandpass';
+      b.frequency.value=f; b.Q.value=q; const gg=AC.createGain(); gg.gain.value=g;
+      return [b,gg]; };
+    const [b1,g1] = mk(F1*1.45, 7, 1), [b2,g2] = mk(F2*1.45, 10, 0.65);
+    const env = AC.createGain();
+    env.gain.setValueAtTime(0.0001, t0);
+    env.gain.exponentialRampToValueAtTime(vol, t0+0.022);
+    env.gain.setValueAtTime(vol, t0+dur*0.55);
+    env.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+    o.connect(b1).connect(g1).connect(env);
+    o.connect(b2).connect(g2).connect(env);
+    env.connect(master);
+    o.start(t0); o.stop(t0+dur+0.03);
+  }
+  function say(n, {f0=330, slope=1.0, rate=0.135, vol=0.17, jitter=0.16}={}){
+    if(!AC) return;
+    const t0 = AC.currentTime + 0.01;
+    let t = t0;
+    for(let i=0;i<n;i++){
+      const k = i/Math.max(1,n-1);
+      const base = f0 * Math.pow(slope, k) * (1 + (Math.random()-0.5)*jitter);
+      const dur = rate * (0.75 + Math.random()*0.6);
+      syll(t, dur, base, base*(0.86 + Math.random()*0.5), VOW[KEYS[(Math.random()*5)|0]], vol);
+      t += dur*0.95;
+    }
+  }
+  const VOICE = {
+    bubble: () => say(2, {f0:300, slope:1.22, rate:0.16, vol:0.10}),   // hm? what
+    pop:    () => say(2, {f0:390, slope:1.5,  rate:0.13, vol:0.19}),   // ah-HA
+    crouch: () => say(4, {f0:360, slope:1.55, rate:0.10, vol:0.18}),   // indignant run-up
+    land:   () => say(2, {f0:430, slope:0.55, rate:0.15, vol:0.16})    // ...eh, fine
+  };
+
+  // ---- timeline ---------------------------------------------------------
+  const PHASES = reduced
+    ? [['settle',400],['bubble',200],['diagram',300],['solve',900],['pop',150],['crouch',200],['flight',0],['land',500],['rest',600]]
+    : [['settle',750],['bubble',380],['diagram',750],['solve',2100],['pop',260],['crouch',320],['flight',0],['land',700],['rest',900]];
+  let phase=0, pt=0, last=performance.now();
+
+  function advance(dt){
+    pt += dt;
+    let dur = PHASES[phase][1];
+    if(PHASES[phase][0]==='flight') dur = P.tFlight*1000/0.85;
+    if(pt >= dur){
+      pt -= dur; phase = (phase+1)%PHASES.length;
+      if(phase===0) newProblem();
+      const v = VOICE[PHASES[phase][0]]; if(v) v();
+    }
+  }
+  const at = n => PHASES[phase][0]===n;
+  const after = n => PHASES.findIndex(p=>p[0]===n) < phase;
+  const prog = () => {
+    let dur = PHASES[phase][1];
+    if(at('flight')) dur = P.tFlight*1000/0.85;
+    return dur ? Math.min(1, pt/dur) : 1;
+  };
+  const ease = t => t<.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
+
+  // ---- the cat ----------------------------------------------------------
+  function drawCat(x, y, s, {angle=0, crouch=0, stretch=0, tail=0, squash=1, lookAt=null}){
+    ctx.save();
+    ctx.translate(x,y);
+    ctx.scale(1, squash);
+    ctx.rotate(angle);
+    const L = s, ex = stretch;
+
+    // tail
+    chalk(()=>{ ctx.beginPath();
+      ctx.moveTo(-0.62*L, -0.42*L);
+      ctx.quadraticCurveTo(-1.15*L - ex*0.35*L, -0.55*L + Math.sin(tail)*0.28*L,
+                           -1.05*L - ex*0.55*L, -1.02*L + Math.sin(tail+1.1)*0.3*L);
+    }, {w:2.4});
+
+    // haunch
+    chalk(()=>{ ctx.beginPath(); ctx.arc(-0.42*L, -0.36*L, 0.33*L, 0, 7); }, {w:2});
+
+    // body
+    chalk(()=>{ ctx.beginPath();
+      ctx.moveTo(-0.70*L, -0.30*L);
+      ctx.quadraticCurveTo(-0.30*L, -0.86*L + crouch*0.14*L, 0.34*L, -0.78*L + crouch*0.16*L);
+      ctx.quadraticCurveTo(0.62*L, -0.72*L, 0.60*L, -0.40*L);
+      ctx.quadraticCurveTo(0.20*L, -0.10*L, -0.34*L, -0.06*L);
+      ctx.quadraticCurveTo(-0.72*L, -0.04*L, -0.70*L, -0.30*L);
+    }, {w:2.4});
+
+    // legs
+    const legDrop = (0.06 + crouch*-0.03)*L;
+    chalk(()=>{ ctx.beginPath();
+      ctx.moveTo(0.42*L, -0.44*L);
+      ctx.quadraticCurveTo(0.52*L + ex*0.30*L, -0.22*L - ex*0.10*L, 0.46*L + ex*0.52*L, legDrop - ex*0.16*L);
+    }, {w:2});
+    chalk(()=>{ ctx.beginPath();
+      ctx.moveTo(-0.40*L, -0.14*L);
+      ctx.quadraticCurveTo(-0.52*L - ex*0.26*L, 0*L, -0.44*L - ex*0.46*L, legDrop - ex*0.10*L);
+    }, {w:2});
+
+    // head
+    const hx = 0.60*L, hy = -0.92*L + crouch*0.10*L;
+    chalk(()=>{ ctx.beginPath(); ctx.arc(hx, hy, 0.30*L, 0, 7); }, {w:2.3});
+    chalk(()=>{ ctx.beginPath();
+      ctx.moveTo(hx-0.26*L, hy-0.16*L); ctx.lineTo(hx-0.30*L, hy-0.46*L); ctx.lineTo(hx-0.02*L, hy-0.28*L);
+      ctx.moveTo(hx+0.14*L, hy-0.26*L); ctx.lineTo(hx+0.26*L, hy-0.50*L); ctx.lineTo(hx+0.30*L, hy-0.18*L);
+    }, {w:2});
+
+    // face
+    let px=0, py=0;
+    if(lookAt){
+      const a = Math.atan2(lookAt.y-(y+hy*s/s), lookAt.x-x);
+      px = Math.cos(a)*0.05*L; py = Math.sin(a)*0.05*L;
+    }
+    ctx.save(); ctx.fillStyle=CHALK;
+    ctx.beginPath(); ctx.arc(hx-0.09*L+px, hy-0.02*L+py, 0.035*L, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(hx+0.15*L+px, hy-0.02*L+py, 0.035*L, 0, 7); ctx.fill();
+    ctx.restore();
+    chalk(()=>{ ctx.beginPath();
+      ctx.moveTo(hx+0.02*L, hy+0.10*L); ctx.lineTo(hx+0.07*L, hy+0.13*L); ctx.lineTo(hx+0.12*L, hy+0.10*L);
+    }, {w:1.6});
+
+    ctx.restore();
+  }
+
+  // ---- thought bubble ---------------------------------------------------
+  function drawBubble(cx, cy, grow, alpha){
+    const BW = Math.min(322, W*0.78), BH = BW*0.60;
+    const s = grow;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    // trail
+    const tr = [[0.10,0.92,5],[0.16,1.02,8],[0.24,1.12,11]];
+    tr.forEach(([fx,fy,r],i)=>{
+      const g2 = Math.max(0, Math.min(1,(grow-0.05*i)*1.6));
+      chalk(()=>{ ctx.beginPath(); ctx.arc(cx - BW*0.34 + fx*BW*0.2, cy + BH*fy*0.5, r*g2, 0, 7); }, {w:1.8, alpha:0.9});
+    });
+    ctx.translate(cx, cy);
+    ctx.scale(s, s);
+    ctx.translate(-BW/2, -BH/2);
+
+    // cloud outline
+    chalk(()=>{
+      ctx.beginPath();
+      const bumps = 13, rx = BW/2, ry = BH/2;
+      for(let i=0;i<=bumps;i++){
+        const a = i/bumps*Math.PI*2;
+        const k = 1 + 0.075*Math.sin(a*3.1) + 0.05*Math.cos(a*5.3);
+        const x = rx + Math.cos(a)*rx*0.97*k, y = ry + Math.sin(a)*ry*0.93*k;
+        i ? ctx.lineTo(x,y) : ctx.moveTo(x,y);
+      }
+      ctx.closePath();
+    }, {w:2.2});
+
+    // --- mini diagram (left half) ---
+    const dprog = at('diagram') ? prog() : (after('diagram') ? 1 : 0);
+    if(dprog>0){
+      const ox = BW*0.11, oy = BH*0.66, dw = BW*0.30, dh = BH*0.40;
+      const sx = dw/P.dx, sy = dh/Math.max(P.dy,0.9);
+      chalk(()=>{ ctx.beginPath(); ctx.moveTo(ox-8, oy); ctx.lineTo(ox+dw+10, oy); }, {w:1.6, alpha:0.5});
+      const lx = ox + (P.dx-INSET)*sx, ly = oy - P.dy*sy;
+      chalk(()=>{ ctx.beginPath(); ctx.rect(lx, ly, dw-(P.dx-INSET)*sx+12, oy-ly); }, {w:1.6, alpha:0.7});
+      // dashed arc, drawn in
+      chalk(()=>{
+        ctx.beginPath();
+        const n = 40, lim = Math.floor(n*Math.min(1,dprog*1.5));
+        for(let i=0;i<=lim;i++){
+          const t = i/n*P.tFlight;
+          const x = ox + P.vx*t*sx, y = oy - (P.vy*t - 0.5*G*t*t)*sy;
+          i ? ctx.lineTo(x,y) : ctx.moveTo(x,y);
+        }
+      }, {w:1.6, dash:[4,4], alpha:0.85});
+      // angle wedge + labels
+      if(dprog>0.6){
+        const a2 = Math.min(1,(dprog-0.6)/0.4);
+        chalk(()=>{ ctx.beginPath(); ctx.arc(ox, oy, 17, -P.theta, 0); }, {w:1.4, alpha:a2*0.8});
+        text('θ', ox+21, oy-6, {size:12, alpha:a2, italic:true});
+        text('Δx', ox+dw*0.45, oy+15, {size:11, alpha:a2*0.75, italic:true});
+        text('Δy', lx+19, ly+(oy-ly)*0.55, {size:11, alpha:a2*0.75, italic:true});
+      }
+    }
+
+    // --- working (right half) ---
+    const sprog = at('solve') ? prog() : (after('solve') ? 1 : 0);
+    if(sprog>0){
+      const tx = BW*0.47, base = BH*0.30, lh = BH*0.155;
+      const line = (i, str, opts={}) => {
+        const p = Math.max(0, Math.min(1, (sprog - i*0.22)/0.20));
+        if(p<=0) return;
+        text(str.slice(0, Math.ceil(str.length*p)), tx, base + i*lh, {size:14, ...opts});
+      };
+      line(0, `Δx = ${P.dx.toFixed(2)} m`, {alpha:0.8});
+      line(1, `Δy = ${P.dy.toFixed(2)} m`, {alpha:0.8});
+      line(2, `θ = 45° + ½tan⁻¹(Δy/Δx)`, {size:13});
+      line(3, `v₀ = √( g(Δy + √(Δx²+Δy²)) )`, {size:13});
+      if(sprog>0.86){
+        const a2 = Math.min(1,(sprog-0.86)/0.14);
+        text(`${(P.theta*180/Math.PI).toFixed(1)}°   ${P.v0.toFixed(2)} m/s`,
+             tx, base + 4.15*lh, {size:16, color:AMBER, alpha:a2});
+      }
+    }
+    ctx.restore();
+  }
+
+  // ---- scene ------------------------------------------------------------
+  function draw(now){
+    const dt = Math.min(48, now-last); last = now;
+    advance(dt);
+    const L = ledge();
+
+    ctx.clearRect(0,0,W,H);
+    // board wash
+    const g = ctx.createRadialGradient(W*0.4,H*0.35,10,W*0.5,H*0.5,Math.max(W,H)*0.8);
+    g.addColorStop(0,'#1a3a34'); g.addColorStop(1,'#0e2723');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+
+    // ground
+    chalk(()=>{ ctx.beginPath(); ctx.moveTo(0, groundY); ctx.lineTo(W, groundY); }, {w:2, alpha:0.45});
+    // ledge
+    chalk(()=>{ ctx.beginPath();
+      ctx.moveTo(L.x, L.y); ctx.lineTo(W, L.y);
+      ctx.moveTo(L.x, L.y); ctx.lineTo(L.x, groundY);
+    }, {w:2.6});
+    for(let i=0;i<5;i++){
+      const yy = L.y + (groundY-L.y)*(i+0.7)/5;
+      chalk(()=>{ ctx.beginPath(); ctx.moveTo(L.x+4, yy); ctx.lineTo(L.x+16+i*3, yy+13); }, {w:1.2, alpha:0.28});
+    }
+
+    const t = now/1000;
+    let cx = catX, cy = groundY, angle = -0.32, crouch = 0, stretch = 0, squash = 1;
+
+    // solved arc, drawn on the wall for real
+    if(at('pop')||at('crouch')||at('flight')||at('land')){
+      const fp = at('flight') ? prog() : (at('land') ? 1 : 0);
+      const fade = at('land') ? 1-prog() : 1;
+      chalk(()=>{
+        ctx.beginPath();
+        for(let i=0;i<=48;i++){
+          const tt = i/48*P.tFlight;
+          const x = catX + P.vx*tt*PPM, y = groundY - (P.vy*tt - 0.5*G*tt*tt)*PPM;
+          i ? ctx.lineTo(x,y) : ctx.moveTo(x,y);
+        }
+      }, {color:AMBER, w:1.8, dash:[6,7], alpha:0.42*fade});
+      if(fp>0){
+        chalk(()=>{
+          ctx.beginPath();
+          const lim = Math.ceil(48*fp);
+          for(let i=0;i<=lim;i++){
+            const tt = i/48*P.tFlight;
+            const x = catX + P.vx*tt*PPM, y = groundY - (P.vy*tt - 0.5*G*tt*tt)*PPM;
+            i ? ctx.lineTo(x,y) : ctx.moveTo(x,y);
+          }
+        }, {color:AMBER, w:2.4, alpha:0.9*fade});
+      }
+    }
+
+    if(at('crouch')){
+      crouch = ease(prog()); squash = 1 - 0.10*crouch; angle = -0.32 + 0.10*crouch;
+    } else if(at('flight')){
+      const tt = prog()*P.tFlight;
+      cx = catX + P.vx*tt*PPM;
+      cy = groundY - (P.vy*tt - 0.5*G*tt*tt)*PPM;
+      const vyNow = P.vy - G*tt;
+      angle = -Math.atan2(vyNow, P.vx)*0.85;
+      stretch = Math.min(1, 0.5 + 0.5*Math.sin(prog()*Math.PI));
+    } else if(at('land')){
+      cx = catX + P.dx*PPM; cy = L.y;
+      const p = prog();
+      squash = p<0.25 ? 1-0.22*Math.sin(p/0.25*Math.PI) : 1;
+      angle = 0.03*(1-p);                     // back parallel to the ledge
+      crouch = Math.max(0, 1 - p*1.7);        // absorb the impact, then stand up
+    } else if(at('rest')){
+      cx = catX + P.dx*PPM; cy = L.y;
+      angle = 0;
+    }
+
+    const looking = at('settle')||at('bubble')||at('diagram')||at('solve');
+    drawCat(cx, cy, PPM*0.42, {
+      angle, crouch, stretch, squash,
+      tail: t*(at('solve')?3.4:1.9),
+      lookAt: looking ? {x:L.x, y:L.y} : null
+    });
+
+    // dust on landing
+    if(at('land') && prog()<0.4){
+      const p = prog()/0.4;
+      for(let i=0;i<6;i++){
+        const a = -0.3 - i*0.35, r = 8 + p*34 + i*3;
+        chalk(()=>{ ctx.beginPath(); ctx.arc(cx + Math.cos(a)*r, L.y - Math.abs(Math.sin(a))*r*0.5, 2.5*(1-p), 0, 7); },
+              {w:1.4, alpha:0.6*(1-p)});
+      }
+    }
+
+    // bubble
+    let bgrow=0, balpha=0;
+    if(at('bubble')){ bgrow = ease(prog()); balpha = prog(); }
+    else if(at('diagram')||at('solve')){ bgrow = 1; balpha = 1; }
+    else if(at('pop')){ bgrow = 1 + prog()*0.25; balpha = 1-prog(); }
+    if(bgrow>0){
+      const bx = Math.min(W - Math.min(322,W*0.78)/2 - 12, catX + PPM*1.15);
+      drawBubble(bx, Math.max(H*0.20, groundY - PPM*2.05), bgrow, balpha);
+    }
+
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+
+  // ---- interaction ------------------------------------------------------
+  function reroll(){ initAudio(); newProblem(); phase=0; pt=0; }
+  cvs.addEventListener('pointerdown', reroll);
+  addEventListener('keydown', e => { if(e.code==='Space'||e.code==='Enter'){ e.preventDefault(); reroll(); } });
+})();
+</script>
+</body>
+</html>
