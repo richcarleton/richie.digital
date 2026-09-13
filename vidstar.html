@@ -27,124 +27,415 @@
     font-size:11px;color:var(--dim);text-align:right;min-height:1.4em}
 
   .rig{position:absolute;left:16px;right:16px;bottom:52px;pointer-events:auto;
-    display:flex;gap:8px;flex-wrap:wrap;align-content:flex-end}
-  .rig>*{flex:0 0 auto}
-  
-  button{background:var(--hot);color:var(--stage);border:none;padding:6px 12px;
-    border-radius:3px;cursor:pointer;font-size:11px;font-family:inherit;font-weight:500;
-    transition:background 200ms}
-  button:hover{background:var(--cool)}
-  button:active{transform:scale(0.98)}
-  
-  input[type=range]{width:120px;cursor:pointer}
-  input[type=text]{background:transparent;border:1px solid var(--dim);
-    color:var(--ink);padding:4px 8px;font-family:inherit;font-size:11px}
+    display:flex;flex-direction:column;gap:8px}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  button,input{font:inherit;color:var(--ink);background:#131317;
+    border:1px solid #33343b;border-radius:2px;padding:9px 14px}
+  button{cursor:pointer;min-width:74px}
+  button:hover{border-color:var(--chrome)}
+  button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid var(--cool);outline-offset:2px}
+  button[data-on="true"]{border-color:var(--hot);color:#fff}
+  input[type=number]{width:82px;padding:9px 10px}
+  label{color:var(--dim);font-size:12px}
+  textarea{width:100%;height:132px;resize:vertical;background:#0d0d10;color:var(--ink);
+    border:1px solid #26272d;border-radius:2px;padding:10px;
+    font:400 12.5px/1.6 ui-monospace,Menlo,Consolas,monospace;white-space:pre;overflow-wrap:normal;overflow-x:auto}
+  .hidden{display:none}
+  .msg{color:var(--hot);font-size:12px;min-height:1.2em}
+  @media (max-width:520px){ textarea{height:112px} .rig{bottom:44px} }
 </style>
 </head>
 <body>
-<canvas id="canvas"></canvas>
+<canvas id="stage"></canvas>
+
 <div class="chrome">
-  <div class="ident"><b>bap and boom</b> — strudel rig</div>
-  <div class="shot" id="status">ready</div>
+  <div class="shot" id="shot"></div>
+  <div class="rig">
+    <div class="msg" id="msg">Loading Strudel…</div>
+    <div class="row">
+      <button id="play" disabled>Play</button>
+      <button id="edit" data-on="false">Pattern</button>
+      <label for="bpm">bpm</label>
+      <input id="bpm" type="number" value="112" min="50" max="200" step="1">
+    </div>
+    <textarea id="code" class="hidden" spellcheck="false" aria-label="Strudel pattern"></textarea>
+    <div class="row hidden" id="applyrow">
+      <button id="apply">Apply</button>
+      <button id="revert">Revert</button>
+    </div>
+  </div>
+  <div class="ident"><b>bap and boom</b> — strudel drives, three renders</div>
 </div>
-<div class="rig">
-  <button id="play">▶ play</button>
-  <button id="stop">⏹ stop</button>
-  <input type="range" id="tempo" min="60" max="240" value="120">
-  <input type="text" id="pattern" placeholder="enter strudel pattern...">
-</div>
 
-<script>
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-const statusEl = document.getElementById('status');
-const playBtn = document.getElementById('play');
-const stopBtn = document.getElementById('stop');
-const tempoInput = document.getElementById('tempo');
-const patternInput = document.getElementById('pattern');
+<script src="https://unpkg.com/@strudel/web@1.0.3"></script>
+<script type="module">
+import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
 
-// Canvas setup
-function resizeCanvas() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+/* ------------------------------------------------------------------ *
+ * 1. THE PATTERN — one bar per cycle. Bar 4 is the fill, bar 1 the lock.
+ * ------------------------------------------------------------------ */
+const DEFAULT_CODE = `stack(
+  s("bd ~ ~ bd ~ ~ bd ~"),
+  s("~ ~ sn ~ ~ ~ sn ~"),
+  s("hh*8").gain(0.5),
+  s("<~ ~ ~ [ft ft mt mt ht ht sn sn]>"),
+  note("<e1 ~ ~ ~>").s("bass").sustain(2.6),
+  s("<cam ~ cam cam*2>")
+)`;
+
+const $ = id => document.getElementById(id);
+const msg = $('msg');
+
+/* ------------------------------------------------------------------ *
+ * 2. VOICES — procedural, no samples. Everything on the audio clock.
+ * ------------------------------------------------------------------ */
+let ac = null;
+let bus = null;
+let noiseBuf = null;
+
+function initAudio() {
+  ac = window.getAudioContext();
+  bus = ac.createGain();
+  bus.gain.value = 0.9;
+  const shape = ac.createWaveShaper();
+  const curve = new Float32Array(1024);
+  for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; curve[i] = Math.tanh(x * 1.6); }
+  shape.curve = curve;
+  bus.connect(shape).connect(ac.destination);
+
+  const n = ac.sampleRate * 2;
+  noiseBuf = ac.createBuffer(1, n, ac.sampleRate);
+  const d = noiseBuf.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
 }
-resizeCanvas();
-window.addEventListener('resize', resizeCanvas);
 
-// Animation state
-let isPlaying = false;
-let tempo = 120;
-let startTime = 0;
-let frameCount = 0;
+const env = (p, t, a, d, peak) => {
+  p.setValueAtTime(0.0001, t);
+  p.linearRampToValueAtTime(peak, t + a);
+  p.exponentialRampToValueAtTime(0.0001, t + a + d);
+};
 
-// Draw background
-function clear() {
-  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--stage').trim();
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+function noise(t, dur, hp, lp, peak) {
+  const src = ac.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
+  const f1 = ac.createBiquadFilter(); f1.type = 'highpass'; f1.frequency.value = hp;
+  const f2 = ac.createBiquadFilter(); f2.type = 'lowpass'; f2.frequency.value = lp;
+  const g = ac.createGain();
+  env(g.gain, t, 0.001, dur, peak);
+  src.connect(f1).connect(f2).connect(g).connect(bus);
+  src.start(t); src.stop(t + dur + 0.05);
 }
 
-// Animated waves/particles for musical visualization
-function drawWaves(time) {
-  const centerX = canvas.width / 2;
-  const centerY = canvas.height / 2;
-  const beatPhase = (time / 1000) * (tempo / 60);
-  
-  for (let i = 0; i < 5; i++) {
-    const radius = 50 + i * 40 + Math.sin(beatPhase + i * 0.5) * 20;
-    const opacity = Math.max(0, 1 - (beatPhase % 1));
-    
-    ctx.strokeStyle = i % 2 === 0 
-      ? `hsla(327, 100%, 50%, ${opacity * 0.6})`
-      : `hsla(185, 100%, 50%, ${opacity * 0.6})`;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-    ctx.stroke();
+function body(t, f0, f1, dur, peak, type = 'sine') {
+  const o = ac.createOscillator(); o.type = type;
+  o.frequency.setValueAtTime(f0, t);
+  o.frequency.exponentialRampToValueAtTime(f1, t + dur * 0.7);
+  const g = ac.createGain();
+  env(g.gain, t, 0.002, dur, peak);
+  o.connect(g).connect(bus);
+  o.start(t); o.stop(t + dur + 0.05);
+}
+
+const VOICE = {
+  bd: (t, v) => { body(t, 118, 42, 0.42, 1.0 * v); noise(t, 0.02, 900, 6000, 0.25 * v); },
+  sn: (t, v) => { body(t, 196, 150, 0.11, 0.35 * v, 'triangle'); noise(t, 0.19, 1300, 9000, 0.6 * v); },
+  hh: (t, v) => noise(t, 0.05, 7000, 16000, 0.28 * v),
+  oh: (t, v) => noise(t, 0.34, 6500, 15000, 0.24 * v),
+  ht: (t, v) => body(t, 260, 150, 0.34, 0.72 * v),
+  mt: (t, v) => body(t, 200, 116, 0.4, 0.75 * v),
+  ft: (t, v) => body(t, 140, 76, 0.55, 0.8 * v),
+  cr: (t, v) => { noise(t, 1.6, 4200, 15000, 0.34 * v); noise(t, 0.3, 900, 4000, 0.12 * v); },
+  rd: (t, v) => { noise(t, 0.9, 5200, 14000, 0.16 * v); body(t, 3100, 2900, 0.12, 0.1 * v, 'square'); }
+};
+
+const NAMES = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
+function toHz(note) {
+  if (typeof note === 'number') return 440 * Math.pow(2, (note - 69) / 12);
+  const m = String(note ?? 'e1').toLowerCase().match(/^([a-g])([#b]?)(-?\d)$/);
+  if (!m) return 41.2;
+  const midi = 12 * (parseInt(m[3], 10) + 1) + NAMES[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0);
+  return 440 * Math.pow(2, (midi - 69) / 12);
+}
+
+function bassNote(t, hz, sustain, v) {
+  const g = ac.createGain();
+  const lp = ac.createBiquadFilter(); lp.type = 'lowpass';
+  lp.frequency.setValueAtTime(220, t);
+  lp.frequency.exponentialRampToValueAtTime(90, t + sustain);
+  lp.Q.value = 6;
+  const saw = ac.createOscillator(); saw.type = 'sawtooth'; saw.frequency.value = hz;
+  const sub = ac.createOscillator(); sub.type = 'sine'; sub.frequency.value = hz / 2;
+  const subG = ac.createGain(); subG.gain.value = 0.7;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(0.55 * v, t + 0.012);
+  g.gain.setValueAtTime(0.55 * v, t + sustain * 0.75);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + sustain);
+  saw.connect(lp); sub.connect(subG).connect(lp); lp.connect(g).connect(bus);
+  saw.start(t); sub.start(t); saw.stop(t + sustain + 0.1); sub.stop(t + sustain + 0.1);
+}
+
+/* ------------------------------------------------------------------ *
+ * 3. THE QUEUE — audio clock is the only clock. Frames just read it.
+ * ------------------------------------------------------------------ */
+const queue = [];
+
+function onHap(hap, deadline) {
+  const v = hap.value || {};
+  const sound = v.s || 'bd';
+  const gain = v.gain ?? 1;
+  const now = ac.currentTime;
+  // deadline is seconds-from-now in current Strudel; guard either way.
+  const when = deadline > now ? deadline : now + (deadline || 0);
+
+  if (sound === 'cam') { queue.push({ kind: 'cam', when }); return; }
+  if (sound === 'bass') {
+    bassNote(when, toHz(v.note), v.sustain ?? 1.8, gain);
+    queue.push({ kind: 'bass', when, gain });
+    return;
   }
+  const voice = VOICE[sound];
+  if (!voice) return;
+  voice(when, gain);
+  queue.push({ kind: 'hit', name: sound, when, gain });
 }
 
-// Animation loop
-function animate(time) {
-  if (startTime === 0 && isPlaying) startTime = time;
-  
-  clear();
-  
-  if (isPlaying) {
-    const elapsed = time - startTime;
-    drawWaves(elapsed);
-    statusEl.textContent = `🎵 ${Math.floor(elapsed / 1000)}s`;
-  } else {
-    statusEl.textContent = 'ready';
+/* ------------------------------------------------------------------ *
+ * 4. THE KIT — charcoal gloss shells, chrome hardware.
+ * ------------------------------------------------------------------ */
+const canvas = $('stage');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setClearColor(0x08080a);
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x08080a, 0.24);
+const camera = new THREE.PerspectiveCamera(38, 1, 0.05, 60);
+
+const shellMat = new THREE.MeshStandardMaterial({ color: 0x2b2d31, metalness: 0.35, roughness: 0.18 });
+const headMat = new THREE.MeshStandardMaterial({ color: 0xd8d3c6, metalness: 0.05, roughness: 0.55 });
+const chromeMat = new THREE.MeshStandardMaterial({ color: 0xd6dbe2, metalness: 1, roughness: 0.16 });
+const brassMat = new THREE.MeshStandardMaterial({ color: 0xb9903f, metalness: 1, roughness: 0.3, side: THREE.DoubleSide });
+
+const parts = {};
+
+function drum(name, r, depth, pos, tilt = 0, axis = 'y') {
+  const g = new THREE.Group();
+  const shell = new THREE.Mesh(new THREE.CylinderGeometry(r, r, depth, 40, 1, true), shellMat);
+  const head = new THREE.Mesh(new THREE.CircleGeometry(r * 0.99, 40), headMat);
+  head.rotation.x = -Math.PI / 2; head.position.y = depth / 2;
+  const hoop = new THREE.Mesh(new THREE.TorusGeometry(r, r * 0.045, 8, 44), chromeMat);
+  hoop.rotation.x = Math.PI / 2; hoop.position.y = depth / 2;
+  const hoop2 = hoop.clone(); hoop2.position.y = -depth / 2;
+  g.add(shell, head, hoop, hoop2);
+  for (let i = 0; i < 8; i++) {
+    const lug = new THREE.Mesh(new THREE.BoxGeometry(r * 0.09, depth * 0.55, r * 0.07), chromeMat);
+    const a = (i / 8) * Math.PI * 2;
+    lug.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+    lug.rotation.y = -a; g.add(lug);
   }
-  
-  frameCount++;
-  requestAnimationFrame(animate);
+  if (axis === 'z') g.rotation.x = Math.PI / 2;
+  g.rotation.z += tilt;
+  g.position.set(...pos);
+  scene.add(g);
+  parts[name] = { group: g, head, energy: 0, kind: 'drum', rest: g.position.clone() };
+  return g;
 }
 
-// Controls
-playBtn.addEventListener('click', () => {
-  isPlaying = true;
-  startTime = 0;
+function cymbal(name, r, pos, tilt) {
+  const g = new THREE.Group();
+  const disc = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.98, 0.006, 48), brassMat);
+  const bell = new THREE.Mesh(new THREE.SphereGeometry(r * 0.16, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), brassMat);
+  bell.position.y = 0.006;
+  const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, pos[1], 8), chromeMat);
+  rod.position.set(pos[0], pos[1] / 2, pos[2]);
+  scene.add(rod);
+  g.add(disc, bell);
+  g.position.set(...pos);
+  g.rotation.z = tilt;
+  scene.add(g);
+  parts[name] = { group: g, energy: 0, kind: 'cym', tilt, phase: 0 };
+  return g;
+}
+
+drum('bd', 0.36, 0.46, [0, 0.36, 0], 0, 'z');
+drum('sn', 0.18, 0.15, [-0.36, 0.62, 0.34], 0.06);
+drum('ht', 0.14, 0.22, [-0.13, 0.96, -0.06], 0.22);
+drum('mt', 0.16, 0.24, [0.19, 0.94, -0.04], -0.2);
+drum('ft', 0.22, 0.42, [0.58, 0.42, 0.3], -0.05);
+cymbal('cr', 0.32, [-0.62, 1.28, -0.22], 0.22);
+cymbal('rd', 0.36, [0.74, 1.18, -0.18], -0.18);
+cymbal('hh', 0.2, [-0.66, 0.88, 0.28], 0.05);
+parts.oh = parts.hh;
+for (const k in parts) if (parts[k].kind === 'drum') parts[k].headRest = parts[k].head.position.y;
+const UNIQUE = [...new Set(Object.values(parts))];
+
+const floor = new THREE.Mesh(
+  new THREE.CircleGeometry(7, 48),
+  new THREE.MeshStandardMaterial({ color: 0x0c0c0f, metalness: 0.6, roughness: 0.42 })
+);
+floor.rotation.x = -Math.PI / 2;
+scene.add(floor);
+
+scene.add(new THREE.AmbientLight(0x2a2f3a, 0.7));
+const key = new THREE.SpotLight(0xffb066, 26, 12, 0.6, 0.5, 1.6);
+key.position.set(2.4, 3.4, 2.2); scene.add(key);
+const rimA = new THREE.SpotLight(0x55d7ff, 22, 12, 0.7, 0.6, 1.6);
+rimA.position.set(-3.2, 2.4, -2.2); scene.add(rimA);
+const rimB = new THREE.SpotLight(0xff3d81, 18, 12, 0.8, 0.6, 1.6);
+rimB.position.set(2.8, 1.6, -3); scene.add(rimB);
+const kickLight = new THREE.PointLight(0xffd9a0, 0, 4, 2);
+kickLight.position.set(0, 0.5, 0.9); scene.add(kickLight);
+
+/* ------------------------------------------------------------------ *
+ * 5. THE DIRECTOR — cuts fire off the same clock, never the frame count.
+ * ------------------------------------------------------------------ */
+const SHOTS = [
+  { name: 'wide', from: [0, 1.5, 3.4], look: [0, 0.85, 0], drift: [0, -0.1, -0.5] },
+  { name: 'kick, low', from: [0.5, 0.22, 1.9], look: [0, 0.36, 0], drift: [-0.35, 0.05, -0.2] },
+  { name: 'snare, over the hat', from: [-1.1, 1.15, 1.2], look: [-0.3, 0.62, 0.2], drift: [0.25, -0.08, 0] },
+  { name: 'toms', from: [0.15, 1.55, 1.05], look: [0.05, 0.9, -0.05], drift: [0.2, -0.15, 0.15] },
+  { name: 'ride, shimmer', from: [1.5, 1.35, 0.9], look: [0.74, 1.15, -0.18], drift: [-0.2, 0.06, 0.2] },
+  { name: 'floor tom, dutch', from: [1.35, 0.6, 1.4], look: [0.55, 0.5, 0.25], drift: [-0.15, 0.12, -0.15], roll: 0.16 },
+  { name: 'overhead', from: [0.1, 2.6, 0.8], look: [0, 0.5, 0], drift: [0, -0.2, 0.25] },
+  { name: 'crash, past the rim', from: [-1.5, 1.05, 0.4], look: [-0.6, 1.24, -0.2], drift: [0.3, 0.1, 0.2] }
+];
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let shot = SHOTS[0], shotStart = 0, shotSeed = 0;
+
+function cut(t) {
+  let next = shot;
+  while (next === shot) next = SHOTS[(Math.random() * SHOTS.length) | 0];
+  shot = next; shotStart = t; shotSeed = Math.random();
+  $('shot').textContent = shot.name;
+}
+
+/* ------------------------------------------------------------------ *
+ * 6. RENDER — read the queue against the audio clock, then draw.
+ * ------------------------------------------------------------------ */
+let last = performance.now();
+
+function resize() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize);
+resize();
+
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min((now - last) / 1000, 0.05); last = now;
+  const t = ac ? ac.currentTime : 0;
+
+  while (queue.length && queue[0].when <= t) {
+    const e = queue.shift();
+    if (e.kind === 'cam') { cut(t); continue; }
+    if (e.kind === 'bass') { kickLight.intensity = Math.max(kickLight.intensity, 2.2); continue; }
+    const p = parts[e.name];
+    if (!p) continue;
+    p.energy = Math.min(1.4, p.energy + e.gain);
+    if (p.kind === 'cym') p.phase = 0;
+    if (e.name === 'bd') kickLight.intensity = 4.5 * e.gain;
+  }
+
+  for (const p of UNIQUE) {
+    p.energy = Math.max(0, p.energy - dt * (p.kind === 'cym' ? 1.1 : 4.5));
+    if (p.kind === 'drum') {
+      p.head.position.y = p.headRest - p.energy * 0.022;
+      p.group.position.y = p.rest.y - p.energy * 0.012;
+    } else {
+      p.phase += dt * 26;
+      p.group.rotation.z = p.tilt + Math.sin(p.phase) * p.energy * 0.09;
+      p.group.rotation.x = Math.cos(p.phase * 0.7) * p.energy * 0.05;
+    }
+  }
+  kickLight.intensity *= Math.pow(0.02, dt);
+
+  const age = t - shotStart;
+  const d = reduce ? 0 : Math.min(age * 0.22, 1);
+  camera.position.set(
+    shot.from[0] + shot.drift[0] * d,
+    shot.from[1] + shot.drift[1] * d,
+    shot.from[2] + shot.drift[2] * d
+  );
+  camera.lookAt(shot.look[0], shot.look[1], shot.look[2]);
+  camera.rotation.z += (shot.roll || 0) * (shotSeed > 0.5 ? 1 : -1);
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(frame);
+
+/* ------------------------------------------------------------------ *
+ * 7. TRANSPORT
+ * ------------------------------------------------------------------ */
+let playing = false, current = DEFAULT_CODE;
+$('code').value = DEFAULT_CODE;
+
+function build(code) {
+  const pat = new Function('return (' + code + ')')();
+  return pat.onTrigger(onHap, true);
+}
+
+function start() {
+  if (!ac) initAudio();
+  window.setcps(Number($('bpm').value) / 60 / 4);
+  build(current).play();
+  playing = true;
+  $('play').textContent = 'Stop';
+  $('play').dataset.on = 'true';
+}
+
+function stop() {
+  window.hush();
+  queue.length = 0;
+  playing = false;
+  $('play').textContent = 'Play';
+  $('play').dataset.on = 'false';
+}
+
+$('play').addEventListener('click', () => {
+  try { playing ? stop() : start(); msg.textContent = ''; }
+  catch (err) { msg.textContent = 'Pattern error: ' + err.message; }
 });
 
-stopBtn.addEventListener('click', () => {
-  isPlaying = false;
-  startTime = 0;
+$('bpm').addEventListener('change', () => {
+  if (playing) window.setcps(Number($('bpm').value) / 60 / 4);
 });
 
-tempoInput.addEventListener('input', (e) => {
-  tempo = parseInt(e.target.value);
-  statusEl.textContent = `${tempo} BPM`;
+$('edit').addEventListener('click', () => {
+  const on = $('code').classList.toggle('hidden') === false;
+  $('applyrow').classList.toggle('hidden', !on);
+  $('edit').dataset.on = String(on);
 });
 
-patternInput.addEventListener('input', (e) => {
-  if (e.target.value) {
-    statusEl.textContent = `pattern: ${e.target.value}`;
+$('apply').addEventListener('click', () => {
+  const next = $('code').value;
+  try {
+    build(next);           // throws before we commit to it
+    current = next;
+    msg.textContent = 'Pattern applied.';
+    if (playing) { window.hush(); build(current).play(); }
+  } catch (err) {
+    msg.textContent = 'Pattern error: ' + err.message;
   }
 });
 
-// Start animation loop
-requestAnimationFrame(animate);
+$('revert').addEventListener('click', () => {
+  $('code').value = DEFAULT_CODE;
+  current = DEFAULT_CODE;
+  msg.textContent = 'Back to the default pattern.';
+  if (playing) { window.hush(); build(current).play(); }
+});
+
+/* Strudel loads as a classic script; wait for it before enabling play. */
+(function waitForStrudel(tries = 0) {
+  if (window.initStrudel) {
+    window.initStrudel();
+    $('play').disabled = false;
+    msg.textContent = '';
+    return;
+  }
+  if (tries > 60) { msg.textContent = 'Strudel did not load. Check the CDN script tag.'; return; }
+  setTimeout(() => waitForStrudel(tries + 1), 100);
+})();
 </script>
 </body>
 </html>
