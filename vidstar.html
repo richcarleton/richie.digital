@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>bap and boom — strudel rig</title>
+<style>
+  :root{
+    --stage:#08080a;
+    --ink:#ded6c8;
+    --dim:#8b8578;
+    --chrome:#cfd4da;
+    --hot:#ff3d81;
+    --cool:#55d7ff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--stage);color:var(--ink);
+    font:400 14px/1.45 ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    -webkit-text-size-adjust:100%;overflow:hidden}
+  canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
+
+  .chrome{position:fixed;inset:0;pointer-events:none;
+    padding:calc(env(safe-area-inset-top) + 14px) 14px calc(env(safe-area-inset-bottom) + 14px)}
+  .ident{position:absolute;left:16px;bottom:16px;font-size:12px;letter-spacing:.02em;color:var(--dim)}
+  .ident b{color:var(--ink);font-weight:400}
+  .shot{position:absolute;right:16px;top:calc(env(safe-area-inset-top) + 16px);
+    font-size:11px;color:var(--dim);text-align:right;min-height:1.4em}
+
+  .rig{position:absolute;left:16px;right:16px;bottom:52px;pointer-events:auto;
