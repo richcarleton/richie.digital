@@ -178,7 +178,7 @@ function bassNote(t, hz, sustain, v) {
  * ------------------------------------------------------------------ */
 const queue = [];
 
-function onHap(hap, deadline) {
+function onHap(deadline, hap) {
   const v = hap.value || {};
   const sound = v.s || 'bd';
   const gain = v.gain ?? 1;
@@ -376,7 +376,7 @@ function build(code) {
 
 function start() {
   if (!ac) initAudio();
-  window.setcps(Number($('bpm').value) / 60 / 4);
+  window.cps(Number($('bpm').value) / 60 / 4);
   build(current).play();
   playing = true;
   $('play').textContent = 'Stop';
@@ -397,7 +397,7 @@ $('play').addEventListener('click', () => {
 });
 
 $('bpm').addEventListener('change', () => {
-  if (playing) window.setcps(Number($('bpm').value) / 60 / 4);
+  if (playing) window.cps(Number($('bpm').value) / 60 / 4);
 });
 
 $('edit').addEventListener('click', () => {
