@@ -4,43 +4,66 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Cattrig — richie.digital</title>
-<meta name="description" content="A cat solves the minimum-speed launch angle for a randomly generated ledge, then jumps the arc it drew.">
+<meta name="description" content="A climbing game. Fixed launch power, you pick the angle. The cat solves the first one to show you how.">
 <meta name="theme-color" content="#12302b">
 <link rel="icon" href="../img/favicon.svg" type="image/svg+xml">
 <style>
   html,body{margin:0;height:100%;background:#12302b;overflow:hidden;
-    font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;}
-  canvas{display:block;width:100%;height:100%;touch-action:manipulation;cursor:pointer}
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;}
+  canvas{display:block;width:100%;height:100%;touch-action:none;}
   #home{position:fixed;top:max(10px,env(safe-area-inset-top));left:12px;z-index:5;
     width:42px;height:42px;display:flex;align-items:center;justify-content:center;
     color:#eaf1e0;opacity:.45;font-size:24px;text-decoration:none;line-height:1}
   #home:hover,#home:focus-visible{opacity:1;outline:none}
-  #hint{position:fixed;left:50%;bottom:max(14px,env(safe-area-inset-bottom));transform:translateX(-50%);
-    color:#e9f0e2;opacity:.34;font-size:13px;letter-spacing:.02em;pointer-events:none}
+  #hint{position:fixed;left:50%;bottom:max(12px,env(safe-area-inset-bottom));transform:translateX(-50%);
+    color:#e9f0e2;opacity:.30;font-size:12.5px;letter-spacing:.02em;pointer-events:none;
+    text-align:center;white-space:nowrap}
+  #pad{position:fixed;right:max(14px,env(safe-area-inset-right));
+    bottom:max(46px,calc(env(safe-area-inset-bottom) + 40px));z-index:6;
+    display:flex;flex-direction:column;gap:9px;align-items:center}
+  .btn{width:62px;height:52px;display:flex;align-items:center;justify-content:center;
+    border:2px solid rgba(234,241,224,.42);border-radius:9px;background:rgba(234,241,224,.05);
+    color:#eaf1e0;font-size:20px;line-height:1;cursor:pointer;
+    font-family:inherit;letter-spacing:.04em;padding:0;-webkit-appearance:none}
+  .btn:active{background:rgba(242,169,59,.28);border-color:#f2a93b}
+  #jump{width:62px;height:46px;font-size:13px;border-color:rgba(242,169,59,.62);color:#f2a93b}
+  @media (min-width:900px){ #pad{opacity:.42} #pad:hover{opacity:1} }
 </style>
 </head>
 <body>
 <a id="home" href="../catalog.html" title="catalogue" aria-label="back to the catalogue">&#8592;</a>
 <canvas id="c"></canvas>
-<div id="hint">tap for sound, and a new ledge</div>
+<div id="pad">
+  <button class="btn" id="up"   aria-label="aim higher">&#9650;</button>
+  <button class="btn" id="down" aria-label="aim lower">&#9660;</button>
+  <button class="btn" id="jump" aria-label="jump">JUMP</button>
+</div>
+<div id="hint">&#8593;&#8595; aim &middot; space to jump</div>
 <script>
 (() => {
+  'use strict';
   const cvs = document.getElementById('c'), ctx = cvs.getContext('2d');
   const CHALK = '#eaf1e0', DIM = 'rgba(234,241,224,0.34)', AMBER = '#f2a93b';
-  const G = 9.81;
+  const ROSE  = 'rgba(232,140,150,0.85)';
+  const G = 9.81;                     // m/s^2, real gravity, real metres
+  const V0 = 6.0;                     // m/s, fixed launch power — you only choose the angle
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  let W=0, H=0, PPM=100, groundY=0, catX=0;
+  // ---- view -------------------------------------------------------------
+  let W=0, H=0, PPM=100;
+  let camX=0, camY=0;                 // camera position in metres (world origin bottom-left)
   function resize(){
     const dpr = Math.min(devicePixelRatio||1, 2);
     W = innerWidth; H = innerHeight;
-    cvs.width = W*dpr; cvs.height = H*dpr;
+    cvs.width = Math.round(W*dpr); cvs.height = Math.round(H*dpr);
     ctx.setTransform(dpr,0,0,dpr,0,0);
-    PPM = Math.min(W/4.4, H/3.6);
-    groundY = H*0.82;
-    catX = W*0.17;
+    PPM = Math.max(58, Math.min(W/4.6, H/3.8));
   }
   addEventListener('resize', resize); resize();
+
+  const sx = mx => (mx - camX)*PPM + W*0.5;
+  const sy = my => H*0.62 - (my - camY)*PPM;
 
   // ---- chalk drawing helpers -------------------------------------------
   function chalk(path, {color=CHALK, w=2.2, alpha=1, dash=null}={}){
@@ -60,118 +83,259 @@
     ctx.fillText(str,x,y);
     ctx.restore();
   }
+  const ease = t => t<.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
 
-  // ---- the problem ------------------------------------------------------
-  let P = null;
-  const INSET = 0.62;                                  // land this far in from the edge
-  function newProblem(){
-    const dx = 1.55 + Math.random()*1.45;              // metres across
-    const dy = 0.55 + Math.random()*1.35;              // metres up
-    const theta = Math.PI/4 + 0.5*Math.atan2(dy,dx);   // minimum-speed launch
-    const v0 = Math.sqrt(G*(dy + Math.hypot(dx,dy)));  // ...and its speed
-    const vx = v0*Math.cos(theta), vy = v0*Math.sin(theta);
-    P = {dx, dy, theta, v0, vx, vy, tFlight: dx/vx};
+  // ---- units: metric by default, because Canada ------------------------
+  let UNITS = localStorage.getItem('cattrig.units') || 'metric';
+  const M2FT = 3.28084;
+  const dist = m => UNITS==='metric' ? m.toFixed(2)+' m'
+                                     : (m*M2FT).toFixed(1)+' ft';
+
+  // ---- the ballistics ---------------------------------------------------
+  // Fixed speed V0. Given a target offset (dx, dy) there are two launch
+  // angles that hit it — a flat one and a lofted one — or none at all.
+  function solve(dx, dy){
+    if(dx <= 0.01) return null;
+    const disc = V0**4 - G*(G*dx*dx + 2*dy*V0*V0);
+    if(disc < 0) return null;                      // out of reach at this power
+    const r = Math.sqrt(disc);
+    return { low:  Math.atan((V0*V0 - r)/(G*dx)),
+             high: Math.atan((V0*V0 + r)/(G*dx)) };
   }
-  newProblem();
+  // An arc is only a landing if it arrives AFTER apex — otherwise the cat
+  // meets the ledge face on the way up, which is a bonk, not a jump.
+  function arrivesFalling(th, dx){
+    const vx = Math.cos(th)*V0, vy = Math.sin(th)*V0;
+    return dx/vx > vy/G;
+  }
+  // farthest horizontal reach for a given rise
+  function maxReach(dy){
+    const r = V0*V0 - 2*G*dy;
+    return r <= 0 ? 0 : V0*Math.sqrt(r)/G;
+  }
 
-  const ledge = () => ({ x: catX + (P.dx-INSET)*PPM, y: groundY - P.dy*PPM });
+  // ---- the tower --------------------------------------------------------
+  const PW = 0.78;                                  // platform width, metres
+  let platforms = [], idx = 0, best = 0, tries = 0;
 
-  // ---- voice: grammelot, no words, all attitude ------------------------
-  let AC=null, master=null;
-  const VOW = { a:[860,1320], e:[560,1960], i:[330,2450], o:[520,940], u:[350,760] };
-  const KEYS = Object.keys(VOW);
+  function makePlatform(prev, n){
+    const side = (n % 2) ? -1 : 1;                  // zig-zag up the chalkboard
+    for(let attempt=0; attempt<24; attempt++){
+      const dy = 0.48 + Math.random()*(n < 3 ? 0.55 : 1.05);
+      const reach = maxReach(dy);
+      if(reach < 0.6) continue;
+      const dx = reach*(0.46 + Math.random()*0.40); // always reachable, never trivially
+      const x = prev.x + side*dx;
+      if(Math.abs(x) > 3.2) continue;               // keep the tower on the board
+      return { x, y: prev.y + dy, dx, dy, side, n };
+    }
+    return { x: prev.x + side*1.1, y: prev.y + 0.7, dx:1.1, dy:0.7, side, n };
+  }
+
+  function buildTower(){
+    platforms = [{ x:0, y:0, dx:0, dy:0, side:1, n:0 }];
+    for(let i=1; i<=40; i++) platforms.push(makePlatform(platforms[i-1], i));
+  }
+
+  // ---- state ------------------------------------------------------------
+  const AIM_MIN = 12*Math.PI/180, AIM_MAX = 86*Math.PI/180;
+  let aim = 55*Math.PI/180;
+  let cat = { x:0, y:0, vx:0, vy:0, flying:false, facing:1, squash:1, t:0 };
+  let mode = 'demo';        // demo -> aiming -> flight -> landed / missed
+  let demoT = 0, shake = 0, flash = 0, msg = '', msgT = 0;
+
+  function reset(){
+    buildTower(); idx = 0; tries = 0; best = 0;
+    cat.x = platforms[0].x; cat.y = platforms[0].y; cat.vx = cat.vy = 0;
+    cat.flying = false; cat.facing = 1;
+    camX = cat.x; camY = cat.y;
+    mode = 'demo'; demoT = 0;
+    aim = solvedAngle() || 55*Math.PI/180;
+  }
+  const target = () => platforms[idx+1];
+  function solvedAngle(){
+    const t = target(); if(!t) return null;
+    const s = solve(Math.abs(t.x - cat.x), t.y - cat.y);
+    return s ? s.high : null;   // the lofted arc always arrives falling
+  }
+
+  function launch(){
+    if(cat.flying) return;
+    const t = target(); if(!t) return;
+    cat.facing = (t.x >= cat.x) ? 1 : -1;
+    cat.vx = Math.cos(aim)*V0*cat.facing;
+    cat.vy = Math.sin(aim)*V0;
+    cat.flying = true; cat.t = 0; mode = 'flight'; tries++;
+    catSay('effort');
+  }
+
+  // ---- physics ----------------------------------------------------------
+  function step(dt){
+    if(!cat.flying) return;
+    const px = cat.x, py = cat.y;
+    cat.vy -= G*dt;                                 // no drag, no easing — that was the float
+    cat.x  += cat.vx*dt;
+    cat.y  += cat.vy*dt;
+    cat.t  += dt;
+
+    const t = target();
+    if(t && cat.vy < 0){                            // only catch it on the way down
+      const top = t.y;
+      if(py >= top && cat.y <= top){                // crossed the deck this frame
+        const k = (py - top)/Math.max(1e-6, py - cat.y);
+        const lx = px + (cat.x - px)*k;
+        if(Math.abs(lx - t.x) <= PW/2){
+          cat.x = lx; cat.y = top; cat.vx = cat.vy = 0;
+          cat.flying = false; cat.squash = 0.72;
+          idx++; best = Math.max(best, platforms[idx].y);
+          mode = 'landed';
+          flash = 1; catSay('win');
+          msg = ['clean','nailed it','of course','effortless'][(Math.random()*4)|0]; msgT = 1;
+          return;
+        }
+      }
+    }
+    // met the ledge face on the way up
+    if(t && cat.vy >= 0 && cat.y < t.y && Math.abs(cat.x - t.x) <= PW/2 + 0.02){
+      cat.vx *= -0.30; cat.vy = Math.min(cat.vy, 0);
+      shake = 0.7; catSay('fail');
+      msg = 'face, meet ledge'; msgT = 1;
+    }
+
+    // fell past the deck we came from
+    const floor = platforms[idx].y;
+    if(cat.y <= floor && cat.vy < 0){
+      cat.x = platforms[idx].x; cat.y = floor; cat.vx = cat.vy = 0;
+      cat.flying = false; cat.squash = 0.66;
+      mode = 'missed'; shake = 1; catSay('fail');
+      msg = ['hmph','again','recalculating','it meant to do that'][(Math.random()*4)|0]; msgT = 1;
+    }
+  }
+
+  // ---- voice: a cat, randomised every time -----------------------------
+  let AC=null, master=null, noiseBuf=null;
   function initAudio(){
     if(AC){ if(AC.state==='suspended') AC.resume(); return; }
     AC = new (window.AudioContext||window.webkitAudioContext)();
     const comp = AC.createDynamicsCompressor();
     master = AC.createGain(); master.gain.value = 0.5;
     master.connect(comp).connect(AC.destination);
+    const n = AC.sampleRate*0.4; noiseBuf = AC.createBuffer(1, n, AC.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for(let i=0;i<n;i++) d[i] = (Math.random()*2-1)*0.6;
   }
-  function syll(t0, dur, fA, fB, vowel, vol){
-    const [F1,F2] = vowel;
+  // one vocal gesture: a pitch contour through two moving formants
+  function vocal(t0, dur, pitch, formants, vol, {vib=0, am=0, bright=1}={}){
     const o = AC.createOscillator(); o.type='sawtooth';
-    o.frequency.setValueAtTime(fA, t0);
-    o.frequency.exponentialRampToValueAtTime(Math.max(80,fB), t0+dur);
-    const lfo = AC.createOscillator(), lg = AC.createGain();
-    lfo.frequency.value = 10 + Math.random()*4; lg.gain.value = fA*0.035;
-    lfo.connect(lg).connect(o.frequency); lfo.start(t0); lfo.stop(t0+dur+0.05);
-    const mk = (f,q,g) => { const b=AC.createBiquadFilter(); b.type='bandpass';
-      b.frequency.value=f; b.Q.value=q; const gg=AC.createGain(); gg.gain.value=g;
-      return [b,gg]; };
-    const [b1,g1] = mk(F1*1.45, 7, 1), [b2,g2] = mk(F2*1.45, 10, 0.65);
+    o.frequency.setValueAtTime(pitch[0], t0);
+    pitch.slice(1).forEach((p,i) => {
+      const tt = t0 + dur*((i+1)/(pitch.length-1));
+      o.frequency.exponentialRampToValueAtTime(Math.max(70,p), tt);
+    });
+    if(vib){
+      const lfo = AC.createOscillator(), lg = AC.createGain();
+      lfo.frequency.value = vib; lg.gain.value = pitch[0]*0.05;
+      lfo.connect(lg).connect(o.frequency); lfo.start(t0); lfo.stop(t0+dur+0.05);
+    }
     const env = AC.createGain();
     env.gain.setValueAtTime(0.0001, t0);
-    env.gain.exponentialRampToValueAtTime(vol, t0+0.022);
-    env.gain.setValueAtTime(vol, t0+dur*0.55);
-    env.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
-    o.connect(b1).connect(g1).connect(env);
-    o.connect(b2).connect(g2).connect(env);
+    env.gain.exponentialRampToValueAtTime(vol, t0 + dur*0.14);
+    env.gain.setValueAtTime(vol, t0 + dur*0.62);
+    env.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    formants.forEach(([f, q, g], i) => {
+      const b = AC.createBiquadFilter(); b.type='bandpass';
+      b.frequency.setValueAtTime(f[0]*bright, t0);
+      b.frequency.linearRampToValueAtTime(f[1]*bright, t0+dur);
+      b.Q.value = q;
+      const gg = AC.createGain(); gg.gain.value = g;
+      o.connect(b).connect(gg).connect(env);
+    });
+    if(am){                                          // trill / purr rattle
+      const tr = AC.createOscillator(), tg = AC.createGain();
+      tr.type='sine'; tr.frequency.value = am; tg.gain.value = 0.55;
+      tr.connect(tg).connect(env.gain); tr.start(t0); tr.stop(t0+dur+0.05);
+    }
     env.connect(master);
-    o.start(t0); o.stop(t0+dur+0.03);
+    o.start(t0); o.stop(t0 + dur + 0.04);
   }
-  function say(n, {f0=330, slope=1.0, rate=0.135, vol=0.17, jitter=0.16}={}){
+  function hiss(t0, dur, vol){
+    const s = AC.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
+    const b = AC.createBiquadFilter(); b.type='bandpass';
+    b.frequency.value = 3600 + Math.random()*1400; b.Q.value = 1.1;
+    const env = AC.createGain();
+    env.gain.setValueAtTime(0.0001, t0);
+    env.gain.exponentialRampToValueAtTime(vol, t0+0.03);
+    env.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+    s.connect(b).connect(env).connect(master);
+    s.start(t0); s.stop(t0+dur+0.05);
+  }
+
+  // vocabulary — every call jitters pitch, length and formant travel
+  const rnd = (a,b) => a + Math.random()*(b-a);
+  const CALLS = {
+    meow(t0){ const p = rnd(330,430);
+      vocal(t0, rnd(0.42,0.62), [p, p*1.28, p*0.82, p*0.68],
+        [[[720,560],7,1],[[1180,940],9,0.6]], 0.18, {vib:rnd(5,8)}); },
+    mrrp(t0){ const p = rnd(300,380);
+      vocal(t0, rnd(0.16,0.24), [p*0.86, p*1.22, p],
+        [[[520,660],8,1],[[1400,1150],10,0.5]], 0.15, {am:rnd(24,34)}); },
+    chirp(t0){ const p = rnd(560,760);
+      vocal(t0, rnd(0.09,0.15), [p*0.8, p*1.45],
+        [[[900,1500],10,1],[[2100,2600],12,0.55]], 0.16, {}); },
+    trill(t0){ const p = rnd(360,460);
+      vocal(t0, rnd(0.30,0.46), [p, p*1.12, p*0.95],
+        [[[640,760],8,1],[[1500,1700],11,0.5]], 0.15, {am:rnd(30,42), vib:rnd(6,9)}); },
+    yowl(t0){ const p = rnd(230,300);
+      vocal(t0, rnd(0.55,0.85), [p*0.9, p*1.35, p*1.1, p*0.7],
+        [[[560,760],6,1],[[900,1250],8,0.7]], 0.19, {vib:rnd(4,6)}); },
+    purr(t0){ const p = rnd(95,120);
+      vocal(t0, rnd(0.5,0.8), [p, p*1.05, p],
+        [[[300,340],4,1]], 0.16, {am:rnd(22,28)}); },
+    chirrup(t0){ const p = rnd(500,650);      // rising "prrp?" — pleased
+      vocal(t0, rnd(0.16,0.24), [p*0.72, p*1.05, p*1.5],
+        [[[780,1250],9,1],[[1700,2400],11,0.6]], 0.17, {am:rnd(26,36)}); },
+    squeak(t0){ const p = rnd(700,900);       // tiny triumphant blip
+      vocal(t0, rnd(0.07,0.11), [p*0.85, p*1.6],
+        [[[1100,1900],11,1],[[2400,3000],13,0.5]], 0.14, {}); },
+    hiss(t0){ hiss(t0, rnd(0.22,0.34), 0.13); },
+    grumble(t0){ const p = rnd(160,210);
+      vocal(t0, rnd(0.30,0.44), [p, p*0.84, p*0.92],
+        [[[420,360],5,1],[[820,700],7,0.6]], 0.15, {am:rnd(16,22)}); }
+  };
+  const POOL = {
+    idle:   ['mrrp','chirp','trill','mrrp'],
+    effort: ['mrrp','chirp','meow','trill'],
+    win:    ['chirp','chirrup','trill','squeak','chirp','chirrup'],
+    fail:   ['yowl','grumble','hiss','grumble','yowl'],
+    think:  ['mrrp','grumble','trill']
+  };
+  function catSay(kind){
     if(!AC) return;
-    const t0 = AC.currentTime + 0.01;
-    let t = t0;
-    for(let i=0;i<n;i++){
-      const k = i/Math.max(1,n-1);
-      const base = f0 * Math.pow(slope, k) * (1 + (Math.random()-0.5)*jitter);
-      const dur = rate * (0.75 + Math.random()*0.6);
-      syll(t, dur, base, base*(0.86 + Math.random()*0.5), VOW[KEYS[(Math.random()*5)|0]], vol);
-      t += dur*0.95;
+    const pool = POOL[kind] || POOL.idle;
+    const pick = pool[(Math.random()*pool.length)|0];
+    CALLS[pick](AC.currentTime + 0.01 + Math.random()*0.03);
+    const chatty = (kind === 'win') ? 0.45 : 0.18;
+    if(Math.random() < chatty){                      // sometimes it has more to say
+      const second = pool[(Math.random()*pool.length)|0];
+      CALLS[second](AC.currentTime + (kind === 'win' ? rnd(0.14,0.28) : rnd(0.28,0.5)));
     }
   }
-  const VOICE = {
-    bubble: () => say(2, {f0:300, slope:1.22, rate:0.16, vol:0.10}),   // hm? what
-    pop:    () => say(2, {f0:390, slope:1.5,  rate:0.13, vol:0.19}),   // ah-HA
-    crouch: () => say(4, {f0:360, slope:1.55, rate:0.10, vol:0.18}),   // indignant run-up
-    land:   () => say(2, {f0:430, slope:0.55, rate:0.15, vol:0.16})    // ...eh, fine
-  };
 
-  // ---- timeline ---------------------------------------------------------
-  const PHASES = reduced
-    ? [['settle',400],['bubble',200],['diagram',300],['solve',900],['pop',150],['crouch',200],['flight',0],['land',500],['rest',600]]
-    : [['settle',750],['bubble',380],['diagram',750],['solve',2100],['pop',260],['crouch',320],['flight',0],['land',700],['rest',900]];
-  let phase=0, pt=0, last=performance.now();
-
-  function advance(dt){
-    pt += dt;
-    let dur = PHASES[phase][1];
-    if(PHASES[phase][0]==='flight') dur = P.tFlight*1000/0.85;
-    if(pt >= dur){
-      pt -= dur; phase = (phase+1)%PHASES.length;
-      if(phase===0) newProblem();
-      const v = VOICE[PHASES[phase][0]]; if(v) v();
-    }
-  }
-  const at = n => PHASES[phase][0]===n;
-  const after = n => PHASES.findIndex(p=>p[0]===n) < phase;
-  const prog = () => {
-    let dur = PHASES[phase][1];
-    if(at('flight')) dur = P.tFlight*1000/0.85;
-    return dur ? Math.min(1, pt/dur) : 1;
-  };
-  const ease = t => t<.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
-
-  // ---- the cat ----------------------------------------------------------
-  function drawCat(x, y, s, {angle=0, crouch=0, stretch=0, tail=0, squash=1, lookAt=null}){
+  // ---- the cat (unchanged silhouette, now with facing) -------------------
+  function drawCat(x, y, s, {angle=0, crouch=0, stretch=0, tail=0, squash=1, facing=1}){
     ctx.save();
     ctx.translate(x,y);
+    ctx.scale(facing, 1);
     ctx.scale(1, squash);
-    ctx.rotate(angle);
+    ctx.rotate(angle*facing);
     const L = s, ex = stretch;
 
-    // tail
     chalk(()=>{ ctx.beginPath();
       ctx.moveTo(-0.62*L, -0.42*L);
       ctx.quadraticCurveTo(-1.15*L - ex*0.35*L, -0.55*L + Math.sin(tail)*0.28*L,
                            -1.05*L - ex*0.55*L, -1.02*L + Math.sin(tail+1.1)*0.3*L);
     }, {w:2.4});
-
-    // haunch
     chalk(()=>{ ctx.beginPath(); ctx.arc(-0.42*L, -0.36*L, 0.33*L, 0, 7); }, {w:2});
-
-    // body
     chalk(()=>{ ctx.beginPath();
       ctx.moveTo(-0.70*L, -0.30*L);
       ctx.quadraticCurveTo(-0.30*L, -0.86*L + crouch*0.14*L, 0.34*L, -0.78*L + crouch*0.16*L);
@@ -179,8 +343,6 @@
       ctx.quadraticCurveTo(0.20*L, -0.10*L, -0.34*L, -0.06*L);
       ctx.quadraticCurveTo(-0.72*L, -0.04*L, -0.70*L, -0.30*L);
     }, {w:2.4});
-
-    // legs
     const legDrop = (0.06 + crouch*-0.03)*L;
     chalk(()=>{ ctx.beginPath();
       ctx.moveTo(0.42*L, -0.44*L);
@@ -190,218 +352,244 @@
       ctx.moveTo(-0.40*L, -0.14*L);
       ctx.quadraticCurveTo(-0.52*L - ex*0.26*L, 0*L, -0.44*L - ex*0.46*L, legDrop - ex*0.10*L);
     }, {w:2});
-
-    // head
     const hx = 0.60*L, hy = -0.92*L + crouch*0.10*L;
     chalk(()=>{ ctx.beginPath(); ctx.arc(hx, hy, 0.30*L, 0, 7); }, {w:2.3});
     chalk(()=>{ ctx.beginPath();
       ctx.moveTo(hx-0.26*L, hy-0.16*L); ctx.lineTo(hx-0.30*L, hy-0.46*L); ctx.lineTo(hx-0.02*L, hy-0.28*L);
       ctx.moveTo(hx+0.14*L, hy-0.26*L); ctx.lineTo(hx+0.26*L, hy-0.50*L); ctx.lineTo(hx+0.30*L, hy-0.18*L);
     }, {w:2});
-
-    // face
-    let px=0, py=0;
-    if(lookAt){
-      const a = Math.atan2(lookAt.y-(y+hy*s/s), lookAt.x-x);
-      px = Math.cos(a)*0.05*L; py = Math.sin(a)*0.05*L;
-    }
     ctx.save(); ctx.fillStyle=CHALK;
-    ctx.beginPath(); ctx.arc(hx-0.09*L+px, hy-0.02*L+py, 0.035*L, 0, 7); ctx.fill();
-    ctx.beginPath(); ctx.arc(hx+0.15*L+px, hy-0.02*L+py, 0.035*L, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(hx-0.09*L, hy-0.02*L, 0.035*L, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(hx+0.15*L, hy-0.02*L, 0.035*L, 0, 7); ctx.fill();
     ctx.restore();
     chalk(()=>{ ctx.beginPath();
       ctx.moveTo(hx+0.02*L, hy+0.10*L); ctx.lineTo(hx+0.07*L, hy+0.13*L); ctx.lineTo(hx+0.12*L, hy+0.10*L);
     }, {w:1.6});
-
     ctx.restore();
   }
 
-  // ---- thought bubble ---------------------------------------------------
-  function drawBubble(cx, cy, grow, alpha){
-    const BW = Math.min(322, W*0.78), BH = BW*0.60;
-    const s = grow;
+  // ---- platform + its readout ------------------------------------------
+  // The numbers live ON the thing you're jumping to. Each ledge is a route
+  // card: how far, how high, and (once solved) the angle that gets you there.
+  function drawPlatform(p, {active=false, solved=null, showAngle=false}={}){
+    const x = sx(p.x), y = sy(p.y), half = PW/2*PPM;
+    const a = active ? 1 : (p.n < idx ? 0.30 : 0.55);
+    chalk(()=>{ ctx.beginPath(); ctx.moveTo(x-half, y); ctx.lineTo(x+half, y); },
+      {w: active?3:2.2, alpha:a, color: active?AMBER:CHALK});
+    for(let i=0;i<4;i++){                             // hatching under the deck
+      const hx0 = x-half + (i+0.5)*(half*2/4);
+      chalk(()=>{ ctx.beginPath(); ctx.moveTo(hx0, y+1); ctx.lineTo(hx0-7, y+13); },
+        {w:1.4, alpha:a*0.55});
+    }
+    if(!active) return;
+
+    // route card, pinned above the deck
+    const cardY = y - 16;
+    text(`\u0394x ${dist(Math.abs(p.x - cat.x))}`, x, cardY-34, {size:13, align:'center', alpha:.85, color:AMBER});
+    text(`\u0394y ${dist(p.y - cat.y)}`,           x, cardY-18, {size:13, align:'center', alpha:.85, color:AMBER});
+    if(showAngle && solved){
+      const dxm = Math.abs(p.x - cat.x);
+      const flat = arrivesFalling(solved.low, dxm);
+      text(`\u03b8 = ${(solved.high*180/Math.PI).toFixed(1)}\u00b0`
+           + (flat ? `  or  ${(solved.low*180/Math.PI).toFixed(1)}\u00b0` : ''),
+        x, cardY-1, {size:13, align:'center', alpha:.95, color:AMBER, italic:true});
+      if(!flat) text('flat route blocked', x, cardY+14,
+        {size:11, align:'center', alpha:.45, color:ROSE, italic:true});
+    } else {
+      text('\u03b8 = ?', x, cardY-1, {size:13, align:'center', alpha:.5, color:DIM, italic:true});
+    }
+  }
+
+  // ---- aim guide: a stub of the arc, not the whole answer ----------------
+  function drawAim(){
+    const t = target(); if(!t) return;
+    const face = (t.x >= cat.x) ? 1 : -1;
+    const vx = Math.cos(aim)*V0*face, vy = Math.sin(aim)*V0;
+    const span = (mode==='demo') ? 2.2 : 0.46;        // demo shows the full commit
+    const N = 26;
     ctx.save();
-    ctx.globalAlpha = alpha;
-    // trail
-    const tr = [[0.10,0.92,5],[0.16,1.02,8],[0.24,1.12,11]];
-    tr.forEach(([fx,fy,r],i)=>{
-      const g2 = Math.max(0, Math.min(1,(grow-0.05*i)*1.6));
-      chalk(()=>{ ctx.beginPath(); ctx.arc(cx - BW*0.34 + fx*BW*0.2, cy + BH*fy*0.5, r*g2, 0, 7); }, {w:1.8, alpha:0.9});
-    });
-    ctx.translate(cx, cy);
-    ctx.scale(s, s);
-    ctx.translate(-BW/2, -BH/2);
-
-    // cloud outline
-    chalk(()=>{
-      ctx.beginPath();
-      const bumps = 13, rx = BW/2, ry = BH/2;
-      for(let i=0;i<=bumps;i++){
-        const a = i/bumps*Math.PI*2;
-        const k = 1 + 0.075*Math.sin(a*3.1) + 0.05*Math.cos(a*5.3);
-        const x = rx + Math.cos(a)*rx*0.97*k, y = ry + Math.sin(a)*ry*0.93*k;
-        i ? ctx.lineTo(x,y) : ctx.moveTo(x,y);
-      }
-      ctx.closePath();
-    }, {w:2.2});
-
-    // --- mini diagram (left half) ---
-    const dprog = at('diagram') ? prog() : (after('diagram') ? 1 : 0);
-    if(dprog>0){
-      const ox = BW*0.11, oy = BH*0.66, dw = BW*0.30, dh = BH*0.40;
-      const sx = dw/P.dx, sy = dh/Math.max(P.dy,0.9);
-      chalk(()=>{ ctx.beginPath(); ctx.moveTo(ox-8, oy); ctx.lineTo(ox+dw+10, oy); }, {w:1.6, alpha:0.5});
-      const lx = ox + (P.dx-INSET)*sx, ly = oy - P.dy*sy;
-      chalk(()=>{ ctx.beginPath(); ctx.rect(lx, ly, dw-(P.dx-INSET)*sx+12, oy-ly); }, {w:1.6, alpha:0.7});
-      // dashed arc, drawn in
-      chalk(()=>{
-        ctx.beginPath();
-        const n = 40, lim = Math.floor(n*Math.min(1,dprog*1.5));
-        for(let i=0;i<=lim;i++){
-          const t = i/n*P.tFlight;
-          const x = ox + P.vx*t*sx, y = oy - (P.vy*t - 0.5*G*t*t)*sy;
-          i ? ctx.lineTo(x,y) : ctx.moveTo(x,y);
-        }
-      }, {w:1.6, dash:[4,4], alpha:0.85});
-      // angle wedge + labels
-      if(dprog>0.6){
-        const a2 = Math.min(1,(dprog-0.6)/0.4);
-        chalk(()=>{ ctx.beginPath(); ctx.arc(ox, oy, 17, -P.theta, 0); }, {w:1.4, alpha:a2*0.8});
-        text('θ', ox+21, oy-6, {size:12, alpha:a2, italic:true});
-        text('Δx', ox+dw*0.45, oy+15, {size:11, alpha:a2*0.75, italic:true});
-        text('Δy', lx+19, ly+(oy-ly)*0.55, {size:11, alpha:a2*0.75, italic:true});
-      }
+    for(let i=0;i<N;i++){
+      const tt = span*(i/N);
+      const px = cat.x + vx*tt, py = cat.y + vy*tt - 0.5*G*tt*tt;
+      const r = 2.4*(1 - i/N) + 0.8;
+      ctx.globalAlpha = 0.55*(1 - i/N) + 0.12;
+      ctx.fillStyle = AMBER;
+      ctx.beginPath(); ctx.arc(sx(px), sy(py), r, 0, 7); ctx.fill();
     }
+    ctx.restore();
+    // the angle itself, read off the cat
+    const ax = sx(cat.x), ay = sy(cat.y);
+    chalk(()=>{ ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ax + face*34, ay); },
+      {w:1.4, alpha:.4, dash:[3,4]});
+    chalk(()=>{ ctx.beginPath(); ctx.arc(ax, ay, 26, face>0 ? -aim : Math.PI, face>0 ? 0 : Math.PI+aim); },
+      {w:1.5, alpha:.55, color:AMBER});
+    text(`${(aim*180/Math.PI).toFixed(1)}\u00b0`, ax + face*40, ay - 12,
+      {size:15, color:AMBER, align: face>0?'left':'right'});
+  }
 
-    // --- working (right half) ---
-    const sprog = at('solve') ? prog() : (after('solve') ? 1 : 0);
-    if(sprog>0){
-      const tx = BW*0.47, base = BH*0.30, lh = BH*0.155;
-      const line = (i, str, opts={}) => {
-        const p = Math.max(0, Math.min(1, (sprog - i*0.22)/0.20));
-        if(p<=0) return;
-        text(str.slice(0, Math.ceil(str.length*p)), tx, base + i*lh, {size:14, ...opts});
-      };
-      line(0, `Δx = ${P.dx.toFixed(2)} m`, {alpha:0.8});
-      line(1, `Δy = ${P.dy.toFixed(2)} m`, {alpha:0.8});
-      line(2, `θ = 45° + ½tan⁻¹(Δy/Δx)`, {size:13});
-      line(3, `v₀ = √( g(Δy + √(Δx²+Δy²)) )`, {size:13});
-      if(sprog>0.86){
-        const a2 = Math.min(1,(sprog-0.86)/0.14);
-        text(`${(P.theta*180/Math.PI).toFixed(1)}°   ${P.v0.toFixed(2)} m/s`,
-             tx, base + 4.15*lh, {size:16, color:AMBER, alpha:a2});
-      }
+  // ---- board ------------------------------------------------------------
+  function drawBoard(){
+    ctx.fillStyle = '#12302b'; ctx.fillRect(0,0,W,H);
+    ctx.save(); ctx.globalAlpha = 0.05;               // faint chalk dust
+    for(let i=0;i<40;i++){
+      const gx = (i*137.5 + camY*11) % W, gy = (i*89.3 - camY*23) % H;
+      ctx.fillStyle = CHALK; ctx.beginPath();
+      ctx.arc(gx, (gy+H)%H, 1.4, 0, 7); ctx.fill();
     }
     ctx.restore();
   }
 
-  // ---- scene ------------------------------------------------------------
-  function draw(now){
-    const dt = Math.min(48, now-last); last = now;
-    advance(dt);
-    const L = ledge();
+  // ---- loop -------------------------------------------------------------
+  let last = performance.now(), tailT = 0;
+  function frame(now){
+    let dt = Math.min(0.032, (now - last)/1000); last = now;
+    tailT += dt*2.2;
 
-    ctx.clearRect(0,0,W,H);
-    // board wash
-    const g = ctx.createRadialGradient(W*0.4,H*0.35,10,W*0.5,H*0.5,Math.max(W,H)*0.8);
-    g.addColorStop(0,'#1a3a34'); g.addColorStop(1,'#0e2723');
-    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
-
-    // ground
-    chalk(()=>{ ctx.beginPath(); ctx.moveTo(0, groundY); ctx.lineTo(W, groundY); }, {w:2, alpha:0.45});
-    // ledge
-    chalk(()=>{ ctx.beginPath();
-      ctx.moveTo(L.x, L.y); ctx.lineTo(W, L.y);
-      ctx.moveTo(L.x, L.y); ctx.lineTo(L.x, groundY);
-    }, {w:2.6});
-    for(let i=0;i<5;i++){
-      const yy = L.y + (groundY-L.y)*(i+0.7)/5;
-      chalk(()=>{ ctx.beginPath(); ctx.moveTo(L.x+4, yy); ctx.lineTo(L.x+16+i*3, yy+13); }, {w:1.2, alpha:0.28});
+    // demo round: the cat works it out, then commits, so you see the shape
+    if(mode === 'demo'){
+      demoT += dt;
+      const s = solvedAngle();
+      if(s != null) aim = s;
+      if(demoT > (reduced ? 1.2 : 2.6)) launch();
     }
 
-    const t = now/1000;
-    let cx = catX, cy = groundY, angle = -0.32, crouch = 0, stretch = 0, squash = 1;
-
-    // solved arc, drawn on the wall for real
-    if(at('pop')||at('crouch')||at('flight')||at('land')){
-      const fp = at('flight') ? prog() : (at('land') ? 1 : 0);
-      const fade = at('land') ? 1-prog() : 1;
-      chalk(()=>{
-        ctx.beginPath();
-        for(let i=0;i<=48;i++){
-          const tt = i/48*P.tFlight;
-          const x = catX + P.vx*tt*PPM, y = groundY - (P.vy*tt - 0.5*G*tt*tt)*PPM;
-          i ? ctx.lineTo(x,y) : ctx.moveTo(x,y);
+    if(cat.flying) step(dt);
+    if(mode === 'landed' || mode === 'missed'){
+      if(!cat.flying){
+        cat.squash += (1 - cat.squash)*Math.min(1, dt*9);
+        if(Math.abs(1-cat.squash) < 0.02){
+          cat.squash = 1;
+          mode = 'aiming';
+          const s = solvedAngle();
+          if(s != null && Math.random() < 0.35) aim = s + (Math.random()-0.5)*0.5;
         }
-      }, {color:AMBER, w:1.8, dash:[6,7], alpha:0.42*fade});
-      if(fp>0){
-        chalk(()=>{
-          ctx.beginPath();
-          const lim = Math.ceil(48*fp);
-          for(let i=0;i<=lim;i++){
-            const tt = i/48*P.tFlight;
-            const x = catX + P.vx*tt*PPM, y = groundY - (P.vy*tt - 0.5*G*tt*tt)*PPM;
-            i ? ctx.lineTo(x,y) : ctx.moveTo(x,y);
-          }
-        }, {color:AMBER, w:2.4, alpha:0.9*fade});
       }
     }
+    shake = Math.max(0, shake - dt*3);
+    flash = Math.max(0, flash - dt*1.6);
+    msgT  = Math.max(0, msgT  - dt*0.55);
 
-    if(at('crouch')){
-      crouch = ease(prog()); squash = 1 - 0.10*crouch; angle = -0.32 + 0.10*crouch;
-    } else if(at('flight')){
-      const tt = prog()*P.tFlight;
-      cx = catX + P.vx*tt*PPM;
-      cy = groundY - (P.vy*tt - 0.5*G*tt*tt)*PPM;
-      const vyNow = P.vy - G*tt;
-      angle = -Math.atan2(vyNow, P.vx)*0.85;
-      stretch = Math.min(1, 0.5 + 0.5*Math.sin(prog()*Math.PI));
-    } else if(at('land')){
-      cx = catX + P.dx*PPM; cy = L.y;
-      const p = prog();
-      squash = p<0.25 ? 1-0.22*Math.sin(p/0.25*Math.PI) : 1;
-      angle = 0.03*(1-p);                     // back parallel to the ledge
-      crouch = Math.max(0, 1 - p*1.7);        // absorb the impact, then stand up
-    } else if(at('rest')){
-      cx = catX + P.dx*PPM; cy = L.y;
-      angle = 0;
+    // camera eases to the cat
+    const k = Math.min(1, dt*4.5);
+    camX += (cat.x - camX)*k;
+    camY += ((cat.flying ? cat.y*0.55 + platforms[idx].y*0.45 : cat.y) - camY)*k;
+
+    drawBoard();
+    ctx.save();
+    if(shake > 0){
+      ctx.translate((Math.random()-0.5)*shake*7, (Math.random()-0.5)*shake*7);
     }
 
-    const looking = at('settle')||at('bubble')||at('diagram')||at('solve');
-    drawCat(cx, cy, PPM*0.42, {
-      angle, crouch, stretch, squash,
-      tail: t*(at('solve')?3.4:1.9),
-      lookAt: looking ? {x:L.x, y:L.y} : null
+    // platforms in view
+    const t = target();
+    for(const p of platforms){
+      const py = sy(p.y);
+      if(py < -60 || py > H+60) continue;
+      drawPlatform(p, {
+        active: t && p === t,
+        solved: t && p === t ? solve(Math.abs(p.x - cat.x), p.y - cat.y) : null,
+        showAngle: idx === 0     // the cat shows its working on the first one only
+      });
+    }
+
+    if(!cat.flying && mode !== 'flight') drawAim();
+
+    // the cat
+    const s = PPM*0.30;
+    const flying = cat.flying;
+    const ang = flying ? Math.atan2(-cat.vy, Math.abs(cat.vx))*0.35*cat.facing : 0;
+    drawCat(sx(cat.x), sy(cat.y), s, {
+      angle: ang,
+      crouch: mode==='demo' ? 0.4 : 0,
+      stretch: flying ? Math.min(1, Math.hypot(cat.vx,cat.vy)/V0) : 0,
+      tail: tailT,
+      squash: cat.squash,
+      facing: cat.facing
     });
 
-    // dust on landing
-    if(at('land') && prog()<0.4){
-      const p = prog()/0.4;
-      for(let i=0;i<6;i++){
-        const a = -0.3 - i*0.35, r = 8 + p*34 + i*3;
-        chalk(()=>{ ctx.beginPath(); ctx.arc(cx + Math.cos(a)*r, L.y - Math.abs(Math.sin(a))*r*0.5, 2.5*(1-p), 0, 7); },
-              {w:1.4, alpha:0.6*(1-p)});
-      }
-    }
+    ctx.restore();
 
-    // bubble
-    let bgrow=0, balpha=0;
-    if(at('bubble')){ bgrow = ease(prog()); balpha = prog(); }
-    else if(at('diagram')||at('solve')){ bgrow = 1; balpha = 1; }
-    else if(at('pop')){ bgrow = 1 + prog()*0.25; balpha = 1-prog(); }
-    if(bgrow>0){
-      const bx = Math.min(W - Math.min(322,W*0.78)/2 - 12, catX + PPM*1.15);
-      drawBubble(bx, Math.max(H*0.20, groundY - PPM*2.05), bgrow, balpha);
+    // hud
+    text(`height ${dist(best)}`, 14, H-16, {size:13, alpha:.45});
+    text(`jumps ${tries}`, W-14, H-16, {size:13, alpha:.45, align:'right'});
+    text(UNITS==='metric' ? 'metric' : 'imperial', W-14, H-34,
+      {size:11, alpha:.28, align:'right', italic:true});
+    if(idx === 0 && mode === 'demo'){
+      text('watch once. then it\u2019s your problem.', W*0.5, 42,
+        {size:14, align:'center', alpha:.5, italic:true});
     }
-
-    requestAnimationFrame(draw);
+    if(msgT > 0){
+      text(msg, sx(cat.x), sy(cat.y) - PPM*0.62, {size:15, align:'center', alpha:msgT*0.8, italic:true, color:ROSE});
+    }
+    if(flash > 0){
+      ctx.save(); ctx.globalAlpha = flash*0.10; ctx.fillStyle = AMBER;
+      ctx.fillRect(0,0,W,H); ctx.restore();
+    }
+    requestAnimationFrame(frame);
   }
-  requestAnimationFrame(draw);
+  reset();
+  requestAnimationFrame(frame);
 
-  // ---- interaction ------------------------------------------------------
-  function reroll(){ initAudio(); newProblem(); phase=0; pt=0; }
-  cvs.addEventListener('pointerdown', reroll);
-  addEventListener('keydown', e => { if(e.code==='Space'||e.code==='Enter'){ e.preventDefault(); reroll(); } });
+  // ---- controls ---------------------------------------------------------
+  const STEP = 0.6*Math.PI/180;
+  let held = 0, heldT = 0;
+  function nudge(dir){
+    aim = Math.max(AIM_MIN, Math.min(AIM_MAX, aim + dir*STEP));
+  }
+  setInterval(() => {
+    if(held && mode !== 'flight' && mode !== 'demo'){
+      heldT++;
+      nudge(held * (heldT > 14 ? 3 : 1));
+    }
+  }, 28);
+
+  function bindHold(el, dir){
+    const on = e => { e.preventDefault(); initAudio(); held = dir; heldT = 0; nudge(dir); };
+    const off = () => { held = 0; heldT = 0; };
+    el.addEventListener('pointerdown', on);
+    el.addEventListener('pointerup', off);
+    el.addEventListener('pointercancel', off);
+    el.addEventListener('pointerleave', off);
+  }
+  bindHold(document.getElementById('up'), 1);
+  bindHold(document.getElementById('down'), -1);
+  document.getElementById('jump').addEventListener('pointerdown', e => {
+    e.preventDefault(); initAudio();
+    if(mode === 'aiming') launch();
+  });
+
+  addEventListener('keydown', e => {
+    if(e.repeat && (e.key==='ArrowUp'||e.key==='ArrowDown')){ initAudio(); nudge(e.key==='ArrowUp'?3:-3); return; }
+    initAudio();
+    if(e.key === 'ArrowUp'){ nudge(1); e.preventDefault(); }
+    else if(e.key === 'ArrowDown'){ nudge(-1); e.preventDefault(); }
+    else if(e.key === ' ' || e.key === 'Enter'){ if(mode==='aiming') launch(); e.preventDefault(); }
+    else if(e.key.toLowerCase() === 'r'){ reset(); }
+    else if(e.key.toLowerCase() === 'u'){
+      UNITS = UNITS === 'metric' ? 'imperial' : 'metric';
+      localStorage.setItem('cattrig.units', UNITS);
+    }
+  });
+
+  // drag anywhere on the board to aim; tap the units readout to toggle
+  let dragging = false, dragY = 0, dragAim = 0;
+  cvs.addEventListener('pointerdown', e => {
+    initAudio();
+    if(e.clientX > W-110 && e.clientY > H-48){        // units corner
+      UNITS = UNITS === 'metric' ? 'imperial' : 'metric';
+      localStorage.setItem('cattrig.units', UNITS);
+      return;
+    }
+    if(mode !== 'aiming') return;
+    dragging = true; dragY = e.clientY; dragAim = aim;
+    cvs.setPointerCapture(e.pointerId);
+  });
+  cvs.addEventListener('pointermove', e => {
+    if(!dragging) return;
+    aim = Math.max(AIM_MIN, Math.min(AIM_MAX, dragAim + (dragY - e.clientY)*0.0035));
+  });
+  cvs.addEventListener('pointerup', () => { dragging = false; });
+  cvs.addEventListener('pointercancel', () => { dragging = false; });
 })();
 </script>
 </body>
