@@ -144,8 +144,12 @@
   let mode = 'demo';        // demo -> aiming -> flight -> landed / missed
   let demoT = 0, shake = 0, flash = 0, msg = '', msgT = 0;
 
+  // ---- combo: consecutive clean landings build a multiplier -------------
+  let score = 0, streak = 0;
+  let bestStreak = parseInt(localStorage.getItem('cattrig.bestStreak')||'0', 10) || 0;
+
   function reset(){
-    buildTower(); idx = 0; tries = 0; best = 0;
+    buildTower(); idx = 0; tries = 0; best = 0; score = 0; streak = 0;
     cat.x = platforms[0].x; cat.y = platforms[0].y; cat.vx = cat.vy = 0;
     cat.flying = false; cat.facing = 1;
     camX = cat.x; camY = cat.y;
@@ -189,8 +193,18 @@
           cat.flying = false; cat.squash = 0.72;
           idx++; best = Math.max(best, platforms[idx].y);
           mode = 'landed';
-          flash = 1; catSay('win');
-          msg = ['clean','nailed it','of course','effortless'][(Math.random()*4)|0]; msgT = 1;
+          streak++;
+          const mult = Math.min(streak, 8);
+          const gain = 25*mult;
+          score += gain;
+          const newRecord = streak > bestStreak && streak > 2;
+          if(streak > bestStreak){ bestStreak = streak; localStorage.setItem('cattrig.bestStreak', bestStreak); }
+          flash = Math.min(1, 0.65 + streak*0.05); catSay('win');
+          if(streak > 1 && streak % 5 === 0) catSay('win');   // extra flourish on milestones
+          msg = newRecord ? `new best ×${streak}!`
+              : streak > 1 ? `×${mult} combo · +${gain}`
+              : ['clean','nailed it','of course','effortless'][(Math.random()*4)|0];
+          msgT = 1;
           return;
         }
       }
@@ -208,7 +222,11 @@
       cat.x = platforms[idx].x; cat.y = floor; cat.vx = cat.vy = 0;
       cat.flying = false; cat.squash = 0.66;
       mode = 'missed'; shake = 1; catSay('fail');
-      msg = ['hmph','again','recalculating','it meant to do that'][(Math.random()*4)|0]; msgT = 1;
+      const brokeStreak = streak >= 3; streak = 0;
+      msg = brokeStreak
+        ? ['streak’s gone','so much for that','back to zero'][(Math.random()*3)|0]
+        : ['hmph','again','recalculating','it meant to do that'][(Math.random()*4)|0];
+      msgT = 1;
     }
   }
 
@@ -510,8 +528,10 @@
     ctx.restore();
 
     // hud
-    text(`height ${dist(best)}`, 14, H-16, {size:13, alpha:.45});
-    text(`jumps ${tries}`, W-14, H-16, {size:13, alpha:.45, align:'right'});
+    text(score > 0 ? `height ${dist(best)}  · ${score}` : `height ${dist(best)}`,
+      14, H-16, {size:13, alpha:.45});
+    text(streak > 1 ? `jumps ${tries}  ×${Math.min(streak,8)}` : `jumps ${tries}`,
+      W-14, H-16, {size:13, alpha: streak>1 ? .8 : .45, align:'right', color: streak>1 ? AMBER : CHALK});
     text(UNITS==='metric' ? 'metric' : 'imperial', W-14, H-34,
       {size:11, alpha:.28, align:'right', italic:true});
     if(idx === 0 && mode === 'demo'){
