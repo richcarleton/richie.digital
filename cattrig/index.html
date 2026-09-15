@@ -144,6 +144,7 @@
   let cat = { x:0, y:0, vx:0, vy:0, flying:false, facing:1, squash:1, t:0 };
   let mode = 'demo';        // demo -> aiming -> flight -> landed / missed
   let demoT = 0, shake = 0, flash = 0, msg = '', msgT = 0;
+  let cutT = 0;             // hard "cut to black" beat for a fall that leaves the frame
 
   // ---- combo: consecutive clean landings build a multiplier -------------
   let score = 0, streak = 0;
@@ -217,9 +218,12 @@
       msg = 'face, meet ledge'; msgT = 1;
     }
 
-    // fell past the deck we came from
+    // fell past the deck we came from — keep falling (don't catch yet) until
+    // it has actually dropped off the bottom of the frame, then hard-cut
+    // to hide the snap back onto the ledge, like a blooper-reel edit
     const floor = platforms[idx].y;
-    if(cat.y <= floor && cat.vy < 0){
+    if(cat.y <= floor && cat.vy < 0 && sy(cat.y) >= H + 20){
+      cutT = 1; catSay('fail'); catSay('fail');
       cat.x = platforms[idx].x; cat.y = floor; cat.vx = cat.vy = 0;
       cat.flying = false; cat.squash = 0.66;
       mode = 'missed'; shake = 1; catSay('fail');
@@ -533,10 +537,15 @@
     flash = Math.max(0, flash - dt*1.6);
     msgT  = Math.max(0, msgT  - dt*0.55);
 
-    // camera eases to the cat
+    // camera eases to the cat — while airborne it holds near the midpoint of
+    // the jump instead of chasing the cat down, so a bad miss can actually
+    // fall out of frame instead of being tracked smoothly all the way down
     const k = Math.min(1, dt*4.5);
     camX += (cat.x - camX)*k;
-    camY += ((cat.flying ? cat.y*0.55 + platforms[idx].y*0.45 : cat.y) - camY)*k;
+    const nextY = platforms[idx+1] ? platforms[idx+1].y : platforms[idx].y;
+    const camTargetY = cat.flying ? (platforms[idx].y + nextY)*0.5 : cat.y;
+    camY += (camTargetY - camY)*k;
+    cutT = Math.max(0, cutT - dt*1.3);
 
     drawBoard();
     ctx.save();
@@ -590,6 +599,14 @@
     if(flash > 0){
       ctx.save(); ctx.globalAlpha = flash*0.10; ctx.fillStyle = AMBER;
       ctx.fillRect(0,0,W,H); ctx.restore();
+    }
+    if(cutT > 0){                                    // hard cut: fell out of frame
+      ctx.save();
+      ctx.globalAlpha = Math.min(0.94, cutT*1.6); ctx.fillStyle = '#000';
+      ctx.fillRect(0,0,W,H);
+      ctx.globalAlpha = Math.min(1, cutT*2);
+      text('OH NO', W*0.5, H*0.5, {size:44, align:'center', color:ROSE});
+      ctx.restore();
     }
     requestAnimationFrame(frame);
   }
