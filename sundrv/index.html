@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sunday Drive</title>
+<style>
+  :root { --bg: #e9d9b8; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #2b241b; } }
+  :root[data-theme="dark"] { --bg: #2b241b; }
+  html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 100vh; touch-action: manipulation; cursor: pointer; }
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="A faded yellow and white 1970s van driving a country highway past rolling fields. Tap to pause."></canvas>
+<script>
+(() => {
+  const cv = document.getElementById('c');
+  const ctx = cv.getContext('2d');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let W, H, s, dpr, groundY, horizonY;
+
+  function resize() {
+    dpr = Math.min(devicePixelRatio || 1, 2);
+    const cw = innerWidth, ch = innerHeight;
+    cv.width = cw * dpr; cv.height = ch * dpr;
+    s = Math.min(cw / 480, ch / 290);
+    W = cw / s; H = ch / s;
