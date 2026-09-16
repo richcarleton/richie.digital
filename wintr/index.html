@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sketch 01</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --desk: #cfc8b8;
+    --paper: #f4f2ea;
+    --graphite: #4d4c4a;
+    --graphite-soft: #8a8883;
+    --smudge: rgba(77, 76, 74, .08);
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --desk: #2c2a27; } }
+  :root[data-theme="dark"] { --desk: #2c2a27; }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background: var(--desk);
+    font-family: "Gaegu", "Comic Sans MS", "Chalkboard SE", "Comic Neue", cursive, sans-serif;
+    color: var(--graphite);
+    display: flex; justify-content: center; align-items: flex-start;
+    padding: clamp(10px, 3vw, 36px);
+  }
+
+  .page {
+    position: relative; width: 100%; max-width: 1080px;
+    background: var(--paper);
+    background-image:
+      radial-gradient(ellipse at 20% 30%, var(--smudge), transparent 45%),
+      radial-gradient(ellipse at 80% 85%, var(--smudge), transparent 40%);
+    box-shadow: 0 2px 0 #e4e1d6, 0 4px 0 #dcd8cc, 0 14px 30px rgba(0,0,0,.25);
+    padding: clamp(44px, 7vw, 70px) clamp(14px, 4vw, 48px) clamp(20px, 4vw, 44px);
+    overflow: hidden;
+  }
+  .page::before { /* paper grain */
+    content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .35; mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .48 0 0 0 .18 0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .holes { position: absolute; top: 16px; left: 0; right: 0; display: flex; justify-content: space-around; padding: 0 14%; pointer-events: none; }
+  .holes span { width: 16px; height: 16px; border-radius: 50%; background: var(--desk); box-shadow: inset 0 2px 3px rgba(0,0,0,.35); }
+
+  .layout { position: relative; display: grid; grid-template-columns: 1fr minmax(190px, 240px); gap: clamp(14px, 2.5vw, 28px); align-items: stretch; }
+
+  .box { position: relative; }
+  .box > svg.pencil { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+  .box > svg.pencil rect { fill: none; stroke: var(--graphite); stroke-width: 1.5; }
+  .box > svg.pencil rect.inner { stroke: var(--graphite-soft); }
+
+  .screen { min-height: min(62vh, 520px); display: flex; align-items: flex-end; justify-content: center; padding: 28px 20px 26px; }
+  .girl { width: min(52%, 300px); height: auto; overflow: visible; animation: bob 2.6s ease-in-out infinite; }
+
+  .stats { display: flex; flex-direction: column; gap: 10px; }
+  .stat { text-align: center; padding: 12px 12px 10px; line-height: 1; }
+  .stat .label { font-size: clamp(20px, 2.2vw, 26px); letter-spacing: .12em; }
+  .stat .num { font-size: clamp(26px, 3vw, 34px); font-weight: 700; letter-spacing: .1em; margin-top: 4px; }
+  .love { padding: 16px 12px 14px; }
+  .love .label { font-size: clamp(24px, 2.6vw, 30px); line-height: .95; }
+  .love .num { font-size: clamp(30px, 3.4vw, 40px); }
+  .heart { font-weight: 400; letter-spacing: 0; }
+  .clock { display: grid; grid-template-columns: 1fr auto; align-items: center; text-align: left; padding: 18px 26px; }
+  .clock .label { letter-spacing: .08em; }
+  .clock .num { font-size: clamp(22px, 2.6vw, 30px); letter-spacing: .06em; margin-top: 2px; font-weight: 400; }
+  .clock .num b { font-weight: 700; }
+  .sparkle { width: 38px; height: 38px; animation: twinkle 3.2s ease-in-out infinite; transform-origin: center; }
+
+  .note { position: relative; margin: 18px 4px 0; font-size: 20px; color: var(--graphite-soft); transform: rotate(-1deg); }
+
+  .eyes { animation: blink 4.5s infinite; transform-origin: 100px 120px; }
+  .steam path { animation: steam 2.4s ease-in-out infinite; opacity: 0; }
+  .steam path:nth-child(2) { animation-delay: .8s; }
+  .steam path:nth-child(3) { animation-delay: 1.6s; }
+
+  @keyframes bob { 50% { transform: translateY(-4px); } }
+  @keyframes blink { 0%, 94%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.1); } }
+  @keyframes steam { 0% { opacity: 0; transform: translateY(4px); } 30% { opacity: .8; } 100% { opacity: 0; transform: translateY(-14px); } }
+  @keyframes twinkle { 0%, 100% { transform: scale(1) rotate(0); } 50% { transform: scale(1.15) rotate(12deg); } }
+
+  @media (max-width: 720px) {
+    /* one-screen fit for phones (Pixel 4a ≈ 393×851 CSS px, less browser chrome) */
+    body { padding: 6px; height: 100vh; height: 100dvh; overflow: hidden; }
+    .page { height: 100%; display: flex; flex-direction: column; padding: 26px 10px 10px; }
+    .holes { top: 8px; }
+    .holes span { width: 10px; height: 10px; }
+    .layout { flex: 1; min-height: 0; grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; gap: 8px; }
+    .screen { min-height: 0; padding: 14px 12px 12px; }
+    .girl { height: 100%; width: auto; max-width: 80%; }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .stat { padding: 9px 4px 7px; }
+    .stat .label { font-size: 16px; letter-spacing: .05em; }
+    .stat .num { font-size: 22px; margin-top: 2px; }
+    .love { grid-column: span 3; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 10px 8px; }
+    .love .label { font-size: 19px; }
+    .love .label br { display: none; }
+    .love .num { font-size: 26px; margin: 0; }
+    .clock { display: block; text-align: center; }
+    .clock { padding: 10px 2px 8px; }
+    .clock .label { font-size: 15px; letter-spacing: 0; }
+    .clock .num { font-size: 16px; letter-spacing: 0; }
+    .sparkle { position: absolute; top: -6px; right: -4px; width: 20px; height: 20px; z-index: 1; }
+    .note { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { .girl, .eyes, .steam path, .sparkle { animation: none; } .steam path { opacity: .6; } }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="pencilA" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency=".012" numOctaves="1" seed="3"/>
+      <feDisplacementMap in="SourceGraphic" scale="3"/>
+    </filter>
+    <filter id="pencilB" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency=".015" numOctaves="1" seed="11"/>
+      <feDisplacementMap in="SourceGraphic" scale="3.4"/>
+    </filter>
+    <filter id="sketch" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency=".06" numOctaves="1" seed="5"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.6"/>
+    </filter>
+  </defs>
+</svg>
+
+<main class="page">
+  <div class="holes" aria-hidden="true"><span></span><span></span><span></span></div>
+
+  <div class="layout">
+    <section class="box screen" data-lines="2" aria-label="Game screen">
+      <svg class="girl" viewBox="0 0 200 280" role="img" aria-label="A little character with long hair and bangs, holding a bowl of noodles">
+        <g filter="url(#sketch)" fill="var(--paper)" stroke="var(--graphite)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <!-- long back hair -->
+          <path d="M60 82 C40 125 34 195 20 252 L34 242 L37 264 L52 244 L64 252 L70 200 L130 200 L136 252 L148 244 L163 264 L166 242 L180 252 C166 195 160 125 140 82 Z"/>
+          <!-- legs + shoes -->
+          <path d="M89 234 L89 262 M111 234 L111 262" fill="none"/>
+          <ellipse cx="86" cy="264" rx="7" ry="3.5"/><ellipse cx="114" cy="264" rx="7" ry="3.5"/>
+          <!-- skirt -->
+          <path d="M72 198 L128 198 L142 238 L58 238 Z"/>
+          <path d="M86 202 L80 236 M100 202 L100 236 M114 202 L120 236" fill="none" stroke="var(--graphite-soft)" stroke-width="1.1"/>
+          <!-- top -->
+          <path d="M81 152 L119 152 L126 198 L74 198 Z"/>
+          <path d="M88 152 L100 164 L112 152" fill="none"/>
+          <rect x="72" y="192" width="56" height="8" rx="3"/>
+          <!-- face -->
+          <ellipse cx="100" cy="118" rx="40" ry="35"/>
+          <!-- hair cap with blunt bangs -->
+          <path d="M54 106 C50 60 78 40 100 40 C124 40 152 58 146 106 Z"/>
+          <path d="M56 100 L144 100" fill="none" stroke="var(--graphite-soft)" stroke-width="1.1"/>
+          <path d="M67 104 L69 82 M79 104 L80 76 M91 104 L91 72 M103 104 L103 72 M115 104 L114 74 M127 104 L125 78 M138 104 L135 84" fill="none" stroke-width="1.2"/>
+          <!-- face-framing strands -->
+          <path d="M56 106 C52 130 50 150 44 176 M62 106 C60 132 58 156 52 180" fill="none" stroke-width="1.3"/>
+          <path d="M144 106 C148 130 150 150 156 176 M138 106 C140 132 142 156 148 180" fill="none" stroke-width="1.3"/>
+          <!-- eyes -->
+          <g class="eyes">
+            <rect x="76" y="111" width="17" height="19" rx="6"/>
+            <rect x="107" y="111" width="17" height="19" rx="6"/>
+            <ellipse cx="85" cy="122" rx="5.5" ry="7" fill="var(--graphite)"/>
+            <ellipse cx="116" cy="122" rx="5.5" ry="7" fill="var(--graphite)"/>
+            <circle cx="82.5" cy="118" r="2.2" fill="var(--paper)" stroke="none"/>
+            <circle cx="113.5" cy="118" r="2.2" fill="var(--paper)" stroke="none"/>
+            <circle cx="87.5" cy="126" r="1" fill="var(--paper)" stroke="none"/>
+            <circle cx="118.5" cy="126" r="1" fill="var(--paper)" stroke="none"/>
+          </g>
+          <!-- blush -->
+          <g fill="none" stroke-width="1">
+            <rect x="66" y="132" width="10" height="8" rx="3"/>
+            <rect x="124" y="132" width="10" height="8" rx="3"/>
+            <path d="M68 138 L72 133 M71 139 L75 134 M126 138 L130 133 M129 139 L133 134" stroke="var(--graphite-soft)"/>
+          </g>
+          <!-- open smile -->
+          <path d="M92 137 Q100 150 108 137 Z" fill="var(--paper)"/>
+          <path d="M94 139 L106 139" fill="none" stroke-width="1"/>
+          <!-- arms -->
+          <path d="M82 158 C74 166 74 172 79 176 M118 158 C126 166 126 172 121 176" fill="none"/>
+          <!-- chopsticks -->
+          <path d="M104 168 L132 144 M109 170 L137 149" fill="none" stroke-width="1.8"/>
+          <!-- bowl -->
+          <path d="M76 168 L124 168 Q121 192 100 192 Q79 192 76 168 Z"/>
+          <path d="M83 168 C86 162 92 164 95 168 M97 168 C100 161 106 163 110 168" fill="none" stroke-width="1.2"/>
+          <path d="M82 176 L118 176" fill="none" stroke="var(--graphite-soft)" stroke-width="1"/>
+          <!-- hands -->
+          <circle cx="78" cy="176" r="5"/><circle cx="122" cy="176" r="5"/>
+          <!-- steam -->
+          <g class="steam" fill="none" stroke="var(--graphite-soft)" stroke-width="1.3">
+            <path d="M90 158 C86 152 94 148 90 142"/>
+            <path d="M100 156 C96 150 104 146 100 138"/>
+            <path d="M110 158 C106 152 114 148 110 142"/>
+          </g>
+        </g>
+      </svg>
+    </section>
+
+    <aside class="stats" aria-label="Player stats">
+      <div class="box stat love" data-lines="2">
+        <div class="label">LOVE <br>POINTS</div>
+        <div class="num"><span class="heart">♡</span>00000<span class="heart">♡</span></div>
+      </div>
+      <div class="box stat" data-lines="2"><div class="label">CHARISMA</div><div class="num">00</div></div>
+      <div class="box stat" data-lines="2"><div class="label">HEALTH</div><div class="num">100</div></div>
+      <div class="box stat" data-lines="2"><div class="label">LIVES</div><div class="num">03</div></div>
+      <div class="box stat" data-lines="2"><div class="label">DAMAGE</div><div class="num">00</div></div>
+      <div class="box stat" data-lines="2"><div class="label">CAGGAGE</div><div class="num">00</div></div>
+      <div class="box stat clock" data-lines="3">
+        <div>
+          <div class="label">DAY</div>
+          <div class="num">HOUR <b>01</b></div>
+        </div>
+        <svg class="sparkle" viewBox="0 0 40 40" aria-hidden="true">
+          <g filter="url(#sketch)" fill="var(--paper)" stroke="var(--graphite)" stroke-width="1.6" stroke-linejoin="round">
+            <path d="M20 3 C22 15 25 18 37 20 C25 22 22 25 20 37 C18 25 15 22 3 20 C15 18 18 15 20 3 Z"/>
+            <path d="M33 5 L35 9 M7 33 L5 36" fill="none" stroke-linecap="round"/>
+          </g>
+        </svg>
+      </div>
+    </aside>
+  </div>
+
+  <p class="note">sketch 01 — nothing clicks yet</p>
+</main>
+
+<script>
+(() => {
+  const NS = 'http://www.w3.org/2000/svg';
+  const boxes = [...document.querySelectorAll('.box')];
+
+  boxes.forEach((box, i) => {
+    const tilt = (Math.sin(i * 12.9898) * 43758.5453 % 1) * 1.2;
+    box.style.transform = `rotate(${tilt.toFixed(2)}deg)`;
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('class', 'pencil');
+    svg.setAttribute('aria-hidden', 'true');
+    const lines = +box.dataset.lines || 2;
+    for (let k = 0; k < lines; k++) {
+      const r = document.createElementNS(NS, 'rect');
+      if (k) r.setAttribute('class', 'inner');
+      r.setAttribute('filter', `url(#${(i + k) % 2 ? 'pencilB' : 'pencilA'})`);
+      svg.appendChild(r);
+    }
+    box.prepend(svg);
+  });
+
+  function draw(box) {
+    const w = box.clientWidth, h = box.clientHeight;
+    const svg = box.querySelector('svg.pencil');
+    svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    [...svg.children].forEach((r, k) => {
+      const inset = 2 + k * 6;
+      const rad = Math.max(6, Math.min(26, h / 3) - k * 4);
+      r.setAttribute('x', inset); r.setAttribute('y', inset);
+      r.setAttribute('width', Math.max(0, w - inset * 2));
+      r.setAttribute('height', Math.max(0, h - inset * 2));
+      r.setAttribute('rx', rad);
+    });
+  }
+
+  const ro = new ResizeObserver(entries => entries.forEach(e => draw(e.target)));
+  boxes.forEach(b => { draw(b); ro.observe(b); });
+})();
+</script>
+</body>
+</html>
