@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Scrprr — richie.digital</title>
+<meta name="description" content="A simplified movie search widget wired to the OMDb API — poster, year, rating, genre, and a top-cast crawl that tapers away like the Star Wars intro.">
+<meta name="theme-color" content="#0b0b0d">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<link rel="icon" href="../img/favicon.svg" type="image/svg+xml">
+<style>
+  :root{
+    --bg:#0b0b0d;
+    --card:#151518; --card2:#1b1b1f;
+    --gold:#f5c518; --text:#f4f1ea; --muted:#9a9aa2;
+    --line:rgba(245,197,24,.16);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);
+    font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  a{color:inherit}
+  ::selection{background:var(--gold);color:#0b0b0d}
+
+  #home{position:fixed;top:max(10px,env(safe-area-inset-top));left:12px;z-index:5;
+    width:38px;height:38px;display:flex;align-items:center;justify-content:center;
+    color:var(--text);opacity:.4;font-size:22px;text-decoration:none;line-height:1}
+  #home:hover,#home:focus-visible{opacity:1;outline:none}
+
+  .wrap{max-width:760px;margin:0 auto;padding:58px 20px 40px}
+
+  header{text-align:center;margin-bottom:26px}
+  .kicker{font-family:"Courier New",monospace;font-size:10px;font-weight:700;
+    letter-spacing:.28em;color:var(--gold);text-transform:uppercase;opacity:.8}
+  h1{font-size:clamp(26px,5vw,38px);font-weight:800;letter-spacing:-.02em;margin:6px 0 4px}
+  h1 .badge{display:inline-block;background:var(--gold);color:#0b0b0d;font-weight:900;
+    border-radius:4px;padding:0 6px;margin-right:9px;font-size:.62em;vertical-align:middle}
+  .sub{color:var(--muted);font-size:13.5px;margin:0}
+
+  /* ---- OMDb key setup ---- */
+  .keypanel{background:var(--card);border:1px solid #232328;border-radius:12px;padding:16px;margin-top:22px}
+  .keypanel.collapsed .keySetup{display:none}
+  .keypanel:not(.collapsed) .keyStatus{display:none}
+  .keyIntro{margin:0 0 8px;font-size:13px;color:var(--text)}
+  .keySteps{margin:0 0 12px;padding-left:18px;font-size:12.5px;color:var(--muted);line-height:1.6}
+  .keySteps a{color:var(--gold)}
+  .keyRow{display:flex;gap:8px}
+  #keyInput{flex:1;min-width:0;background:var(--card2);border:1.5px solid #2a2a30;color:var(--text);
+    border-radius:8px;padding:10px 12px;font-size:13.5px;outline:none;font-family:inherit}
+  #keyInput:focus{border-color:var(--gold)}
+  .keyMsg{min-height:16px;font-size:12px;margin:8px 0 0}
+  .keyMsg.ok{color:#6fcf7a}
+  .keyMsg.err{color:#ff6b6b}
+  .keyStatus{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted)}
+  .keyStatus b{color:var(--gold);font-weight:700}
+  .linkBtn{background:none;border:none;color:var(--gold);text-decoration:underline;font-size:12.5px;
+    cursor:pointer;padding:0;font-family:inherit}
+
+  form.searchbar{display:flex;gap:8px;margin-top:14px}
+  #q{flex:1;min-width:0;background:var(--card);border:1.5px solid #2a2a30;color:var(--text);
+    border-radius:8px;padding:12px 14px;font-size:15px;outline:none;transition:border-color .15s}
+  #q::placeholder{color:var(--muted)}
+  #q:focus{border-color:var(--gold)}
+  #q:disabled{opacity:.5;cursor:not-allowed}
+  .btn{border:1.5px solid #2a2a30;background:var(--card);color:var(--text);border-radius:8px;
+    padding:0 16px;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap;
+    transition:background .15s,border-color .15s,color .15s}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  #searchBtn{background:var(--gold);border-color:var(--gold);color:#0b0b0d}
+  #searchBtn:hover{filter:brightness(1.08)}
+  #clearBtn:hover{border-color:var(--gold);color:var(--gold)}
+  .btn:active{transform:translateY(1px)}
+
+  .hint{color:var(--muted);font-size:12.5px;margin:10px 2px 0;min-height:16px}
+  .hint b{color:var(--gold);font-weight:700}
+
+  .results{margin-top:18px;display:flex;flex-direction:column;gap:14px}
+
+  .card{display:flex;gap:16px;background:var(--card);border:1px solid #232328;
+    border-radius:12px;padding:14px;animation:rise .28s ease both}
+  @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  .poster{flex:0 0 84px;width:84px;height:124px;border-radius:8px;overflow:hidden;
+    display:flex;align-items:center;justify-content:center;position:relative;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+  .poster .initials{font-weight:900;font-size:26px;color:rgba(255,255,255,.92);
+    letter-spacing:.02em;text-shadow:0 1px 3px rgba(0,0,0,.35)}
+  .poster::after{content:"";position:absolute;inset:0;
+    background:linear-gradient(180deg,rgba(0,0,0,0) 55%,rgba(0,0,0,.35) 100%)}
+  .poster img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+
+  .info{flex:1;min-width:0}
+  .titleRow{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .titleRow h2{font-size:16.5px;font-weight:800;margin:0;letter-spacing:-.01em}
+  .titleRow .year{color:var(--muted);font-weight:600;font-size:13px;margin-left:4px}
+  .rating{flex:0 0 auto;font-weight:800;font-size:13.5px;color:var(--gold);
+    display:flex;align-items:center;gap:3px}
+
+  .genres{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+  .chip{font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
+    color:var(--muted);background:var(--card2);border:1px solid #26262c;
+    border-radius:99px;padding:2px 8px}
+
+  /* ---- cast crawl: tapers away like the Star Wars intro ---- */
+  .crawlLabel{font-family:"Courier New",monospace;font-size:9.5px;font-weight:700;
+    letter-spacing:.22em;text-transform:uppercase;color:var(--muted);margin:11px 0 2px}
+  .noCast{margin:2px 0 0;font-size:12px;color:var(--muted);font-style:italic}
+  .crawlWrap{perspective:340px;perspective-origin:50% 0%;overflow:hidden;text-align:center}
+  .crawl{list-style:none;margin:0 auto;padding:0;transform-style:preserve-3d;
+    transform-origin:50% 0%;transform:rotateX(-28deg);width:86%}
+  .crawl li{padding:3px 0;border-bottom:1px dashed var(--line);white-space:nowrap;overflow:hidden;font-size:12.5px}
+  .crawl li:last-child{border-bottom:none}
+  .crawl .actor{display:block;color:var(--text);font-weight:700;overflow:hidden;text-overflow:ellipsis}
+
+  .empty{display:none;text-align:center;color:var(--muted);font-size:13.5px;margin-top:28px}
+  .empty.show{display:block}
+
+  footer.note{max-width:760px;margin:34px auto 0;padding:14px 20px 0;border-top:1px solid #202024;
+    color:var(--muted);font-size:11.5px;line-height:1.5;text-align:center}
+
+  @media(max-width:520px){
+    .wrap{padding-top:52px}
+    .card{gap:12px;padding:12px}
+    .poster{flex-basis:64px;width:64px;height:94px}
+    .poster .initials{font-size:19px}
+    .crawl{width:88%}
+  }
+</style>
+</head>
+<body>
+
+<a id="home" href="../catalog.html" title="catalogue" aria-label="back to the catalogue">&#8592;</a>
+
+<div class="wrap">
+  <header>
+    <div class="kicker">R-D CONSUMER UNIT · LIVE VIA OMDb</div>
+    <h1><span class="badge">IMDb</span>Quick Scraper</h1>
+    <p class="sub">poster &middot; year &middot; rating &middot; genre &middot; top cast, live</p>
+  </header>
+
+  <div id="keyPanel" class="keypanel">
+    <div class="keySetup">
+      <p class="keyIntro">Live results need a free OMDb API key &mdash; OMDb wraps IMDb data behind a small,
+        browser-friendly, CORS-enabled API, so this page can call it directly with no server of its own.</p>
+      <ol class="keySteps">
+        <li>Get a free key at <a href="https://www.omdbapi.com/apikey.aspx" target="_blank" rel="noopener noreferrer">omdbapi.com/apikey.aspx</a> (choose the FREE tier, then confirm via the email it sends)</li>
+        <li>Paste it below &mdash; it's saved only in this browser (localStorage) and sent only to omdbapi.com.</li>
+      </ol>
+      <div class="keyRow">
+        <input id="keyInput" type="text" placeholder="Paste your OMDb API key" autocomplete="off" spellcheck="false">
+        <button id="keySave" class="btn" type="button">Save key</button>
+      </div>
+      <p id="keyMsg" class="keyMsg" aria-live="polite"></p>
+    </div>
+    <div class="keyStatus">
+      <span>OMDb key saved <b id="keyMasked"></b></span>
+      <button id="keyChange" class="linkBtn" type="button">change</button>
+    </div>
+  </div>
+
+  <form id="searchForm" class="searchbar" autocomplete="off">
+    <input id="q" type="search" placeholder="Add your OMDb API key above to search" aria-label="Search movie title" disabled>
+    <button type="submit" id="searchBtn" class="btn" disabled>Search</button>
+    <button type="button" id="clearBtn" class="btn">Clear</button>
+  </form>
+  <p id="hint" class="hint"></p>
+
+  <div id="results" class="results"></div>
+  <p id="empty" class="empty">No matches for that title.</p>
+</div>
+
+<footer class="note">
+  Live search via the OMDb API (a free, browser-friendly wrapper around IMDb data) &mdash; no server involved.
+  Your key stays in this browser's local storage. OMDb's free tier caps at 1,000 requests/day and its
+  <code>Actors</code> field is just a short name list (usually 3&ndash;4 people, no character names), so the
+  cast crawl shows whatever it returns &mdash; not always six, and never roles.
+</footer>
+
+<script>
+(() => {
+  'use strict';
+
+  const OMDB = 'https://www.omdbapi.com/';
+  const LIMIT = 5;
+
+  const PALETTES = [
+    ["#6a11cb","#2575fc"], ["#ff5f6d","#ffc371"], ["#123f4f","#2c5364"],
+    ["#8e2de2","#4a00e0"], ["#134e5e","#4ca180"], ["#c31432","#4a0e22"],
+    ["#c8590a","#ff6a00"], ["#2b5876","#4e4376"], ["#012b57","#0466c8"],
+    ["#3a1c71","#a24d8f"]
+  ];
+
+  function hashStr(s){
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+    return Math.abs(h);
+  }
+
+  function initials(title){
+    const stop = new Set(["the","a","an"]);
+    const words = String(title).split(/\s+/).filter(Boolean);
+    const sig = words.filter((w,i) => !(i === 0 && stop.has(w.toLowerCase())));
+    const src = sig.length ? sig : words;
+    if (!src.length) return "?";
+    if (src.length >= 2) return (src[0][0] + src[1][0]).toUpperCase();
+    return src[0].slice(0,2).toUpperCase();
+  }
+
+  function posterStyle(title){
+    const [a,b] = PALETTES[hashStr(title) % PALETTES.length];
+    return `background:linear-gradient(160deg, ${a}, ${b})`;
+  }
+
+  function esc(s){
+    return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+  }
+
+  function splitField(v){
+    return (v && v !== "N/A") ? v.split(",").map(s => s.trim()).filter(Boolean) : [];
+  }
+
+  function cardHTML(d){
+    const genres = splitField(d.Genre);
+    const actors = splitField(d.Actors).slice(0, 6);
+    const rating = (d.imdbRating && d.imdbRating !== "N/A") ? d.imdbRating : null;
+    const posterOk = d.Poster && d.Poster !== "N/A";
+    const genreChips = genres.map(g => `<span class="chip">${esc(g)}</span>`).join("");
+    const castLis = actors.map(a => `<li><span class="actor">${esc(a)}</span></li>`).join("");
+    const crawlBlock = actors.length
+      ? `<div class="crawlLabel">Top Cast${actors.length < 6 ? ` &middot; ${actors.length} listed` : ""}</div>
+         <div class="crawlWrap"><ol class="crawl">${castLis}</ol></div>`
+      : `<div class="crawlLabel">Top Cast</div><p class="noCast">Not listed on OMDb.</p>`;
+    return `
+      <article class="card">
+        <div class="poster" style="${posterStyle(d.Title)}">
+          <span class="initials">${esc(initials(d.Title))}</span>
+          ${posterOk ? `<img src="${esc(d.Poster)}" alt="" loading="lazy" onerror="this.style.display='none'">` : ""}
+        </div>
+        <div class="info">
+          <div class="titleRow">
+            <h2>${esc(d.Title)}<span class="year">(${esc(d.Year)})</span></h2>
+            <div class="rating">${rating ? `&#9733; ${esc(rating)}` : "&#9733; &mdash;"}</div>
+          </div>
+          <div class="genres">${genreChips}</div>
+          ${crawlBlock}
+        </div>
+      </article>
+    `;
+  }
+
+  // ---- DOM ----
+  const keyPanel = document.getElementById("keyPanel");
+  const keyInput = document.getElementById("keyInput");
+  const keySave = document.getElementById("keySave");
+  const keyMsg = document.getElementById("keyMsg");
+  const keyMasked = document.getElementById("keyMasked");
+  const keyChange = document.getElementById("keyChange");
+  const q = document.getElementById("q");
+  const searchForm = document.getElementById("searchForm");
+  const searchBtn = document.getElementById("searchBtn");
+  const clearBtn = document.getElementById("clearBtn");
+  const results = document.getElementById("results");
+  const empty = document.getElementById("empty");
+  const hint = document.getElementById("hint");
+
+  // ---- API key ----
+  let apiKey = localStorage.getItem("scrprr.omdbKey") || "";
+
+  function updateKeyUI(){
+    const has = !!apiKey;
+    keyPanel.classList.toggle("collapsed", has);
+    if (has) keyMasked.textContent = "•••" + apiKey.slice(-4);
+    q.disabled = !has;
+    searchBtn.disabled = !has;
+    q.placeholder = has ? 'Search a title… try "dark knight" or "parasite"' : "Add your OMDb API key above to search";
+    hint.textContent = has ? "Type to see quick top results." : "";
+  }
+
+  async function verifyKey(k){
+    const res = await fetch(`${OMDB}?apikey=${encodeURIComponent(k)}&s=batman`);
+    const data = await res.json();
+    return data.Error !== "Invalid API key!";
+  }
+
+  keySave.addEventListener("click", async () => {
+    const val = keyInput.value.trim();
+    if (!val){
+      keyMsg.textContent = "Enter a key first.";
+      keyMsg.className = "keyMsg err";
+      return;
+    }
+    keySave.disabled = true;
+    keyMsg.textContent = "Checking with OMDb…";
+    keyMsg.className = "keyMsg";
+    try {
+      const ok = await verifyKey(val);
+      if (!ok){
+        keyMsg.textContent = "OMDb rejected that key — double-check it.";
+        keyMsg.className = "keyMsg err";
+        return;
+      }
+      apiKey = val;
+      localStorage.setItem("scrprr.omdbKey", apiKey);
+      keyMsg.textContent = "Key saved — ready to search.";
+      keyMsg.className = "keyMsg ok";
+      updateKeyUI();
+      q.focus();
+    } catch (e) {
+      keyMsg.textContent = "Network error reaching OMDb — try again.";
+      keyMsg.className = "keyMsg err";
+    } finally {
+      keySave.disabled = false;
+    }
+  });
+
+  keyChange.addEventListener("click", () => {
+    keyPanel.classList.remove("collapsed");
+    keyInput.value = apiKey;
+    keyMsg.textContent = "";
+    keyInput.focus();
+    keyInput.select();
+  });
+
+  // ---- search ----
+  let controller = null;
+  let searchTimer = null;
+
+  function showEmpty(msg){
+    results.innerHTML = "";
+    hint.textContent = "";
+    empty.textContent = msg;
+    empty.classList.add("show");
+  }
+
+  async function fetchDetails(id, signal){
+    const res = await fetch(`${OMDB}?apikey=${encodeURIComponent(apiKey)}&i=${encodeURIComponent(id)}&plot=short`, { signal });
+    const d = await res.json();
+    return d.Response === "False" ? null : d;
+  }
+
+  async function runSearch(term){
+    const t = term.trim();
+    if (controller) controller.abort();
+
+    if (!t){
+      results.innerHTML = "";
+      empty.classList.remove("show");
+      hint.textContent = apiKey ? "Type to see quick top results." : "";
+      return;
+    }
+    if (!apiKey){
+      hint.textContent = "Add your OMDb API key above first.";
+      return;
+    }
+    if (t.length < 2){
+      results.innerHTML = "";
+      empty.classList.remove("show");
+      hint.textContent = "Keep typing…";
+      return;
+    }
+
+    controller = new AbortController();
+    const { signal } = controller;
+    empty.classList.remove("show");
+    hint.textContent = "Searching OMDb…";
+
+    try {
+      const listRes = await fetch(`${OMDB}?apikey=${encodeURIComponent(apiKey)}&type=movie&s=${encodeURIComponent(t)}`, { signal });
+      const listData = await listRes.json();
+
+      if (listData.Error === "Invalid API key!"){
+        showEmpty("That API key was rejected by OMDb.");
+        return;
+      }
+      if (listData.Response === "False" || !listData.Search){
+        showEmpty("No matches for that title.");
+        return;
+      }
+
+      const top = listData.Search.slice(0, LIMIT);
+      const details = await Promise.all(top.map(m => fetchDetails(m.imdbID, signal)));
+      const movies = details.filter(Boolean);
+
+      if (!movies.length){
+        showEmpty("No matches for that title.");
+        return;
+      }
+      empty.classList.remove("show");
+      results.innerHTML = movies.map(cardHTML).join("");
+      hint.innerHTML = `Showing <b>${movies.length}</b> quick top result${movies.length === 1 ? "" : "s"} from OMDb.`;
+    } catch (err) {
+      if (err.name === "AbortError") return;
+      showEmpty("Network error reaching OMDb — try again.");
+    }
+  }
+
+  function scheduleSearch(term){
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => runSearch(term), 450);
+  }
+
+  q.addEventListener("input", () => scheduleSearch(q.value));
+  searchForm.addEventListener("submit", e => {
+    e.preventDefault();
+    clearTimeout(searchTimer);
+    runSearch(q.value);
+  });
+  clearBtn.addEventListener("click", () => {
+    q.value = "";
+    clearTimeout(searchTimer);
+    if (controller) controller.abort();
+    results.innerHTML = "";
+    empty.classList.remove("show");
+    hint.textContent = apiKey ? "Type to see quick top results." : "";
+    q.focus();
+  });
+
+  updateKeyUI();
+})();
+</script>
+</body>
+</html>
