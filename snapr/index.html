@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>snapr</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bowlby+One&family=Barlow+Semi+Condensed:wght@500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root{
+  --floor:#bdb8ae; --floor-2:#9f9a90;
+  --enamel:#2f5d50; --enamel-hi:#447f6d; --enamel-lo:#1b3a31;
+  --silk:#f1e8d0; --silk-dim:rgba(241,232,208,.6);
+  --led:#ff3b2a; --led-off:#4d1f19; --glass:#140f0d;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --floor:#26282c; --floor-2:#141517; } }
+:root[data-theme="dark"]{ --floor:#26282c; --floor-2:#141517; }
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%;margin:0}
+body{
+  background:var(--floor-2) radial-gradient(ellipse 80% 70% at 50% 35%, var(--floor), var(--floor-2));
+  display:grid; place-items:center; overflow:hidden;
+  font-family:"Barlow Semi Condensed","Arial Narrow",Arial,sans-serif; font-weight:500;
+  color:var(--silk); user-select:none; -webkit-user-select:none;
+  -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible{outline:3px solid var(--silk);outline-offset:3px;border-radius:8px}
+.blk{background:radial-gradient(circle at 40% 30%,#3a3d42,#17181a);box-shadow:0 2px 0 #0b0b0c,inset 0 1px 0 rgba(255,255,255,.15)}
+.blk:not(:disabled):active{transform:translateY(2px);box-shadow:inset 0 1px 0 rgba(255,255,255,.1)}
+
+.pedal{
+  position:relative; width:min(92vw,400px); height:min(calc(100% - 20px),740px);
+  display:flex; flex-direction:column; gap:clamp(7px,1.4vh,13px);
+  padding:clamp(14px,2.2vh,22px) 22px clamp(16px,2.4vh,24px);
+  border-radius:22px;
+  background:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.08' numOctaves='3' seed='4'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .22 -.06'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
+    radial-gradient(ellipse 90% 60% at 30% 10%, var(--enamel-hi), var(--enamel) 55%, var(--enamel-lo));
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.2), inset 0 -4px 0 rgba(0,0,0,.35), 0 4px 0 var(--enamel-lo), 0 22px 34px rgba(0,0,0,.4);
+}
+.screw{position:absolute;width:11px;height:11px;border-radius:50%;
+  background:linear-gradient(35deg,transparent 44%,#55595e 45%,#55595e 57%,transparent 58%),
+             radial-gradient(circle at 35% 30%,#f4f5f6,#9ea2a7 60%,#5d6166);
+  box-shadow:0 1px 1px rgba(0,0,0,.5)}
+.screw:nth-child(1){top:9px;left:9px}.screw:nth-child(2){top:9px;right:9px;transform:rotate(70deg)}
+.screw:nth-child(3){bottom:9px;left:9px;transform:rotate(120deg)}.screw:nth-child(4){bottom:9px;right:9px;transform:rotate(20deg)}
+
+header{display:flex;align-items:center;justify-content:space-between;padding:0 4px}
+h1{margin:0;font:400 clamp(32px,5.6vh,44px)/1 "Bowlby One","Arial Black",sans-serif;
+  transform:skewX(-8deg);text-shadow:0 1px 0 rgba(0,0,0,.25)}
+.beats{display:flex;gap:14px}
+.beat{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:13px;color:var(--silk-dim)}
+.led{width:13px;height:13px;border-radius:50%;background:var(--led-off);
+  box-shadow:inset 0 -2px 2px rgba(0,0,0,.5),0 0 0 3px #1c1d20,0 0 0 4px #7a7e83}
+.led.soft{background:#a8321f;box-shadow:inset 0 -2px 2px rgba(0,0,0,.3),0 0 0 3px #1c1d20,0 0 0 4px #7a7e83,0 0 7px 1px rgba(255,59,42,.35)}
+.led.on{background:var(--led);box-shadow:inset 0 -2px 2px rgba(0,0,0,.3),0 0 0 3px #1c1d20,0 0 0 4px #7a7e83,0 0 14px 4px rgba(255,59,42,.65)}
+
+.readout{display:flex;align-items:center;gap:12px}
+.nudge{width:44px;height:44px;border-radius:50%;font-size:26px;line-height:1;font-weight:700}
+.glass{flex:1;height:clamp(52px,8.4vh,70px);border-radius:8px;background:var(--glass);
+  box-shadow:inset 0 3px 8px rgba(0,0,0,.8),0 1px 0 rgba(255,255,255,.18);
+  display:flex;align-items:baseline;justify-content:center;gap:8px;padding-top:4px}
+.bpm{font:clamp(36px,6.2vh,52px)/1.15 "Share Tech Mono",ui-monospace,monospace;color:var(--led);
+  text-shadow:0 0 10px rgba(255,59,42,.55);min-width:3ch;text-align:right}
+.bpm.empty{color:var(--led-off);text-shadow:none}
+.unit{font-size:15px;color:var(--silk-dim)}
+
+.sync{display:flex;align-items:center;justify-content:center;gap:10px;font-size:15px}
+.sync span{color:var(--silk-dim)}
+.sync button{height:32px;padding:0 12px;border-radius:16px;font-size:15px}
+.sync output{min-width:5.2ch;text-align:center;font-family:"Share Tech Mono",ui-monospace,monospace;font-size:15px}
+
+.selector{display:flex;align-items:center;justify-content:center;gap:clamp(10px,4vw,22px)}
+.chev{width:40px;height:40px;border-radius:50%;font-size:26px;line-height:1;font-weight:700;padding-bottom:3px}
+.dial{position:relative;width:clamp(104px,16vh,124px);aspect-ratio:1}
+.tick{position:absolute;left:50%;top:50%;width:5px;height:5px;margin:-2.5px;border-radius:50%;background:var(--silk-dim)}
+.tick.cur{width:8px;height:8px;margin:-4px;background:var(--silk)}
+.knob{position:absolute;inset:17%;border-radius:50%;touch-action:none;
+  background:repeating-conic-gradient(from 0deg,#1b1c1e 0 4deg,#2a2c2f 4deg 8deg);
+  box-shadow:0 4px 0 #0c0c0d,0 8px 12px rgba(0,0,0,.4),inset 0 0 0 7px #202124}
+.knob::after{content:"";position:absolute;inset:21%;border-radius:50%;background:radial-gradient(circle at 40% 35%,#4a4d52,#1e1f22)}
+.pointer{position:absolute;left:50%;top:6%;width:4px;height:36%;margin-left:-2px;border-radius:2px;
+  background:var(--silk);z-index:1;transform-origin:50% 122%;transition:transform .18s cubic-bezier(.3,1.4,.5,1)}
+.pname{margin:0;text-align:center;line-height:1.25;min-height:2.5em}
+.pname strong{display:block;font-size:clamp(18px,2.8vh,21px);font-weight:700}
+.pname span{font-size:14px;color:var(--silk-dim)}
+
+.footwrap{flex:1;min-height:110px;display:grid;place-items:center}
+.foot{position:relative;width:min(50vw,190px,24vh);aspect-ratio:1;border-radius:50%;touch-action:none;
+  background:radial-gradient(circle at 40% 32%,#fdfdfd,#cfd2d6 40%,#8e9298 72%,#5b5f65);
+  box-shadow:0 0 0 11px #1f2124,0 0 0 14px #8f9398,0 0 0 16px rgba(0,0,0,.35),0 14px 22px rgba(0,0,0,.45);
+  transition:transform .05s,box-shadow .05s}
+.foot::after{content:"";position:absolute;inset:22%;border-radius:50%;
+  background:repeating-radial-gradient(circle,rgba(255,255,255,.35) 0 1px,rgba(0,0,0,.08) 1px 3px),
+             radial-gradient(circle at 42% 36%,#f1f2f4,#a4a8ad);
+  box-shadow:inset 0 2px 3px rgba(0,0,0,.35)}
+.foot.down{transform:translateY(4px) scale(.985);
+  box-shadow:0 0 0 11px #1f2124,0 0 0 14px #8f9398,0 0 0 16px rgba(0,0,0,.35),0 6px 10px rgba(0,0,0,.45)}
+
+footer{display:flex;align-items:center;gap:14px;min-height:44px}
+.hint{flex:1;margin:0;font-size:clamp(14px,2.1vh,16px);line-height:1.3}
+.stop{height:40px;padding:0 16px;border-radius:20px;font-weight:700;font-size:16px}
+.stop:disabled{opacity:.35;cursor:default}
+</style>
+</head>
+<body>
+<main class="pedal">
+  <span class="screw"></span><span class="screw"></span><span class="screw"></span><span class="screw"></span>
+
+  <header>
+    <h1>snapr</h1>
+    <div class="beats" aria-hidden="true">
+      <div class="beat"><div class="led"></div>1</div>
+      <div class="beat"><div class="led"></div>2</div>
+      <div class="beat"><div class="led"></div>3</div>
+      <div class="beat"><div class="led"></div>4</div>
+    </div>
+  </header>
+
+  <div class="readout">
+    <button class="nudge blk" id="slower" aria-label="Slower by one beat per minute">−</button>
+    <div class="glass" aria-live="polite"><span class="bpm empty" id="bpm">888</span><span class="unit">bpm</span></div>
+    <button class="nudge blk" id="faster" aria-label="Faster by one beat per minute">+</button>
+  </div>
+
+  <div class="sync">
+    <span>sync</span>
+    <button class="blk" id="earlier">earlier</button>
+    <output id="syncv">0 ms</output>
+    <button class="blk" id="later">later</button>
+  </div>
+
+  <div class="selector">
+    <button class="chev blk" id="prev" aria-label="Previous rhythm">‹</button>
+    <div class="dial" id="dial">
+      <button class="knob" id="knob"><span class="pointer" id="pointer"></span></button>
+    </div>
+    <button class="chev blk" id="next" aria-label="Next rhythm">›</button>
+  </div>
+  <p class="pname"><strong id="pname"></strong><span id="desc"></span></p>
+
+  <div class="footwrap">
+    <button class="foot" id="foot" aria-label="Tap tempo"></button>
+  </div>
+
+  <footer>
+    <p class="hint" id="hint"></p>
+    <button class="stop blk" id="stop" disabled>stop</button>
+  </footer>
+</main>
+
+<script>
+(() => {
+  // ---- tunables ----
+  const STEPS = 16;             // sixteenths per bar of 4
+  const TAPS_TO_START = 4;
+  const TAP_RESET_MS = 2000;
+  const MIN_IV = 60 / 260, MAX_IV = 60 / 30;
+  const LOOKAHEAD = 0.12, TICK_MS = 25;
+  const VEL = { X: 1, x: 0.7, o: 0.4 };
+
+  // Lanes are 16 sixteenths: X loud, x medium, o soft, . rest.  swing = where the "and" lands (0.5 straight, 0.66 shuffle)
+  const PATTERNS = [
+    { name: 'thumb',       desc: 'snap on two and four',
+      lanes: { snap:  '....X.......X...' } },
+    { name: 'kick',        desc: 'bass drum on one and three',
+      lanes: { kick:  'X.......X.......' } },
+    { name: 'stomp slap',  desc: 'foot on one and three, table on two and four',
+      lanes: { stomp: 'X.......X.......', slap: '....X.......X...' } },
+    { name: 'four',        desc: 'bass drum on every beat',
+      lanes: { kick:  'X...X...X...X...' } },
+    { name: 'stomp stomp', desc: 'stomp stomp slap, twice a bar',
+      lanes: { stomp: 'X.x.....X.x.....', slap: '....X.......X...' } },
+    { name: 'shaker',      desc: 'egg shaker sixteenths, pushed on the ands',
+      lanes: { shake: 'oxXxoxXxoxXxoxXx' } },
+    { name: 'tambourine',  desc: 'eighths, leaning on two and four',
+      lanes: { tamb:  'o.o.X.o.o.o.X.o.' } },
+    { name: 'clap hat',    desc: 'clap on two and four over a light hat',
+      lanes: { hat: 'x.o.x.o.x.o.x.o.', clap: '....X.......X...', kick: 'o.......o.......' } },
+    { name: 'shuffle',     desc: 'swung hat, rim click on two and four', swing: 0.66,
+      lanes: { hat: 'x.o.x.o.x.o.x.o.', rim: '....X.......X...', kick: 'o.......o.......' } },
+    { name: 'brushes',     desc: 'swung brush swishes, easy jazz', swing: 0.66,
+      lanes: { swish: 'o.o.x.o.o.o.x.o.', kick: 'o.......o.......' } },
+    { name: 'bossa',       desc: 'rim clave with a soft dotted kick',
+      lanes: { rim: 'x..x..x...x..x..', kick: 'o..oo..oo..oo..o', shake: 'o.o.o.o.o.o.o.o.' } },
+  ];
+  const N = PATTERNS.length;
+  const angleOf = i => -135 + i * 270 / (N - 1);
+
+  // ---- audio ----
+  let ctx, master, bus, noise;
+  function initAudio() {
+    if (ctx) return;
+    ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -12; comp.ratio.value = 4;
+    master = ctx.createGain(); master.gain.value = 0.9;
+    master.connect(comp); comp.connect(ctx.destination);
+    newBus();
+    const len = Math.floor(ctx.sampleRate * 0.5);
+    noise = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = noise.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  }
+  function newBus() {
+    if (bus) bus.gain.setTargetAtTime(0, ctx.currentTime, 0.006);
+    bus = ctx.createGain(); bus.connect(master);
+  }
+  const latency = () => (ctx && (ctx.outputLatency || ctx.baseLatency)) || 0;
+
+  // Map a performance.now() moment to the audio-clock time that is *heard* at that moment
+  function heardAt(p) {
+    const ts = ctx.getOutputTimestamp ? ctx.getOutputTimestamp() : null;
+    if (ts && ts.contextTime > 0 && ts.performanceTime > 0)
+      return ts.contextTime + (p - ts.performanceTime) / 1000;
+    return ctx.currentTime - latency() + (p - performance.now()) / 1000;
+  }
+
+  function env(t, peak, decay, att = 0.002) {
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(Math.max(peak, 0.0002), t + att);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + att + decay);
+    g.connect(bus); return g;
+  }
+  function nz(t, type, freq, q, peak, decay, att) {
+    const s = ctx.createBufferSource(); s.buffer = noise;
+    const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
+    s.connect(f); f.connect(env(t, peak, decay, att));
+    s.start(t, Math.random() * 0.25); s.stop(t + (att || 0.002) + decay + 0.02);
+  }
+  function tn(t, type, f0, f1, sweep, peak, decay) {
+    const o = ctx.createOscillator(); o.type = type;
+    o.frequency.setValueAtTime(f0, t);
+    if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + sweep);
+    o.connect(env(t, peak, decay)); o.start(t); o.stop(t + decay + 0.03);
+  }
+  const VOICES = {
+    snap:  (t, v) => { nz(t,'bandpass',2600,1.8,.9*v,.055); nz(t,'highpass',5000,.7,.35*v,.012); tn(t,'sine',1900,1200,.02,.12*v,.03); },
+    kick:  (t, v) => { tn(t,'sine',150,46,.12,1*v,.42); nz(t,'lowpass',1800,.7,.22*v,.012); },
+    stomp: (t, v) => { tn(t,'sine',100,40,.07,.85*v,.26); nz(t,'lowpass',420,.8,.7*v,.09); },
+    slap:  (t, v) => { nz(t,'bandpass',1150,.9,.85*v,.13); nz(t,'highpass',3200,.7,.4*v,.025); tn(t,'triangle',210,160,.06,.35*v,.09); },
+    shake: (t, v) => { nz(t,'highpass',6000,.7,.4*v,.055,.012); },
+    hat:   (t, v) => { nz(t,'highpass',7500,.8,.32*v,.035); nz(t,'bandpass',10000,1.5,.15*v,.02); },
+    tamb:  (t, v) => { for (let k = 0; k < 3; k++) nz(t + k*.011,'bandpass',6800,3,.28*v,.06);
+                       nz(t,'highpass',9000,.7,.16*v,.13); },
+    clap:  (t, v) => { for (let k = 0; k < 3; k++) nz(t + k*.009,'bandpass',1500,1,.6*v,.014);
+                       nz(t + .027,'bandpass',1400,.8,.5*v,.12); },
+    rim:   (t, v) => { tn(t,'triangle',1700,1650,.02,.4*v,.03); tn(t,'sine',820,800,.02,.35*v,.05); nz(t,'highpass',3000,.7,.25*v,.008); },
+    swish: (t, v) => { nz(t,'bandpass',3600,.6,.36*v,.14,.035); },
+    tick:  (t)    => { tn(t,'sine',1250,1250,0,.12,.03); },
+  };
+
+  // ---- state ----
+  let pattern = 0, playing = false, interval = 0, nextTime = 0, step = 0, timer = null;
+  let taps = [], tapCount = 0;
+  let syncMs = 0;
+  try { syncMs = +localStorage.getItem('snapr.sync') || 0; } catch (e) {}
+  const visQ = [];
+
+  function scheduler() {
+    const pat = PATTERNS[pattern];
+    const swingOff = ((pat.swing || 0.5) - 0.5) * interval;
+    while (nextTime < ctx.currentTime + LOOKAHEAD) {
+      const t = nextTime + (step % 4 === 2 ? swingOff : 0);
+      let hit = false;
+      for (const voice in pat.lanes) {
+        const v = VEL[pat.lanes[voice][step]];
+        if (v && t > ctx.currentTime) { VOICES[voice](t, v); hit = true; }
+      }
+      visQ.push({ t, step, hit });
+      nextTime += interval / 4;
+      step = (step + 1) % STEPS;
+    }
+  }
+  function start() {
+    playing = true;
+    clearInterval(timer); timer = setInterval(scheduler, TICK_MS);
+    scheduler(); render();
+  }
+  function stop() {
+    playing = false; clearInterval(timer); timer = null;
+    taps = []; tapCount = 0; visQ.length = 0;
+    if (ctx) newBus();
+    lightBeat(-1, ''); render();
+  }
+
+  // pt = performance.now()-based timestamp of the touch
+  function tap(pt) {
+    initAudio();
+    if (ctx.state !== 'running') ctx.resume();
+    const last = taps[taps.length - 1];
+    if (last !== undefined && pt - last < 80) return;              // double-fire guard
+    if (last !== undefined && pt - last > TAP_RESET_MS) { taps = []; tapCount = 0; }
+    taps.push(pt); if (taps.length > 5) taps.shift();
+    tapCount++;
+    const beat = (tapCount - 1) % 4;
+
+    if (taps.length >= 2) {
+      const iv = (taps[taps.length - 1] - taps[0]) / (taps.length - 1) / 1000;
+      if (iv >= MIN_IV && iv <= MAX_IV) interval = iv;
+    }
+    if (!playing) { VOICES.tick(ctx.currentTime); lightBeat(beat, 'soft'); }
+
+    if (tapCount >= TAPS_TO_START && interval && ctx.state === 'running') {
+      newBus(); visQ.length = 0;
+      nextTime = heardAt(pt + interval * 1000) + syncMs / 1000;
+      step = ((beat + 1) % 4) * 4;
+      while (nextTime < ctx.currentTime + 0.005) { nextTime += interval / 4; step = (step + 1) % STEPS; }
+      if (!playing) start(); else scheduler();
+    }
+    render();
+  }
+
+  function nudge(d) {
+    if (!interval) return;
+    const bpm = Math.min(260, Math.max(30, Math.round(60 / interval) + d));
+    interval = 60 / bpm; render();
+  }
+  function setSync(d) {
+    syncMs = Math.max(-200, Math.min(200, syncMs + d));
+    if (playing) nextTime += d / 1000;
+    try { localStorage.setItem('snapr.sync', syncMs); } catch (e) {}
+    render();
+  }
+
+  // ---- ui ----
+  const $ = id => document.getElementById(id);
+  const beatLeds = [...document.querySelectorAll('.beat .led')];
+  const foot = $('foot'), knob = $('knob'), dial = $('dial');
+
+  const ticks = PATTERNS.map((p, i) => {
+    const d = document.createElement('span'); d.className = 'tick';
+    const a = angleOf(i) * Math.PI / 180;
+    d.style.transform = `translate(${Math.sin(a) * 50 * dial.offsetWidth / 104}px, ${-Math.cos(a) * 50 * dial.offsetWidth / 104}px)`;
+    dial.appendChild(d); return d;
+  });
+  function placeTicks() {
+    const r = dial.offsetWidth * 0.47;
+    ticks.forEach((d, i) => { const a = angleOf(i) * Math.PI / 180;
+      d.style.transform = `translate(${Math.sin(a) * r}px, ${-Math.cos(a) * r}px)`; });
+  }
+  addEventListener('resize', placeTicks);
+
+  function setPattern(i) { pattern = ((i % N) + N) % N; render(); }
+
+  let beatTimer;
+  function lightBeat(b, cls) {
+    beatLeds.forEach((l, i) => l.className = 'led' + (i === b && cls ? ' ' + cls : ''));
+    clearTimeout(beatTimer);
+    if (b >= 0 && cls === 'on') beatTimer = setTimeout(() => beatLeds[b].className = 'led soft', 90);
+  }
+
+  function render() {
+    const bpmEl = $('bpm');
+    if (interval) { bpmEl.textContent = Math.round(60 / interval); bpmEl.classList.remove('empty'); }
+    else { bpmEl.textContent = '888'; bpmEl.classList.add('empty'); }
+    const p = PATTERNS[pattern];
+    $('pointer').style.transform = `rotate(${angleOf(pattern)}deg)`;
+    ticks.forEach((d, i) => d.classList.toggle('cur', i === pattern));
+    $('pname').textContent = p.name; $('desc').textContent = p.desc;
+    knob.setAttribute('aria-label', `Rhythm: ${p.name}. Activate for next rhythm.`);
+    $('syncv').textContent = (syncMs > 0 ? '+' : '') + syncMs + ' ms';
+    $('stop').disabled = !playing;
+    const counting = tapCount > 0 && tapCount < TAPS_TO_START;
+    $('hint').textContent =
+      counting ? `${tapCount} of 4…` :
+      playing ? 'Tap four again anytime to retime.' :
+      'Tap the switch on one, two, three, four. It comes in on the next one.';
+  }
+
+  function frame() {
+    if (ctx && playing) {
+      const heard = heardAt(performance.now());
+      while (visQ.length && visQ[0].t <= heard) {
+        const e = visQ.shift();
+        if (e.step % 4 === 0) lightBeat(e.step / 4, e.hit ? 'on' : 'soft');
+        else if (e.hit && e.step % 4 === 2) {           // flicker on the "and"
+          const cur = beatLeds.findIndex(l => l.className.includes('soft') || l.className.includes('on'));
+          if (cur >= 0) lightBeat(cur, 'on');
+        }
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // footswitch
+  const now = e => (e && e.timeStamp > 1e3 && e.timeStamp < performance.now() + 1000) ? e.timeStamp : performance.now();
+  foot.addEventListener('pointerdown', e => { e.preventDefault(); foot.classList.add('down'); tap(now(e)); });
+  const up = () => foot.classList.remove('down');
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(t =
