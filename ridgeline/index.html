@@ -27,11 +27,18 @@
     position:fixed; left:10px; bottom:8px; z-index:9; pointer-events:none;
     font:10px ui-monospace, Menlo, monospace; color:rgba(255,190,140,.30);
   }
+  #rdRideHint {
+    position:fixed; left:50%; bottom:22px; transform:translateX(-50%); z-index:9;
+    font:11px ui-monospace, Menlo, monospace; letter-spacing:.1em;
+    color:rgba(255,205,150,.6); pointer-events:none; opacity:0; transition:opacity 1.1s;
+  }
+  #rdRideHint.show { opacity:1; }
 </style>
 </head>
 <body>
 <canvas id="ridge"></canvas>
 <div id="rdHint">ctrl+` — panel</div>
+<div id="rdRideHint">tap · space — hop</div>
 <div id="rdPanel"><h4>ridgeline</h4></div>
 
 <script>
@@ -61,10 +68,10 @@
     ['grain',   'grain',         0, 1,   0.01]
   ];
   var DEFAULTS = {
-    glow:1.1, rim:1, trees:0.85, sunSize:2.35, sunDrop:-0.3, white:0.62,
+    glow:0.85, rim:0.7, trees:0.85, sunSize:2.35, sunDrop:-0.3, white:0.42,
     horizon:0.78, relief:1, spread:1,
-    lift:0.55, speed:0.50, density:1, drift:1, clouds:0.4, water:1,
-    birds:0.5, bob:1, vign:0.12, grain:0.28, paused:false
+    lift:0.55, speed:0.34, density:1, drift:0.6, clouds:0.4, water:1,
+    birds:0.5, bob:0.5, vign:0.12, grain:0.28, paused:false
   };
 
   var saved = {};
@@ -75,7 +82,7 @@
   /* ---------- canvas ---------- */
   var cv = document.getElementById('ridge');
   var ctx = cv.getContext('2d');
-  var W = 0, H = 0, dpr = 1, UNIT = 1;
+  var W = 0, H = 0, dpr = 1, UNIT = 1, G_ACCEL = 900;
 
   function resize() {
     dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -85,6 +92,7 @@
     cv.width  = Math.round(W * dpr);
     cv.height = Math.round(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    G_ACCEL = UNIT * 1.1;
     buildGrain();
   }
   window.addEventListener('resize', resize);
@@ -148,6 +156,62 @@
     birds.push({ x: Math.random(), y: 0.15 + Math.random() * 0.35, sp: 0.02 + Math.random() * 0.03, ph: Math.random() * 6.28 });
   }
 
+  /* ---------- silhouette BMX rider: autopilot, then hands off ---------- */
+  var ROAD_COLOR = BANDS[1].dark;   // same tone as the ridge it rides — no separate outline
+  var rideHint = document.getElementById('rdRideHint');
+  var RIDER = {
+    xf: 0.30, y: 0, vy: 0, air: false, airT: 0, rotDur: 0.4, rot: 0, flips: 1,
+    cooldown: 1.4, auto: true, autoHops: 0, autoMax: 5, handoff: false
+  };
+  function hop(big) {
+    var apex = UNIT * (big ? 0.095 : 0.05);
+    var v0 = Math.sqrt(2 * G_ACCEL * apex);
+    RIDER.vy = -v0;
+    RIDER.air = true;
+    RIDER.airT = 0;
+    RIDER.flips = big ? 2 : 1;
+    RIDER.rotDur = (2 * v0 / G_ACCEL) * 0.62;   // rotation finishes well before real ground contact
+    if (RIDER.handoff) rideHint.classList.remove('show');
+  }
+  cv.addEventListener('pointerdown', function () {
+    if (RIDER.handoff && !RIDER.air) hop(Math.random() < 0.25);
+  });
+  window.addEventListener('keydown', function (e) {
+    if (e.code === 'Space' && RIDER.handoff && !RIDER.air) { hop(Math.random() < 0.25); e.preventDefault(); }
+  });
+  function drawRider(px, y, rot) {
+    ctx.save();
+    ctx.translate(px, y);
+    ctx.rotate(rot);
+    var sz = UNIT * 0.06;
+    var wr = sz * 0.16, wx = sz * 0.42, wy = -sz * 0.16;   // pivot sits at the wheels' contact line, not the seat
+    var ink = ROAD_COLOR;
+    ctx.fillStyle = ink;
+    ctx.strokeStyle = ink;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    // wheels — flush with the ground line, same tone as the ridge so it's one silhouette
+    [-wx, wx].forEach(function (cx) {
+      ctx.beginPath(); ctx.arc(cx, wy, wr, 0, 6.2832); ctx.fill();
+    });
+    // frame + limbs
+    ctx.lineWidth = sz * 0.06;
+    ctx.beginPath();
+    ctx.moveTo(-wx, wy); ctx.lineTo(-sz * 0.06, -sz * 0.50);
+    ctx.lineTo(wx * 0.5, -sz * 0.58); ctx.lineTo(wx, wy);
+    ctx.moveTo(-sz * 0.06, -sz * 0.50); ctx.lineTo(sz * 0.10, wy);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.06, -sz * 0.50); ctx.lineTo(sz * 0.02, -sz * 0.32);
+    ctx.moveTo(-sz * 0.06, -sz * 0.50); ctx.lineTo(-sz * 0.10, -sz * 1.06);
+    ctx.lineTo(wx * 0.55, -sz * 0.82);
+    ctx.stroke();
+    // head
+    ctx.beginPath(); ctx.arc(-sz * 0.10, -sz * 1.18, sz * 0.13, 0, 6.2832);
+    ctx.fill();
+    ctx.restore();
+  }
+
   /* ---------- draw ---------- */
   function frame(now) {
     var dt = Math.min((now - last) / 1000, 0.05);
@@ -160,7 +224,7 @@
     var raw = 0.5 - 0.5 * Math.cos(t * 0.035 * C.drift);
     var u = Math.pow(raw, 1.8);
 
-    var bob = C.bob * (Math.sin(t * 0.9) * 2.4 + Math.sin(t * 2.37 + 1.1) * 1.1);
+    var bob = C.bob * Math.sin(t * 0.45) * 2.6;
     var horizonY = H * C.horizon + bob;
     var sunR = UNIT * 0.055 * C.sunSize;
     var sunX = W * 0.56;
@@ -225,6 +289,7 @@
     // --- bands ---
     var STEP = 3;
     var occl = [0, 0];
+    var frontBase = 0, frontAmp = 0, frontS = 0;
 
     for (var b = 0; b < BANDS.length; b++) {
       var B = BANDS[b];
@@ -234,6 +299,7 @@
       var base = horizonY + UNIT * (b === 0 ? 0.005 : 0.075) * (1 - C.lift * 0.55) + UNIT * 0.02;
       var amp  = UNIT * B.relief * C.relief;
       var s    = C.density / C.spread;
+      if (b === 1) { frontBase = base; frontAmp = amp; frontS = s; }
 
       // build silhouette
       var pts = [], minY = 1e9, minX = 0;
@@ -343,6 +409,38 @@
       ctx.fillStyle = bg;
       ctx.fill();
     }
+
+    // --- silhouette BMX rider ---
+    var riderPx = W * RIDER.xf;
+    var wxr = (BANDS[1].x + riderPx) * BANDS[1].scroll * 0.006;
+    var groundYr = frontBase - profile(wxr, BANDS[1].seed, frontS) * frontAmp;
+    if (!isFinite(groundYr)) groundYr = frontBase;
+
+    if (!C.paused) {
+      if (!RIDER.air) {
+        RIDER.y = groundYr;
+        if (RIDER.auto) {
+          RIDER.cooldown -= dt;
+          if (RIDER.cooldown <= 0) hop(RIDER.autoHops === RIDER.autoMax - 1);
+        }
+      } else {
+        RIDER.airT += dt;
+        RIDER.vy += G_ACCEL * dt;
+        RIDER.y += RIDER.vy * dt;
+        var ease = Math.min(1, RIDER.airT / RIDER.rotDur);
+        ease = ease * ease * (3 - 2 * ease);
+        RIDER.rot = RIDER.flips * 6.2832 * ease;
+        if (RIDER.y >= groundYr) {
+          RIDER.y = groundYr; RIDER.air = false; RIDER.vy = 0; RIDER.rot = 0;
+          if (RIDER.auto) {
+            RIDER.autoHops++;
+            RIDER.cooldown = 1.0 + Math.random() * 0.8;
+            if (RIDER.autoHops >= RIDER.autoMax) { RIDER.auto = false; RIDER.handoff = true; rideHint.classList.add('show'); }
+          }
+        }
+      }
+    }
+    drawRider(riderPx, RIDER.y, RIDER.air ? RIDER.rot : 0);
 
     // --- birds ---
     if (C.birds > 0.01) {
