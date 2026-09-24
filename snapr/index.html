@@ -157,6 +157,11 @@ footer{display:flex;align-items:center;gap:14px;min-height:44px}
 
 <script>
 (() => {
+  // on-screen error trap for phone debugging
+  const showErr = e => { const h = document.getElementById('hint'); if (h) h.textContent = 'Error: ' + (e && e.message || e); };
+  addEventListener('error', e => showErr(e.error || e.message));
+  addEventListener('unhandledrejection', e => showErr(e.reason));
+
   // ---- tunables ----
   const STEPS = 16;             // sixteenths per bar of 4
   const TAPS_TO_START = 4;
@@ -198,6 +203,7 @@ footer{display:flex;align-items:center;gap:14px;min-height:44px}
   function initAudio() {
     if (ctx) return;
     ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+    ctx.onstatechange = () => render();
     const comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -12; comp.ratio.value = 4;
     master = ctx.createGain(); master.gain.value = 0.9;
@@ -208,6 +214,17 @@ footer{display:flex;align-items:center;gap:14px;min-height:44px}
     const d = noise.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
   }
+  // Phones only count touch *release* (not touch-down) as permission to play sound,
+  // and in-app viewers can be stricter still — so unlock on every release-type event.
+  function unlock() {
+    initAudio();
+    if (ctx.state !== 'running') ctx.resume().catch(() => {});
+    const b = ctx.createBufferSource(); b.buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
+    b.connect(ctx.destination); b.start(0);
+  }
+  ['pointerup', 'touchend', 'click', 'keydown'].forEach(t =>
+    addEventListener(t, unlock, { capture: true, passive: true }));
+
   function newBus() {
     if (bus) bus.gain.setTargetAtTime(0, ctx.currentTime, 0.006);
     bus = ctx.createGain(); bus.connect(master);
@@ -216,10 +233,13 @@ footer{display:flex;align-items:center;gap:14px;min-height:44px}
 
   // Map a performance.now() moment to the audio-clock time that is *heard* at that moment
   function heardAt(p) {
+    const simple = ctx.currentTime - latency() + (p - performance.now()) / 1000;
     const ts = ctx.getOutputTimestamp ? ctx.getOutputTimestamp() : null;
-    if (ts && ts.contextTime > 0 && ts.performanceTime > 0)
-      return ts.contextTime + (p - ts.performanceTime) / 1000;
-    return ctx.currentTime - latency() + (p - performance.now()) / 1000;
+    if (ts && ts.contextTime > 0 && ts.performanceTime > 0) {
+      const precise = ts.contextTime + (p - ts.performanceTime) / 1000;
+      if (Math.abs(precise - simple) < 0.25) return precise;   // some phones report junk here
+    }
+    return simple;
   }
 
   function env(t, peak, decay, att = 0.002) {
@@ -308,12 +328,18 @@ footer{display:flex;align-items:center;gap:14px;min-height:44px}
     }
     if (!playing) { VOICES.tick(ctx.currentTime); lightBeat(beat, 'soft'); }
 
-    if (tapCount >= TAPS_TO_START && interval && ctx.state === 'running') {
-      newBus(); visQ.length = 0;
-      nextTime = heardAt(pt + interval * 1000) + syncMs / 1000;
-      step = ((beat + 1) % 4) * 4;
-      while (nextTime < ctx.currentTime + 0.005) { nextTime += interval / 4; step = (step + 1) % STEPS; }
-      if (!playing) start(); else scheduler();
+    if (tapCount >= TAPS_TO_START && interval) {
+      const go = () => {
+        newBus(); visQ.length = 0;
+        nextTime = heardAt(pt + interval * 1000) + syncMs / 1000;
+        step = ((beat + 1) % 4) * 4;
+        if (!(nextTime > ctx.currentTime - 2 && nextTime < ctx.currentTime + 3))  // clock sanity
+          nextTime = ctx.currentTime + 0.05;
+        while (nextTime < ctx.currentTime + 0.005) { nextTime += interval / 4; step = (step + 1) % STEPS; }
+        if (!playing) start(); else scheduler();
+      };
+      if (ctx.state === 'running') go();
+      else ctx.resume().then(go).catch(showErr);   // phone audio can take a moment to wake up
     }
     render();
   }
@@ -369,7 +395,9 @@ footer{display:flex;align-items:center;gap:14px;min-height:44px}
     $('syncv').textContent = (syncMs > 0 ? '+' : '') + syncMs + ' ms';
     $('stop').disabled = !playing;
     const counting = tapCount > 0 && tapCount < TAPS_TO_START;
+    const muted = ctx && ctx.state !== 'running' && tapCount > 0;
     $('hint').textContent =
+      muted ? 'Sound is still asleep. Tap once more to wake it.' :
       counting ? `${tapCount} of 4…` :
       playing ? 'Tap four again anytime to retime.' :
       'Tap the switch on one, two, three, four. It comes in on the next one.';
@@ -394,4 +422,43 @@ footer{display:flex;align-items:center;gap:14px;min-height:44px}
   const now = e => (e && e.timeStamp > 1e3 && e.timeStamp < performance.now() + 1000) ? e.timeStamp : performance.now();
   foot.addEventListener('pointerdown', e => { e.preventDefault(); foot.classList.add('down'); tap(now(e)); });
   const up = () => foot.classList.remove('down');
-  ['pointerup', 'pointerleave', 'pointercancel'].forEach(t =
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(t => foot.addEventListener(t, up));
+  foot.addEventListener('click', e => { if (e.detail === 0) tap(performance.now()); });
+
+  // knob: tap to advance, or drag to turn
+  let drag = null, dragged = false;
+  knob.addEventListener('pointerdown', e => { drag = e.pointerId; dragged = false; knob.setPointerCapture(e.pointerId); });
+  knob.addEventListener('pointermove', e => {
+    if (drag !== e.pointerId) return;
+    const r = dial.getBoundingClientRect();
+    const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+    if (Math.hypot(dx, dy) < 14) return;
+    const a = Math.max(-135, Math.min(135, Math.atan2(dx, -dy) * 180 / Math.PI));
+    const i = Math.round((a + 135) / (270 / (N - 1)));
+    if (i !== pattern) { dragged = true; setPattern(i); }
+  });
+  knob.addEventListener('pointerup', () => { drag = null; });
+  knob.addEventListener('pointercancel', () => { drag = null; });
+  knob.addEventListener('click', () => { if (dragged) { dragged = false; return; } setPattern(pattern + 1); });
+
+  $('prev').addEventListener('click', () => setPattern(pattern - 1));
+  $('next').addEventListener('click', () => setPattern(pattern + 1));
+  $('stop').addEventListener('click', stop);
+  $('slower').addEventListener('click', () => nudge(-1));
+  $('faster').addEventListener('click', () => nudge(1));
+  $('earlier').addEventListener('click', () => setSync(-10));
+  $('later').addEventListener('click', () => setSync(10));
+
+  addEventListener('keydown', e => {
+    if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) { foot.classList.add('down'); tap(now(e)); } }
+    else if (e.code === 'Escape') stop();
+    else if (e.code === 'ArrowRight') setPattern(pattern + 1);
+    else if (e.code === 'ArrowLeft') setPattern(pattern - 1);
+  });
+  addEventListener('keyup', e => { if (e.code === 'Space') up(); });
+
+  placeTicks(); render(); requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
