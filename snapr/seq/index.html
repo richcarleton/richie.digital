@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>snapr seq</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:ital,wght@0,500;0,700;1,800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root{
+  --floor:#d9dbdd; --floor-2:#b9bcc0;
+  --metal-top:#a9b9cc; --metal-mid:#bcc5cf; --metal-bot:#c9ccd0; --metal-edge:#6f7c8c;
+  --ink:#1f2b39; --ink-dim:rgba(31,43,57,.62);
+  --rubber:#2c3036; --rubber-hi:#3d434b; --rubber-txt:#e4e8ec;
+  --tap:#c4452f; --tap-hi:#dd5b43; --tap-lo:#8e2c1d;
+  --lcd:#bfc8ae; --lcd-ink:#1b231c; --lcd-ghost:rgba(27,35,28,.08);
+  --led:#ff3b2a;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --floor:#26282c; --floor-2:#141517; } }
+:root[data-theme="dark"]{ --floor:#26282c; --floor-2:#141517; }
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%;margin:0}
+body{
+  background:var(--floor-2) radial-gradient(ellipse 80% 70% at 50% 35%, var(--floor), var(--floor-2));
+  display:grid; place-items:center; overflow:hidden;
+  font-family:"Barlow Semi Condensed","Arial Narrow",Arial,sans-serif; font-weight:500;
+  color:var(--ink); user-select:none; -webkit-user-select:none;
+  -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:3px;border-radius:10px}
+
+/* brushed metal body */
+.unit{
+  position:relative; width:min(92vw,390px); height:min(calc(100% - 20px),720px);
+  display:flex; flex-direction:column; gap:clamp(8px,1.5vh,14px);
+  padding:clamp(14px,2.2vh,20px) 20px clamp(16px,2.4vh,22px);
+  border-radius:26px;
+  background:
+    repeating-linear-gradient(90deg, rgba(255,255,255,.07) 0 1px, rgba(0,0,0,.035) 1px 2px, transparent 2px 4px),
+    linear-gradient(172deg, var(--metal-top), var(--metal-mid) 45%, var(--metal-bot));
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,.65), inset 0 -3px 0 rgba(0,0,0,.18),
+    inset 0 0 0 1px rgba(255,255,255,.25),
+    0 3px 0 var(--metal-edge), 0 20px 32px rgba(0,0,0,.35);
+}
+header{display:flex;align-items:center;justify-content:space-between;padding:0 4px}
+.brand{margin:0;font:italic 800 clamp(24px,4vh,30px)/1 "Barlow Semi Condensed",sans-serif;letter-spacing:.02em}
+.brand small{white-space:nowrap;font:700 11px/1 "Barlow Semi Condensed",sans-serif;letter-spacing:.14em;color:var(--ink-dim);margin-left:8px;font-style:normal}
+.led{width:12px;height:12px;border-radius:50%;background:#5a1f18;
+  box-shadow:inset 0 -2px 2px rgba(0,0,0,.45),0 0 0 2px rgba(0,0,0,.25),0 1px 0 3px rgba(255,255,255,.35)}
+.led.on{background:var(--led);box-shadow:inset 0 -2px 2px rgba(0,0,0,.2),0 0 0 2px rgba(0,0,0,.25),0 0 12px 4px rgba(255,59,42,.6)}
+
+/* LCD */
+.bezel{border-radius:12px;padding:7px;background:linear-gradient(#27303b,#3a4552);
+  box-shadow:inset 0 2px 4px rgba(0,0,0,.6),0 1px 0 rgba(255,255,255,.6)}
+.lcd{position:relative;border-radius:6px;padding:8px 12px 10px;color:var(--lcd-ink);
+  background:linear-gradient(170deg,#c9d2b8,var(--lcd) 60%,#b3bca2);
+  box-shadow:inset 0 3px 6px rgba(0,0,0,.28);
+  font-family:"Share Tech Mono",ui-monospace,monospace}
+.lcd-top{display:flex;justify-content:space-between;align-items:baseline;font-size:15px}
+.lcd-top b{font-weight:400;font-size:17px}
+.lcd-mid{position:relative;display:flex;justify-content:center;align-items:baseline;gap:8px;margin:2px 0 4px}
+.digits{position:relative;font-size:clamp(46px,8.4vh,66px);line-height:1;letter-spacing:.04em}
+.digits .ghost{position:absolute;inset:0;color:var(--lcd-ghost)}
+.digits .val{position:relative;white-space:pre}
+.lcd-mid .u{font-size:15px}
+.beatsegs{display:flex;gap:8px}
+.seg{flex:1;height:9px;border-radius:2px;background:var(--lcd-ghost)}
+.seg.soft{background:rgba(27,35,28,.55)}
+.seg.on{background:var(--lcd-ink);height:9px;box-shadow:0 0 0 1px var(--lcd-ink)}
+
+/* rubber keys */
+.key{height:44px;border-radius:12px;background:linear-gradient(var(--rubber-hi),var(--rubber));color:var(--rubber-txt);
+  font-weight:700;font-size:17px;box-shadow:0 3px 0 #15171a,0 5px 8px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.12)}
+.key:not(:disabled):active{transform:translateY(3px);box-shadow:0 0 0 #15171a,0 2px 3px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.1)}
+.key:disabled{opacity:.4;cursor:default}
+.row{display:flex;gap:10px;align-items:center}
+.row .key{flex:1}
+.label{font-size:12px;font-weight:700;letter-spacing:.14em;color:var(--ink-dim);text-align:center;margin:0 0 -4px}
+
+
+/* voices */
+.voices{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}
+.voice{position:relative;height:clamp(36px,5.6vh,42px);font-size:15px;border-radius:10px;padding-top:6px}
+.voice .vl{position:absolute;top:5px;left:50%;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:#4d1f19}
+.voice .vl.on{background:var(--led);box-shadow:0 0 6px 2px rgba(255,59,42,.6)}
+.voice .vl.has{background:#8a3526}
+.voice[aria-pressed="true"]{background:linear-gradient(#d6dec6,var(--lcd));color:var(--lcd-ink);
+  box-shadow:0 3px 0 #7d8570,0 5px 8px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.4)}
+
+/* TR step keys */
+.steps{display:grid;grid-template-columns:repeat(8,1fr);gap:clamp(8px,1.6vh,12px) 6px}
+.step{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px}
+.sled{width:8px;height:8px;border-radius:50%;background:#4d1f19;box-shadow:inset 0 -1px 1px rgba(0,0,0,.4)}
+.sled[data-v="1"]{background:#9a3120}
+.sled[data-v="2"]{background:#d83a26}
+.sled[data-v="3"]{background:var(--led);box-shadow:0 0 6px 1px rgba(255,59,42,.55)}
+.sled.head{background:#ffe2d6;box-shadow:0 0 9px 3px rgba(255,120,90,.8)}
+.skey{width:100%;height:clamp(38px,6vh,48px);border-radius:7px;
+  box-shadow:0 3px 0 rgba(0,0,0,.35),0 5px 7px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.35)}
+.skey:active{transform:translateY(3px);box-shadow:0 0 0 rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.25)}
+.g0 .skey{background:linear-gradient(#e2614a,#c9402a)}
+.g1 .skey{background:linear-gradient(#f09a4c,#dc7a28)}
+.g2 .skey{background:linear-gradient(#f2d45e,#e2b834)}
+.g3 .skey{background:linear-gradient(#f7f3e9,#e2dccd)}
+.snum{position:absolute;bottom:4px;font-size:11px;font-weight:700;color:rgba(0,0,0,.45);pointer-events:none}
+
+.row.four .key{font-size:15px}
+.transport .key{height:clamp(50px,8vh,60px);font-size:19px}
+.transport .play{background:linear-gradient(#e7ecf1,#b7c1cc);color:var(--ink);box-shadow:0 3px 0 #6f7c8c,0 5px 8px rgba(0,0,0,.25),inset 0 1px 0 #fff}
+.transport .tapk{background:linear-gradient(var(--tap-hi),var(--tap));color:#fff3ef;font-style:italic;font-weight:800;
+  box-shadow:0 4px 0 var(--tap-lo),0 6px 10px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.3)}
+.back{font-size:13px;font-weight:700;color:var(--ink-dim);text-decoration:none;letter-spacing:.06em}
+
+.sheet{position:fixed;inset:0;display:none;place-items:center;background:rgba(10,14,20,.55);z-index:5;padding:20px}
+.sheet.open{display:grid}
+.sheet .card{width:min(92vw,380px);border-radius:16px;padding:16px;background:linear-gradient(172deg,var(--metal-top),var(--metal-bot));
+  box-shadow:0 20px 40px rgba(0,0,0,.4);display:flex;flex-direction:column;gap:10px}
+.sheet textarea{width:100%;height:160px;resize:none;border:0;border-radius:8px;padding:10px;
+  font:13px/1.4 "Share Tech Mono",ui-monospace,monospace;color:var(--lcd-ink);background:var(--lcd);box-shadow:inset 0 2px 5px rgba(0,0,0,.3)}
+.sheet p{margin:0;font-size:15px}
+</style>
+</head>
+<body>
+<main class="unit">
+  <header>
+    <p class="brand">snapr<small>SEQUENCER</small></p>
+    <div style="display:flex;align-items:center;gap:14px">
+      <a class="back" href="../">metronome</a>
+      <div class="led" id="led" aria-hidden="true"></div>
+    </div>
+  </header>
+
+  <div class="bezel">
+    <div class="lcd" aria-live="polite">
+      <div class="lcd-top"><b id="pname"></b><span id="swingv"></span></div>
+      <div class="lcd-mid">
+        <div class="digits"><span class="ghost" aria-hidden="true">888</span><span class="val" id="bpm"></span></div>
+        <span class="u">BPM</span>
+      </div>
+      <div class="beatsegs" id="pos" aria-hidden="true"></div>
+    </div>
+  </div>
+
+  <div class="voices" id="voices" role="group" aria-label="Instrument"></div>
+  <div class="steps" id="steps" role="group" aria-label="Steps"></div>
+
+  <div class="row four">
+    <button class="key" id="slower">bpm −</button>
+    <button class="key" id="faster">bpm +</button>
+    <button class="key" id="swdown">swing −</button>
+    <button class="key" id="swup">swing +</button>
+  </div>
+  <div class="row four">
+    <button class="key" id="prev" aria-label="Previous preset">‹ preset</button>
+    <button class="key" id="next" aria-label="Next preset">preset ›</button>
+    <button class="key" id="clear">clear</button>
+    <button class="key" id="copy">copy</button>
+  </div>
+  <div class="row transport">
+    <button class="key play" id="play">play</button>
+    <button class="key tapk" id="tap">tap</button>
+  </div>
+</main>
+
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Pattern code">
+  <div class="card">
+    <p id="sheetmsg">Paste this into the PATTERNS list in snapr.</p>
+    <textarea id="code" readonly></textarea>
+    <button class="key" id="closesheet">done</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const showErr = e => { const n = document.getElementById('pname'); if (n) n.textContent = 'ERR ' + (e && e.message || e); };
+  addEventListener('error', e => showErr(e.error || e.message));
+  addEventListener('unhandledrejection', e => showErr(e.reason));
+
+  const LOOKAHEAD = 0.12, TICK_MS = 25, TAP_RESET_MS = 2000;
+  const MIN_IV = 60 / 260, MAX_IV = 60 / 30;
+  const CH = '.oxX', VEL = [0, 0.4, 0.7, 1];
+  const VOICE_LIST = [['kick','kick'],['stomp','stomp'],['snap','snap'],['clap','clap'],['slap','slap'],
+                      ['rim','rim'],['hat','hat'],['shake','shaker'],['tamb','tamb'],['swish','brush']];
+
+  const PATTERNS = [
+    { name: 'thumb',       desc: 'snap on two and four',
+      lanes: { snap:  '....X.......X...' } },
+    { name: 'kick',        desc: 'bass drum on one and three',
+      lanes: { kick:  'X.......X.......' } },
+    { name: 'stomp slap',  desc: 'foot on one and three, table on two and four',
+      lanes: { stomp: 'X.......X.......', slap: '....X.......X...' } },
+    { name: 'four',        desc: 'bass drum on every beat',
+      lanes: { kick:  'X...X...X...X...' } },
+    { name: 'stomp stomp', desc: 'stomp stomp slap, twice a bar',
+      lanes: { stomp: 'X.x.....X.x.....', slap: '....X.......X...' } },
+    { name: 'shaker',      desc: 'egg shaker sixteenths, pushed on the ands',
+      lanes: { shake: 'oxXxoxXxoxXxoxXx' } },
+    { name: 'tambourine',  desc: 'eighths, leaning on two and four',
+      lanes: { tamb:  'o.o.X.o.o.o.X.o.' } },
+    { name: 'clap hat',    desc: 'clap on two and four over a light hat',
+      lanes: { hat: 'x.o.x.o.x.o.x.o.', clap: '....X.......X...', kick: 'o.......o.......' } },
+    { name: 'shuffle',     desc: 'swung hat, rim click on two and four', swing: 0.66,
+      lanes: { hat: 'x.o.x.o.x.o.x.o.', rim: '....X.......X...', kick: 'o.......o.......' } },
+    { name: 'brushes',     desc: 'swung brush swishes, easy jazz', swing: 0.66,
+      lanes: { swish: 'o.o.x.o.o.o.x.o.', kick: 'o.......o.......' } },
+    { name: 'bossa',       desc: 'rim clave with a soft dotted kick',
+      lanes: { rim: 'x..x..x...x..x..', kick: 'o..oo..oo..oo..o', shake: 'o.o.o.o.o.o.o.o.' } },
+  ];
+
+  // ---- audio ----
+  let ctx, master, bus, noise;
+  function initAudio() {
+    if (ctx) return;
+    ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+    ctx.onstatechange = () => render();
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -12; comp.ratio.value = 4;
+    master = ctx.createGain(); master.gain.value = 0.9;
+    master.connect(comp); comp.connect(ctx.destination);
+    newBus();
+    const len = Math.floor(ctx.sampleRate * 0.5);
+    noise = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = noise.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  }
+  // Phones only count touch *release* (not touch-down) as permission to play sound,
+  // and in-app viewers can be stricter still — so unlock on every release-type event.
+  function unlock() {
+    initAudio();
+    if (ctx.state !== 'running') ctx.resume().catch(() => {});
+    const b = ctx.createBufferSource(); b.buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
+    b.connect(ctx.destination); b.start(0);
+  }
+  ['pointerup', 'touchend', 'click', 'keydown'].forEach(t =>
+    addEventListener(t, unlock, { capture: true, passive: true }));
+
+  function newBus() {
+    if (bus) bus.gain.setTargetAtTime(0, ctx.currentTime, 0.006);
+    bus = ctx.createGain(); bus.connect(master);
+  }
+  const latency = () => (ctx && (ctx.outputLatency || ctx.baseLatency)) || 0;
+
+  // Map a performance.now() moment to the audio-clock time that is *heard* at that moment
+  function heardAt(p) {
+    const simple = ctx.currentTime - latency() + (p - performance.now()) / 1000;
+    const ts = ctx.getOutputTimestamp ? ctx.getOutputTimestamp() : null;
+    if (ts && ts.contextTime > 0 && ts.performanceTime > 0) {
+      const precise = ts.contextTime + (p - ts.performanceTime) / 1000;
+      if (Math.abs(precise - simple) < 0.25) return precise;   // some phones report junk here
+    }
+    return simple;
+  }
+
+  function env(t, peak, decay, att = 0.002) {
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(Math.max(peak, 0.0002), t + att);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + att + decay);
+    g.connect(bus); return g;
+  }
+  function nz(t, type, freq, q, peak, decay, att) {
+    const s = ctx.createBufferSource(); s.buffer = noise;
+    const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
+    s.connect(f); f.connect(env(t, peak, decay, att));
+    s.start(t, Math.random() * 0.25); s.stop(t + (att || 0.002) + decay + 0.02);
+  }
+  function tn(t, type, f0, f1, sweep, peak, decay) {
+    const o = ctx.createOscillator(); o.type = type;
+    o.frequency.setValueAtTime(f0, t);
+    if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + sweep);
+    o.connect(env(t, peak, decay)); o.start(t); o.stop(t + decay + 0.03);
+  }
+  const VOICES = {
+    snap:  (t, v) => { nz(t,'bandpass',2600,1.8,.9*v,.055); nz(t,'highpass',5000,.7,.35*v,.012); tn(t,'sine',1900,1200,.02,.12*v,.03); },
+    kick:  (t, v) => { tn(t,'sine',150,46,.12,1*v,.42); nz(t,'lowpass',1800,.7,.22*v,.012); },
+    stomp: (t, v) => { tn(t,'sine',100,40,.07,.85*v,.26); nz(t,'lowpass',420,.8,.7*v,.09); },
+    slap:  (t, v) => { nz(t,'bandpass',1150,.9,.85*v,.13); nz(t,'highpass',3200,.7,.4*v,.025); tn(t,'triangle',210,160,.06,.35*v,.09); },
+    shake: (t, v) => { nz(t,'highpass',6000,.7,.4*v,.055,.012); },
+    hat:   (t, v) => { nz(t,'highpass',7500,.8,.32*v,.035); nz(t,'bandpass',10000,1.5,.15*v,.02); },
+    tamb:  (t, v) => { for (let k = 0; k < 3; k++) nz(t + k*.011,'bandpass',6800,3,.28*v,.06);
+                       nz(t,'highpass',9000,.7,.16*v,.13); },
+    clap:  (t, v) => { for (let k = 0; k < 3; k++) nz(t + k*.009,'bandpass',1500,1,.6*v,.014);
+                       nz(t + .027,'bandpass',1400,.8,.5*v,.12); },
+    rim:   (t, v) => { tn(t,'triangle',1700,1650,.02,.4*v,.03); tn(t,'sine',820,800,.02,.35*v,.05); nz(t,'highpass',3000,.7,.25*v,.008); },
+    swish: (t, v) => { nz(t,'bandpass',3600,.6,.36*v,.14,.035); },
+    tick:  (t)    => { tn(t,'sine',1250,1250,0,.12,.03); },
+  };
+
+
+  // ---- state ----
+  const emptyGrid = () => Object.fromEntries(VOICE_LIST.map(([v]) => [v, new Array(16).fill(0)]));
+  let grid = emptyGrid(), sel = 'kick', swing = 0.5, interval = 0.5, name = '', edited = false, preset = 0;
+  let playing = false, timer = null, nextTime = 0, step = 0, head = -1;
+  let taps = [], tapCount = 0;
+  const visQ = [];
+
+  function save() {
+    try { localStorage.setItem('snapr.seq', JSON.stringify({ grid, sel, swing, bpm: 60 / interval, name, edited, preset })); } catch (e) {}
+  }
+  function restore() {
+    try {
+      const d = JSON.parse(localStorage.getItem('snapr.seq'));
+      if (!d || !d.grid) return false;
+      grid = emptyGrid(); for (const v in d.grid) if (grid[v]) grid[v] = d.grid[v].slice(0, 16);
+      sel = d.sel || 'kick'; swing = d.swing || 0.5; interval = 60 / (d.bpm || 120);
+      name = d.name || ''; edited = !!d.edited; preset = d.preset || 0; return true;
+    } catch (e) { return false; }
+  }
+  function loadPreset(i) {
+    preset = ((i % PATTERNS.length) + PATTERNS.length) % PATTERNS.length;
+    const p = PATTERNS[preset];
+    grid = emptyGrid();
+    for (const v in p.lanes) if (grid[v]) grid[v] = [...p.lanes[v]].map(c => Math.max(0, CH.indexOf(c)));
+    swing = p.swing || 0.5; name = p.name; edited = false;
+    sel = Object.keys(p.lanes)[0];
+    save(); render();
+  }
+
+  function scheduler() {
+    const sOff = (swing - 0.5) * interval;
+    while (nextTime < ctx.currentTime + LOOKAHEAD) {
+      const t = nextTime + (step % 4 === 2 ? sOff : 0);
+      const hits = [];
+      for (const [v] of VOICE_LIST) {
+        const l = grid[v][step];
+        if (l && t > ctx.currentTime) { VOICES[v](t, VEL[l]); hits.push(v); }
+      }
+      visQ.push({ t, step, hits });
+      nextTime += interval / 4;
+      step = (step + 1) % 16;
+    }
+  }
+  function run(firstTime, firstStep) {
+    newBus(); visQ.length = 0;
+    nextTime = firstTime; step = firstStep;
+    while (nextTime < ctx.currentTime + 0.005) { nextTime += interval / 4; step = (step + 1) % 16; }
+    playing = true; clearInterval(timer); timer = setInterval(scheduler, TICK_MS); scheduler(); render();
+  }
+  function play() {
+    initAudio();
+    const go = () => run(ctx.currentTime + 0.06, 0);
+    if (ctx.state === 'running') go(); else ctx.resume().then(go).catch(showErr);
+  }
+  function stop() {
+    playing = false; clearInterval(timer); timer = null; visQ.length = 0; head = -1;
+    taps = []; tapCount = 0;
+    if (ctx) newBus();
+    render();
+  }
+
+  function tap(pt) {
+    initAudio();
+    const last = taps[taps.length - 1];
+    if (last !== undefined && pt - last < 80) return;
+    if (last !== undefined && pt - last > TAP_RESET_MS) { taps = []; tapCount = 0; }
+    taps.push(pt); if (taps.length > 5) taps.shift();
+    tapCount++;
+    const beat = (tapCount - 1) % 4;
+    if (taps.length >= 2) {
+      const iv = (taps[taps.length - 1] - taps[0]) / (taps.length - 1) / 1000;
+      if (iv >= MIN_IV && iv <= MAX_IV) interval = iv;
+    }
+    if (!playing && ctx.state === 'running') VOICES.tick(ctx.currentTime);
+    if (tapCount >= 4) {
+      const go = () => {
+        let t = heardAt(pt + interval * 1000);
+        if (!(t > ctx.currentTime - 2 && t < ctx.currentTime + 3)) t = ctx.currentTime + 0.05;
+        run(t, ((beat + 1) % 4) * 4);
+      };
+      if (ctx.state === 'running') go(); else ctx.resume().then(go).catch(showErr);
+    }
+    save(); render();
+  }
+
+  // ---- ui ----
+  const $ = id => document.getElementById(id);
+  const voicesEl = $('voices'), stepsEl = $('steps'), posEl = $('pos'), topLed = $('led');
+
+  const vKeys = {}, vLeds = {};
+  VOICE_LIST.forEach(([v, label]) => {
+    const b = document.createElement('button');
+    b.className = 'key voice'; b.innerHTML = `<span class="vl"></span>${label}`;
+    b.addEventListener('click', () => { sel = v; save(); render(); });
+    voicesEl.appendChild(b); vKeys[v] = b; vLeds[v] = b.querySelector('.vl');
+  });
+  const sLeds = [], posSegs = [];
+  for (let i = 0; i < 16; i++) {
+    const w = document.createElement('div'); w.className = 'step g' + Math.floor(i / 4);
+    w.innerHTML = `<span class="sled"></span><button class="skey" aria-label="Step ${i + 1}"></button><span class="snum">${i + 1}</span>`;
+    w.querySelector('.skey').addEventListener('click', () => {
+      const cur = grid[sel][i];
+      grid[sel][i] = cur === 0 ? 3 : cur - 1;          // off → loud → medium → soft → off
+      if (!edited) { edited = true; name = name ? name + ' *' : 'custom'; }
+      save(); render();
+    });
+    stepsEl.appendChild(w); sLeds.push(w.querySelector('.sled'));
+    const seg = document.createElement('span'); seg.className = 'seg'; posEl.appendChild(seg); posSegs.push(seg);
+  }
+  posEl.style.gap = '3px';
+
+  function render() {
+    $('bpm').textContent = String(Math.round(60 / interval)).padStart(3, ' ');
+    $('pname').textContent = name || 'custom';
+    $('swingv').textContent = 'swing ' + Math.round(swing * 100) + '%';
+    for (const [v] of VOICE_LIST) {
+      vKeys[v].setAttribute('aria-pressed', v === sel);
+      vLeds[v].classList.toggle('has', grid[v].some(x => x));
+    }
+    sLeds.forEach((l, i) => { l.dataset.v = grid[sel][i]; l.classList.toggle('head', i === head); });
+    posSegs.forEach((s, i) => s.className = 'seg' + (i === head ? ' on' : (i % 4 === 0 ? ' soft' : '')));
+    $('play').textContent = playing ? 'stop' : 'play';
+    if (typeof VOICES === 'undefined') return;
+  }
+
+  const flashT = {};
+  function flash(el, key) {
+    el.classList.add('on'); clearTimeout(flashT[key]);
+    flashT[key] = setTimeout(() => el.classList.remove('on'), 70);
+  }
+  function frame() {
+    if (ctx && playing) {
+      const heard = heardAt(performance.now());
+      let moved = false;
+      while (visQ.length && visQ[0].t <= heard) {
+        const e = visQ.shift(); head = e.step; moved = true;
+        e.hits.forEach(v => flash(vLeds[v], v));
+        if (e.hits.length) flash(topLed, 'top');
+      }
+      if (moved) {
+        sLeds.forEach((l, i) => l.classList.toggle('head', i === head));
+        posSegs.forEach((s, i) => s.className = 'seg' + (i === head ? ' on' : (i % 4 === 0 ? ' soft' : '')));
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function codeString() {
+    const lanes = VOICE_LIST.filter(([v]) => grid[v].some(x => x))
+      .map(([v]) => `${v}: '${grid[v].map(x => CH[x]).join('')}'`);
+    const nm = (name || 'custom').replace(/ \*$/, '').replace(/'/g, '');
+    return `{ name: '${nm}', desc: '',${swing !== 0.5 ? ' swing: ' + swing.toFixed(2) + ',' : ''}\n  lanes: { ${lanes.join(', ')} } },`;
+  }
+  $('copy').addEventListener('click', async () => {
+    const code = codeString(); $('code').value = code;
+    let ok = false;
+    try { await navigator.clipboard.writeText(code); ok = true; } catch (e) {}
+    $('sheetmsg').textContent = ok ? 'Copied. Paste it into the PATTERNS list in snapr.' : 'Select and copy this, then paste it into the PATTERNS list in snapr.';
+    $('sheet').classList.add('open'); $('code').focus(); $('code').select();
+  });
+  $('closesheet').addEventListener('click', () => $('sheet').classList.remove('open'));
+
+  $('play').addEventListener('click', () => playing ? stop() : play());
+  const ts = e => (e && e.timeStamp > 1e3 && e.timeStamp < performance.now() + 1000) ? e.timeStamp : performance.now();
+  const tapEl = $('tap');
+  tapEl.addEventListener('pointerdown', e => { e.preventDefault(); tap(ts(e)); });
+  tapEl.addEventListener('click', e => { if (e.detail === 0) tap(performance.now()); });
+  const bpmBy = d => { interval = 60 / Math.min(260, Math.max(30, Math.round(60 / interval) + d)); save(); render(); };
+  $('slower').addEventListener('click', () => bpmBy(-1));
+  $('faster').addEventListener('click', () => bpmBy(1));
+  const swingBy = d => { swing = Math.round(Math.min(0.75, Math.max(0.5, swing + d)) * 100) / 100; save(); render(); };
+  $('swdown').addEventListener('click', () => swingBy(-0.02));
+  $('swup').addEventListener('click', () => swingBy(0.02));
+  $('prev').addEventListener('click', () => loadPreset(preset - 1));
+  $('next').addEventListener('click', () => loadPreset(preset + 1));
+  $('clear').addEventListener('click', () => {
+    grid[sel] = new Array(16).fill(0);
+    if (!edited) { edited = true; name = name ? name + ' *' : 'custom'; }
+    save(); render();
+  });
+
+  addEventListener('keydown', e => {
+    if ($('sheet').classList.contains('open')) { if (e.code === 'Escape') $('closesheet').click(); return; }
+    if (e.code === 'Space') { e.preventDefault(); playing ? stop() : play(); }
+    else if (e.code === 'KeyT' && !e.repeat) tap(ts(e));
+  });
+
+  if (!restore()) loadPreset(PATTERNS.findIndex(p => p.name === 'clap hat'));
+  render(); requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
