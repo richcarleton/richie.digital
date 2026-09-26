@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -40,11 +40,17 @@
 
 <h1>Tai Chi Dancer</h1>
 
-<svg id="stage" width="340" height="356" viewBox="-100 -150 200 212">
-  <ellipse cx="0" cy="70" rx="46" ry="6" fill="#000" opacity=".28"/>
-  <g id="root" stroke="var(--ink)" stroke-width="4.5" stroke-linecap="round" fill="none">
-    <g id="legL"><line x1="0" y1="0" x2="0" y2="34"/><g id="kneeL" transform="translate(0,34)"><line x1="0" y1="0" x2="0" y2="34"/></g></g>
-    <g id="legR"><line x1="0" y1="0" x2="0" y2="34"/><g id="kneeR" transform="translate(0,34)"><line x1="0" y1="0" x2="0" y2="34"/></g></g>
+<svg id="stage" width="340" height="384" viewBox="-100 -150 200 226">
+  <line x1="-96" y1="69" x2="96" y2="69" stroke="#262c2e" stroke-width="1"/>
+  <ellipse id="shadow" cx="0" cy="70" rx="42" ry="5" fill="#000" opacity=".28"/>
+  <g id="cogG" stroke="var(--accent)" fill="var(--accent)">
+    <line id="cogLine" stroke-width="1" stroke-dasharray="2 3" opacity=".6"/>
+    <circle id="cogDot" r="2.6" stroke="none"/>
+  </g>
+  <g id="root" stroke="var(--ink)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <polyline id="legL"/><line id="footL"/>
+    <polyline id="legR"/><line id="footR"/>
+    <line id="pelvis"/>
     <g id="body">
       <line x1="0" y1="0" x2="0" y2="-66"/>
       <circle cx="0" cy="-84" r="12" fill="#191d1f"/>
@@ -60,6 +66,7 @@
   <div class="row">
     <select id="form"></select>
     <button id="play">Pause</button>
+    <button id="cog" class="on">COG</button>
   </div>
 
   <div class="row">
@@ -87,59 +94,114 @@
 </div>
 
 <script>
-const D = {lean:0,shift:0,lsh:0,lel:0,rsh:0,rel:0,lhip:14,lkn:-6,rhip:-14,rkn:6};
+// Rig is driven from the ground up: feet are planted, weight (w) picks the loaded leg,
+// the pelvis sits over the centre of gravity, legs solve by IK, arms ride on top.
+// w: -1 = all on left foot, +1 = all on right.  sink: 0 tall .. 1 deep.
+// fL/fR: foot x positions (planted; a foot only travels while it's the empty one).
+const KNEE_OUT = .4;  // front-view foreshortening of the knee bend
+const G = 67, THIGH = 34, SHIN = 34, HIP = 7, SHIFT = 0.85;
+const D = {w:0, sink:.35, fL:-16, fR:16, lean:0, lsh:0, lel:0, rsh:0, rel:0};
 const P = o => Object.assign({}, D, o);
 
 const forms = {
   "Cloud Hands": [
-    P({shift:-10,lean:-4,lsh:100,lel:50,rsh:-40,rel:-70}),
-    P({lsh:70,lel:30,rsh:-70,rel:-30}),
-    P({shift:10,lean:4,lsh:40,lel:70,rsh:-100,rel:-50}),
-    P({lsh:70,lel:30,rsh:-70,rel:-30})
+    P({w:-.9, sink:.45, fL:-20, fR:20, lean:-2, lsh:100, lel:50, rsh:-40, rel:-70}),
+    P({w:0,   sink:.6,  fL:-20, fR:20, lsh:70, lel:30, rsh:-70, rel:-30}),
+    P({w:.9,  sink:.45, fL:-20, fR:20, lean:2, lsh:40, lel:70, rsh:-100, rel:-50}),
+    P({w:.95, sink:.4,  fL:-6,  fR:20, lsh:60, lel:40, rsh:-85, rel:-40}),
+    P({w:.9,  sink:.5,  fL:-22, fR:20, lsh:75, lel:35, rsh:-70, rel:-35}),
+    P({w:0,   sink:.6,  fL:-22, fR:20, lsh:90, lel:45, rsh:-55, rel:-55}),
+    P({w:-.95,sink:.4,  fL:-22, fR:6,  lean:-2, lsh:95, lel:45, rsh:-45, rel:-65}),
+    P({w:-.9, sink:.5,  fL:-22, fR:20, lsh:100, lel:50, rsh:-40, rel:-70})
   ],
   "White Crane Spreads Wings": [
-    P({lsh:20,lel:10,rsh:-20,rel:-10}),
-    P({lean:-3,lsh:90,lel:20,rsh:-60,rel:-20}),
-    P({lsh:150,lel:10,rsh:-25,rel:-30,lhip:5,lkn:-4,rhip:-26,rkn:10}),
-    P({lsh:110,lel:25,rsh:-30,rel:-15})
+    P({w:0,   sink:.3,  fL:-16, fR:16, lsh:20, lel:10, rsh:-20, rel:-10}),
+    P({w:.7,  sink:.55, fL:-16, fR:16, lean:-3, lsh:90, lel:20, rsh:-60, rel:-20}),
+    P({w:1,   sink:.65, fL:-7,  fR:16, lsh:150, lel:10, rsh:-25, rel:-30}),
+    P({w:.85, sink:.3,  fL:-7,  fR:16, lsh:110, lel:25, rsh:-30, rel:-15})
   ],
   "Single Whip": [
-    P({lsh:60,lel:40,rsh:-60,rel:-40}),
-    P({lsh:120,lel:25,rsh:-110,rel:-25}),
-    P({shift:-12,lsh:135,lel:15,rsh:-120,rel:-60,lhip:22,lkn:-10,rhip:-6,rkn:4}),
-    P({shift:-8,lsh:125,lel:20,rsh:-115,rel:-50})
+    P({w:0,   sink:.35, fL:-14, fR:14, lsh:60, lel:40, rsh:-60, rel:-40}),
+    P({w:.85, sink:.5,  fL:-9,  fR:14, lsh:120, lel:25, rsh:-110, rel:-25}),
+    P({w:.6,  sink:.55, fL:-32, fR:14, lsh:125, lel:20, rsh:-115, rel:-45}),
+    P({w:-.75,sink:.65, fL:-32, fR:14, lean:-4, lsh:135, lel:15, rsh:-120, rel:-60}),
+    P({w:.85, sink:.45, fL:-32, fR:14, lsh:90, lel:30, rsh:-90, rel:-40})
   ],
   "Grasp the Sparrow's Tail": [
-    P({lsh:55,lel:75,rsh:-25,rel:-30}),
-    P({lean:5,shift:8,lsh:30,lel:40,rsh:-70,rel:-60}),
-    P({lean:-3,shift:-6,lsh:70,lel:80,rsh:-75,rel:-75}),
-    P({shift:-10,lsh:95,lel:30,rsh:-95,rel:-30})
+    P({w:-.6, sink:.5,  fL:-24, fR:14, lsh:55, lel:75, rsh:-25, rel:-30}),
+    P({w:.8,  sink:.65, fL:-24, fR:14, lean:5, lsh:30, lel:40, rsh:-70, rel:-60}),
+    P({w:-.3, sink:.55, fL:-24, fR:14, lean:-3, lsh:70, lel:80, rsh:-75, rel:-75}),
+    P({w:.7,  sink:.6,  fL:-24, fR:14, lsh:85, lel:45, rsh:-85, rel:-45}),
+    P({w:-.9, sink:.4,  fL:-24, fR:14, lean:-2, lsh:95, lel:30, rsh:-95, rel:-30})
   ]
 };
 
 const el = id => document.getElementById(id);
 const keys = Object.keys(D);
+const NOEMB = new Set(["fL","fR"]);           // stance width isn't "embellishment"
 
 let name = "Cloud Hands", i = 0, t = 0, playing = true, last = 0, blend = null, cur = forms[name][0];
-let bpm = 96, emb = 1, target = 1, rate = 1, taps = [], beatFlash = 0;
+let bpm = 96, emb = 1, target = 1, rate = 1, taps = [], beatFlash = 0, showCog = true;
 
 const beatMs = () => 60000 / bpm;
 const ease = u => u*u*(3-2*u);
 const mix = (a,b,u) => { const o={}; for (const k of keys) o[k] = a[k] + (b[k]-a[k])*u; return o; };
-const embel = p => { const o={}; for (const k of keys) o[k] = D[k] + (p[k]-D[k])*emb; return o; };
+const embel = p => { const o={}; for (const k of keys) o[k] = NOEMB.has(k) ? p[k] : D[k] + (p[k]-D[k])*emb; return o; };
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
 
-function draw(raw){
+// a travelling foot lifts in an arc; how far it moved decides how high
+const lift = (a,b,u,k) => a && b ? Math.sin(Math.PI*u) * Math.min(9, Math.abs(b[k]-a[k]) * .5) : 0;
+
+// two-bone IK, knee bends outward (dir -1 = left, +1 = right)
+function leg(hx, hy, fx, fy, dir){
+  const dx = fx-hx, dy = fy-hy;
+  const d = clamp(Math.hypot(dx,dy), 8, THIGH+SHIN-.01);
+  const base = Math.atan2(dy, dx), bend = Math.acos(d / (2*THIGH));
+  const a = base - dir*bend;
+  const kx = hx + Math.cos(a)*THIGH, ky = hy + Math.sin(a)*THIGH;
+  // front view: most of the bend comes toward the viewer, so only part of it shows sideways
+  const mx = hx + dx*THIGH/(THIGH+SHIN), my = hy + dy*THIGH/(THIGH+SHIN);
+  return [mx + (kx-mx)*KNEE_OUT, my + (ky-my)*KNEE_OUT];
+}
+
+function draw(raw, a, b, u, breath){
   const p = embel(raw); cur = raw;
-  el("root").setAttribute("transform", `translate(${p.shift},0)`);
-  el("body").setAttribute("transform", `rotate(${p.lean})`);
+  const liftL = lift(a,b,u,"fL"), liftR = lift(a,b,u,"fR");
+  const fyL = G - liftL, fyR = G - liftR;
+
+  // centre of gravity rides between the feet by weight
+  const px = p.fL + (p.fR - p.fL) * (clamp(p.w,-1,1)*SHIFT + 1) / 2;
+  let py = p.sink * 16 + breath;
+  // never let a leg over-stretch: pelvis drops to keep both feet reachable
+  for (const [hx, fx, fy] of [[px-HIP, p.fL, fyL], [px+HIP, p.fR, fyR]]) {
+    const dx = fx-hx, R = THIGH+SHIN-.5;
+    py = Math.max(py, fy - Math.sqrt(Math.max(0, R*R - dx*dx)));
+  }
+
+  const hL = [px-HIP, py], hR = [px+HIP, py];
+  const kL = leg(...hL, p.fL, fyL, -1), kR = leg(...hR, p.fR, fyR, 1);
+  el("legL").setAttribute("points", `${hL} ${kL} ${p.fL},${fyL}`);
+  el("legR").setAttribute("points", `${hR} ${kR} ${p.fR},${fyR}`);
+  // feet: flat when planted, toes dip when lifted
+  el("footL").setAttribute("x1", p.fL);   el("footL").setAttribute("y1", fyL);
+  el("footL").setAttribute("x2", p.fL-7); el("footL").setAttribute("y2", fyL + liftL*.35);
+  el("footR").setAttribute("x1", p.fR);   el("footR").setAttribute("y1", fyR);
+  el("footR").setAttribute("x2", p.fR+7); el("footR").setAttribute("y2", fyR + liftR*.35);
+  el("pelvis").setAttribute("x1", hL[0]); el("pelvis").setAttribute("y1", py);
+  el("pelvis").setAttribute("x2", hR[0]); el("pelvis").setAttribute("y2", py);
+
+  // spine stacks over the loaded foot; arms follow the body
+  el("body").setAttribute("transform", `translate(${px},${py}) rotate(${p.lean + p.w*2})`);
   el("armL").setAttribute("transform", `rotate(${p.lsh})`);
   el("elbowL").setAttribute("transform", `translate(0,30) rotate(${p.lel})`);
   el("armR").setAttribute("transform", `rotate(${p.rsh})`);
   el("elbowR").setAttribute("transform", `translate(0,30) rotate(${p.rel})`);
-  el("legL").setAttribute("transform", `rotate(${p.lhip})`);
-  el("kneeL").setAttribute("transform", `translate(0,34) rotate(${p.lkn})`);
-  el("legR").setAttribute("transform", `rotate(${p.rhip})`);
-  el("kneeR").setAttribute("transform", `translate(0,34) rotate(${p.rkn})`);
+
+  el("shadow").setAttribute("cx", px);
+  el("shadow").setAttribute("rx", 30 + Math.abs(p.fR - p.fL) * .45);
+  el("cogLine").setAttribute("x1", px); el("cogLine").setAttribute("y1", py);
+  el("cogLine").setAttribute("x2", px); el("cogLine").setAttribute("y2", G+2);
+  el("cogDot").setAttribute("cx", px);  el("cogDot").setAttribute("cy", G+2);
 }
 
 function loop(ts){
@@ -147,10 +209,11 @@ function loop(ts){
   rate += (target - rate) * (1 - Math.exp(-dt / 180));
 
   const seq = forms[name];
+  const breath = Math.sin((i + t) * Math.PI) * 1.2;   // one breath per two beats
   if (blend) {
     blend.u += dt / 900;
-    if (blend.u >= 1) { blend = null; draw(seq[0]); }
-    else draw(mix(blend.from, seq[0], ease(blend.u)));
+    if (blend.u >= 1) { blend = null; draw(seq[0], null, null, 0, breath); }
+    else { const u = ease(blend.u); draw(mix(blend.from, seq[0], u), blend.from, seq[0], u, breath); }
   } else {
     if (playing) {
       const prev = t;
@@ -158,7 +221,8 @@ function loop(ts){
       while (t >= 1) { t -= 1; i = (i+1) % seq.length; beatFlash = 1; }
       if (prev === 0 && t === 0) beatFlash = 1;
     }
-    draw(mix(seq[i], seq[(i+1) % seq.length], ease(t)));
+    const a = seq[i], b = seq[(i+1) % seq.length], u = ease(t);
+    draw(mix(a, b, u), a, b, u, breath);
   }
 
   beatFlash = Math.max(0, beatFlash - dt / 260);
@@ -180,6 +244,7 @@ for (const k in forms) sel.add(new Option(k, k));
 sel.onchange = e => { blend = {from: cur, u: 0}; name = e.target.value; i = 0; t = 0; ticks(); };
 
 el("play").onclick = e => { playing = !playing; e.target.textContent = playing ? "Pause" : "Play"; };
+el("cog").onclick = e => { showCog = !showCog; el("cogG").style.display = showCog ? "" : "none"; e.target.classList.toggle("on", showCog); };
 el("reset").onclick = () => { i = 0; t = 0; };
 el("next").onclick = () => { i = (i+1) % forms[name].length; t = 0; };
 el("prev").onclick = () => { i = (i-1+forms[name].length) % forms[name].length; t = 0; };
