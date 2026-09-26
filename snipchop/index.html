@@ -68,9 +68,12 @@ input[type=range]{width:100%;accent-color:var(--mark);height:32px;margin:0;}
 }
 .btn.primary{background:var(--btn);color:var(--btn-ink);border-color:var(--btn);}
 .btn.play{min-width:110px;justify-content:center;font-size:22px;}
-.btn.rec .dot{width:12px;height:12px;border-radius:50%;background:var(--blade);}
-.btn.rec[aria-pressed="true"]{background:var(--blade);border-color:var(--blade);color:#fff;}
-.btn.rec[aria-pressed="true"] .dot{background:#fff;border-radius:2px;}
+.btn.rec{background:var(--blade);border-color:var(--blade);color:#fff;}
+.btn.rec .dot{width:12px;height:12px;border-radius:50%;background:#fff;}
+.btn.rec[aria-pressed="true"]{animation:recblink 1s steps(1) infinite;}
+.btn.rec[aria-pressed="true"] .dot{border-radius:2px;}
+@keyframes recblink{50%{background:#7a0d0b;border-color:#7a0d0b;}}
+@media (prefers-reduced-motion:reduce){.btn.rec[aria-pressed="true"]{animation:none;}}
 :focus-visible{outline:3px solid var(--mark);outline-offset:2px;}
 .status{margin:10px 0 0;color:var(--muted);min-height:1.5em;}
 
@@ -257,31 +260,33 @@ input[type=range]{width:100%;accent-color:var(--mark);height:32px;margin:0;}
   }
 
   /* mic */
-  let rec = null, recTimer = null;
+  let rec = null;
   async function toggleRec(){
-    if (rec){ rec.stop(); return; }
-    ac();
+    if (rec){ rec.finish(); return; }
+    const c = ac();
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ status('No mic access on this page. It needs HTTPS (or localhost).'); return; }
     let stream;
     try { stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false}}); }
-    catch(e){ status('Microphone access is blocked. Allow it in your browser’s site settings, then press Record again.'); return; }
-    let mr;
-    try { mr = new MediaRecorder(stream); }
-    catch(e){ stream.getTracks().forEach(t=>t.stop()); status('This browser can’t record here. Drop a sound file instead.'); return; }
-    const chunks = [];
-    rec = mr;
-    mr.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
-    mr.onstop = async () => {
-      stream.getTracks().forEach(t=>t.stop()); clearInterval(recTimer); rec = null; recUI(false);
-      try { await decodeAndLoad(await new Blob(chunks, {type:mr.mimeType}).arrayBuffer(), 'Recording'); }
-      catch(e){ status('Couldn’t read that recording. Press Record to try again.'); }
+    catch(e){ status(`Microphone blocked (${e.name}). Allow it in the browser's site settings, then press Record again.`); return; }
+    // raw samples straight off the mic: no MediaRecorder, no codec, no decode step to fail
+    const src = c.createMediaStreamSource(stream), sp = c.createScriptProcessor(4096, 1, 1), z = c.createGain();
+    z.gain.value = 0; const chunks = [], max = MAXSEC * c.sampleRate; let n = 0;
+    sp.onaudioprocess = e => {
+      if (!rec) return;
+      const d = e.inputBuffer.getChannelData(0); chunks.push(new Float32Array(d)); n += d.length;
+      status(`Recording ${(n/c.sampleRate).toFixed(1)} s. Press Stop when you're done (max ${MAXSEC} s).`);
+      if (n >= max) rec.finish();
     };
-    mr.start(); recUI(true);
-    const t0 = performance.now();
-    recTimer = setInterval(() => {
-      const s = (performance.now()-t0)/1000;
-      status(`Recording ${s.toFixed(1)} s. Press Stop when you’re done (max ${MAXSEC} s).`);
-      if (s >= MAXSEC && mr.state === 'recording') mr.stop();
-    }, 100);
+    src.connect(sp); sp.connect(z); z.connect(c.destination);
+    rec = { finish(){
+      rec = null; recUI(false);
+      try { sp.disconnect(); src.disconnect(); } catch(_){}
+      stream.getTracks().forEach(t => t.stop());
+      const m = new Float32Array(n); let o = 0; for (const ch of chunks){ m.set(ch, o); o += ch.length; }
+      if (!n){ status('Nothing came through the mic. Check the input device and try again.'); return; }
+      load(m, c.sampleRate, 'Recording');
+    }};
+    recUI(true); status('Recording… press Stop when done.');
   }
   function recUI(on){ const b=$('#rec'); b.setAttribute('aria-pressed', on); b.querySelector('.lbl').textContent = on ? 'Stop' : 'Record'; }
 
@@ -362,4 +367,240 @@ input[type=range]{width:100%;accent-color:var(--mark);height:32px;margin:0;}
     const n = S.slices.length; if (!n) return;
     const p = [...Array(n).keys()];
     for (let i=n-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [p[i],p[j]]=[p[j],p[i]]; }
-    S.
+    S.steps.forEach(st => { if (st.s>=0) st.s = p[st.s % n]; });
+    if (S.keep) S.steps[0].s = 0;
+    S.isStraight = false; paintAll();
+  }
+
+  /* ---------- audio playback ---------- */
+  let cur = null, vis = [];
+  function choke(t){
+    if (cur && cur.end > t){
+      const g = cur.g.gain; g.cancelScheduledValues(t); g.setTargetAtTime(0, t, .005);
+      try { cur.src.stop(t+.05); } catch(e){}
+      cur.v.real = Math.max(0, t-cur.v.t);
+    }
+    cur = null;
+  }
+  function trigger(si, t, slot, rev){
+    const sl = S.slices[si]; if (!sl) return;
+    const len = (sl.e-sl.s)/S.sr; if (len < .002) return;
+    const src = ctx.createBufferSource(); src.buffer = rev ? S.rev : S.buf;
+    const rate = (S.fit==='stretch' && slot) ? Math.min(4, Math.max(.25, len/slot)) : 1;
+    src.playbackRate.value = rate;
+    const real = len/rate, off = rev ? (S.mono.length-sl.e)/S.sr : sl.s/S.sr;
+    const g = ctx.createGain(); src.connect(g); g.connect(out);
+    const a = .003, f = Math.min(.012, real/3);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(1, t+a);
+    g.gain.setValueAtTime(1, Math.max(t+a, t+real-f)); g.gain.linearRampToValueAtTime(0, t+real);
+    src.start(t, off); src.stop(t+real+.02);
+    choke(t);
+    const v = {si, t, real, rev}; vis.push(v);
+    cur = {g, src, end:t+real, v};
+  }
+  function audition(si, rev){ if (!S.buf) return; ac(); trigger(si, ctx.currentTime+.01, null, !!rev); }
+
+  /* ---------- sequencer clock ---------- */
+  let timer = null, nextT = 0, step = 0, bars = 0, vq = [], nowStep = -1;
+  const stepDur = () => 60/S.bpm/4;
+  function start(){
+    if (!S.buf){ status('Load a sound first: record, open a file, or try the test sound.'); return; }
+    ac(); S.playing = true; step = 0; bars = 0; nextT = ctx.currentTime+.06;
+    timer = setInterval(tick, 25); tick(); playUI();
+  }
+  function stop(){
+    S.playing = false; clearInterval(timer); timer = null;
+    if (ctx) choke(ctx.currentTime);
+    vq = []; nowStep = -1; paintNow(); playUI();
+  }
+  function playUI(){ const b=$('#play'); b.textContent = S.playing ? 'Stop' : 'Play'; b.setAttribute('aria-pressed', S.playing); }
+  function tick(){
+    if (nextT < ctx.currentTime-.2) nextT = ctx.currentTime+.05;
+    while (nextT < ctx.currentTime+.12){
+      if (step===0){ if (S.evolve && bars>0) mutate(Math.max(.1, S.chaos*.35)); bars++; }
+      const sd = stepDur(), t = nextT + (step%2 ? S.swing*sd*.66 : 0);
+      sched(step, t, sd);
+      nextT += sd; step = (step+1)%16;
+    }
+  }
+  function sched(i, t, sd){
+    vq.push({i, t});
+    const st = S.steps[i], n = S.slices.length;
+    if (st.s < 0 || !n) return;
+    let gap = 1; while (gap<16 && S.steps[(i+gap)%16].s < 0) gap++;
+    const si = st.s % n;
+    if (st.x){ trigger(si, t, sd/2, st.r); trigger(si, t+sd/2, gap*sd-sd/2, st.r); }
+    else trigger(si, t, gap*sd, st.r);
+  }
+
+  /* ---------- pads & steps UI ---------- */
+  let padEls = [], stepEls = [];
+  function inkFor(c){ return c[1]==='d' ? DARK : '#fff'; }
+  function renderPads(){
+    const p = $('#pads'); p.innerHTML = '';
+    padEls = S.slices.map((sl,i) => {
+      const b = document.createElement('button'), c = COLORS[i%16];
+      b.className = 'pad'; b.style.setProperty('--c', c[0]); b.style.color = inkFor(c);
+      b.textContent = i+1; b.setAttribute('aria-label', `Slice ${i+1}`); b.setAttribute('aria-pressed', i===S.sel);
+      b.addEventListener('click', () => { select(i); audition(i); });
+      p.appendChild(b); return b;
+    });
+    p.classList.toggle('few', S.slices.length <= 4);
+    swatch();
+  }
+  function select(i){
+    S.sel = i; setSeg('tool','paint'); S.tool = 'paint';
+    padEls.forEach((b,k) => b.setAttribute('aria-pressed', k===i));
+    swatch(); dirty = true;
+  }
+  function swatch(){ const c = COLORS[S.sel%16], w = $('#swatch'); w.style.background = c[0]; w.style.color = inkFor(c); w.textContent = S.sel+1; }
+
+  function buildSteps(){
+    const wrap = $('#steps');
+    for (let g=0; g<4; g++){
+      const beat = document.createElement('div'); beat.className = 'beat';
+      for (let k=0;k<4;k++){
+        const i = g*4+k, b = document.createElement('button');
+        b.className = 'step'; b.innerHTML = `<span class="n">${i+1}</span><span class="v"></span><span class="f"></span>`;
+        b.addEventListener('click', () => tapStep(i));
+        beat.appendChild(b); stepEls.push(b);
+      }
+      wrap.appendChild(beat);
+    }
+  }
+  function paintStep(i){
+    const b = stepEls[i], st = S.steps[i], n = S.slices.length;
+    const on = st.s >= 0 && n;
+    b.classList.toggle('rest', !on);
+    if (on){ const e = st.s % n, c = COLORS[e%16]; b.style.background = c[0]; b.style.color = inkFor(c); b.querySelector('.v').textContent = e+1; }
+    else { b.style.background = ''; b.style.color = ''; b.querySelector('.v').textContent = ''; }
+    b.querySelector('.f').textContent = on ? [(st.r?'rev':''),(st.x?'×2':'')].filter(Boolean).join(' ') : '';
+    b.setAttribute('aria-label', `Step ${i+1}: ` + (on ? `slice ${st.s%n+1}${st.r?', reversed':''}${st.x?', doubled':''}` : 'empty'));
+  }
+  const paintAll = () => stepEls.forEach((_,i) => paintStep(i));
+  function paintNow(){ stepEls.forEach((b,i) => b.classList.toggle('now', i===nowStep)); }
+  function tapStep(i){
+    const st = S.steps[i];
+    if (!S.buf){ status('Load a sound first, then tap steps to place slices.'); return; }
+    if (S.tool==='paint'){ if (st.s===S.sel){ st.s=-1; st.r=st.x=false; } else st.s = S.sel; }
+    else if (S.tool==='rev'){ if (st.s>=0) st.r = !st.r; }
+    else if (S.tool==='dbl'){ if (st.s>=0) st.x = !st.x; }
+    else { st.s=-1; st.r=st.x=false; }
+    S.isStraight = false; paintStep(i);
+    if (!S.playing && st.s>=0) audition(st.s % S.slices.length, st.r);
+  }
+
+  /* ---------- waveform ---------- */
+  const cv = $('#wave'), g2 = cv.getContext('2d');
+  let W = 0, H = 0, dpr = 1, peaks = null, dirty = true, T = {};
+  function readTheme(){ const cs = getComputedStyle(document.documentElement);
+    ['ink','blade','mark','bg'].forEach(k => T[k] = cs.getPropertyValue('--'+k).trim()); dirty = true; }
+  function size(){
+    const r = cv.getBoundingClientRect(); dpr = Math.min(2, window.devicePixelRatio||1);
+    cv.width = Math.max(1, Math.round(r.width*dpr)); cv.height = Math.max(1, Math.round(r.height*dpr));
+    W = cv.width; H = cv.height; computePeaks(); dirty = true;
+  }
+  function computePeaks(){
+    if (!S.mono || !W) return;
+    const d = S.mono, per = d.length/W; peaks = new Float32Array(W*2);
+    for (let x=0;x<W;x++){
+      let lo=0, hi=0; const a=Math.floor(x*per), b=Math.min(d.length, Math.floor((x+1)*per)+1);
+      for (let i=a;i<b;i++){ const v=d[i]; if (v<lo) lo=v; if (v>hi) hi=v; }
+      peaks[2*x]=lo; peaks[2*x+1]=hi;
+    }
+  }
+  function draw(now){
+    g2.clearRect(0,0,W,H);
+    if (!S.mono || !peaks) return;
+    const L = S.mono.length, mid = H/2;
+    S.slices.forEach((sl,i) => {
+      const x0 = sl.s/L*W, x1 = sl.e/L*W;
+      g2.globalAlpha = i===S.sel ? .6 : .32; g2.fillStyle = COLORS[i%16][0]; g2.fillRect(x0,0,x1-x0,H);
+    });
+    g2.globalAlpha = 1; g2.fillStyle = T.ink;
+    for (let x=0;x<W;x++){ const lo=peaks[2*x], hi=peaks[2*x+1]; g2.fillRect(x, mid-hi*mid*.88, 1, Math.max(1,(hi-lo)*mid*.88)); }
+    g2.strokeStyle = T.blade; g2.lineWidth = 1.5*dpr; g2.setLineDash([6*dpr, 4*dpr]);
+    S.slices.forEach((sl,i) => { if (!i) return; const x = Math.round(sl.s/L*W)+.5; g2.beginPath(); g2.moveTo(x,0); g2.lineTo(x,H); g2.stroke(); });
+    g2.setLineDash([]);
+    g2.font = `600 ${13*dpr}px "Barlow Condensed", sans-serif`; g2.fillStyle = T.ink;
+    S.slices.forEach((sl,i) => { const x0 = sl.s/L*W, w = (sl.e-sl.s)/L*W; if (w > 18*dpr) g2.fillText(i+1, x0+5*dpr, 15*dpr); });
+    for (const v of vis){
+      if (now < v.t || now >= v.t+v.real) continue;
+      const sl = S.slices[v.si]; if (!sl) continue;
+      const p = (now-v.t)/v.real, pos = v.rev ? sl.e-(sl.e-sl.s)*p : sl.s+(sl.e-sl.s)*p, x = pos/L*W;
+      g2.fillStyle = T.blade; g2.fillRect(x-dpr, 0, 2*dpr, H);
+      g2.beginPath(); g2.moveTo(x-7*dpr,0); g2.lineTo(x+7*dpr,0); g2.lineTo(x,10*dpr); g2.fill();
+    }
+  }
+  cv.addEventListener('click', e => {
+    if (!S.mono) return;
+    const r = cv.getBoundingClientRect(), pos = (e.clientX-r.left)/r.width*S.mono.length;
+    const i = S.slices.findIndex(sl => pos>=sl.s && pos<sl.e);
+    if (i >= 0){ select(i); audition(i); }
+  });
+
+  let litIdx = -1;
+  function frame(){
+    const now = ctx ? ctx.currentTime : 0;
+    let changed = false;
+    while (vq.length && vq[0].t <= now){ nowStep = vq.shift().i; changed = true; }
+    if (changed) paintNow();
+    let act = -1;
+    for (const v of vis) if (now>=v.t && now<v.t+v.real) act = v.si;
+    if (act !== litIdx){ padEls.forEach((b,k) => b.classList.toggle('lit', k===act)); litIdx = act; }
+    if (vis.length || dirty){ draw(now); dirty = false; }
+    vis = vis.filter(v => v.t+v.real > now-.05);
+    if (!vis.length && act === -1 && litIdx === -1) {} // idle
+    requestAnimationFrame(frame);
+  }
+
+  /* ---------- controls ---------- */
+  function setSeg(k, v){ document.querySelectorAll(`.seg[data-k="${k}"] button`).forEach(b => b.setAttribute('aria-pressed', b.dataset.v===String(v))); }
+  document.querySelectorAll('.seg').forEach(seg => seg.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const k = seg.dataset.k, v = b.dataset.v; setSeg(k, v);
+    if (k==='count'){ S.count = +v; reslice(); if (S.mono) status(`${S.slices.length} slices.` + hitNote()); }
+    else if (k==='mode'){ S.mode = v; reslice(); if (S.mono) status(`${S.slices.length} slices.` + hitNote()); }
+    else if (k==='fit') S.fit = v;
+    else if (k==='tool') S.tool = v;
+  }));
+  $('#rec').addEventListener('click', toggleRec);
+  $('#file').addEventListener('change', e => { loadFile(e.target.files[0]); e.target.value = ''; });
+  $('#demo').addEventListener('click', testSound);
+  $('#play').addEventListener('click', () => S.playing ? stop() : start());
+  $('#bpm').addEventListener('input', e => setBpm(+e.target.value));
+  $('#fitTempo').addEventListener('click', () => { if (S.dur) fitTempo(); else status('Load a sound first.'); });
+  $('#swing').addEventListener('input', e => { S.swing = e.target.value/100; $('#swingOut').textContent = e.target.value; });
+  $('#chaos').addEventListener('input', e => { S.chaos = e.target.value/100; $('#chaosOut').textContent = e.target.value; });
+  $('#keep').addEventListener('change', e => S.keep = e.target.checked);
+  $('#evolve').addEventListener('change', e => S.evolve = e.target.checked);
+  $('#shuffle').addEventListener('click', () => S.buf ? mutate(S.chaos) : status('Load a sound first.'));
+  $('#swap').addEventListener('click', () => S.buf ? swap() : status('Load a sound first.'));
+  $('#straight').addEventListener('click', straight);
+  $('#clear').addEventListener('click', () => {
+    S.steps.forEach(st => { st.s = -1; st.r = false; st.x = false; });
+    S.isStraight = false; paintAll();
+    if (S.buf) status('Steps cleared. Pick a slice and tap steps to build a new beat.');
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.code !== 'Space') return;
+    const t = e.target; if (t.matches('input[type=text],textarea')) return;
+    e.preventDefault(); S.playing ? stop() : start();
+  });
+
+  /* drag & drop anywhere */
+  let dragDepth = 0; const drop = $('#drop');
+  addEventListener('dragenter', e => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')){ dragDepth++; drop.hidden = false; } });
+  addEventListener('dragleave', () => { dragDepth = Math.max(0, dragDepth-1); if (!dragDepth) drop.hidden = true; });
+  addEventListener('dragover', e => e.preventDefault());
+  addEventListener('drop', e => { e.preventDefault(); dragDepth = 0; drop.hidden = true; const f = e.dataTransfer.files[0]; if (f) loadFile(f); });
+
+  new ResizeObserver(size).observe(cv);
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readTheme);
+  if (document.fonts) document.fonts.ready.then(() => dirty = true);
+  buildSteps(); paintAll(); readTheme(); size(); swatch(); requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
