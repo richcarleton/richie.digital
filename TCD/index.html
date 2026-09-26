@@ -1,606 +1,143 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>snipchop</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-/* Light = vinyl backing paper, dark = green cutting mat */
-:root{
-  --bg:#eceee4; --grid:rgba(34,84,150,.08); --grid-strong:rgba(34,84,150,.18);
-  --ink:#17231d; --muted:#56655d; --panel:rgba(255,255,255,.7); --line:rgba(23,35,29,.22);
-  --mark:#9a6f00; --blade:#d4231f; --btn:#17231d; --btn-ink:#f4f5ee;
+Good call — here's a working first slice. One file, no libraries, everything driven by pose interpolation.
+
+
+
+
+
+
+Tai Chi Dancer
+
+  :root { --ink:#e8e4dc; --dim:#7d7a73; --bg:#15181a; --accent:#8fb3a3; }
+  { box-sizing:border-box; }
+  body {
+    margin:0; min-height:100vh; background:var(--bg); color:var(--ink);
+    font:14px/1.5 ui-sans-serif,system-ui,sans-serif;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; padding:24px;
+  }
+  h1 { font-size:15px; font-weight:500; letter-spacing:.18em; text-transform:uppercase; color:var(--dim); margin:0; }
+  svg { background:#191d1f; border-radius:10px; }
+  .panel { width:320px; display:flex; flex-direction:column; gap:12px; }
+  .row { display:flex; gap:8px; align-items:center; }
+  button, select {
+    background:#22282a; color:var(--ink); border:1px solid #2f3639;
+    border-radius:6px; padding:7px 11px; font:inherit; cursor:pointer;
+  }
+  button:hover, select:hover { border-color:var(--accent); }
+  select { flex:1; }
+  #speed { flex:1; accent-color:var(--accent); }
+  .bar { height:3px; background:#262c2e; border-radius:2px; overflow:hidden; }
+  .bar i { display:block; height:100%; background:var(--accent); width:0; }
+  .meta { display:flex; justify-content:space-between; color:var(--dim); font-size:12px; }
+
+
+
+
+Tai Chi Dancer
+
+    Pause
+
+    ◀
+    ▶
+    Reset
+
+  —1.00×
+
+
+
+const D = {lean:0,shift:0,lsh:0,lel:0,rsh:0,rel:0,lhip:14,lkn:-6,rhip:-14,rkn:6};
+const P = o => Object.assign({}, D, o);
+
+const forms = {
+  "Cloud Hands": [
+    P({shift:-10,lean:-4,lsh:100,lel:50,rsh:-40,rel:-70}),
+    P({lsh:70,lel:30,rsh:-70,rel:-30}),
+    P({shift:10,lean:4,lsh:40,lel:70,rsh:-100,rel:-50}),
+    P({lsh:70,lel:30,rsh:-70,rel:-30})
+  ],
+  "White Crane Spreads Wings": [
+    P({lsh:20,lel:10,rsh:-20,rel:-10}),
+    P({lean:-3,lsh:90,lel:20,rsh:-60,rel:-20}),
+    P({lsh:150,lel:10,rsh:-25,rel:-30,lhip:5,lkn:-4,rhip:-26,rkn:10}),
+    P({lsh:110,lel:25,rsh:-30,rel:-15})
+  ],
+  "Single Whip": [
+    P({lsh:60,lel:40,rsh:-60,rel:-40}),
+    P({lsh:120,lel:25,rsh:-110,rel:-25}),
+    P({shift:-12,lsh:135,lel:15,rsh:-120,rel:-60,lhip:22,lkn:-10,rhip:-6,rkn:4}),
+    P({shift:-8,lsh:125,lel:20,rsh:-115,rel:-50})
+  ],
+  "Grasp the Sparrow's Tail": [
+    P({lsh:55,lel:75,rsh:-25,rel:-30}),
+    P({lean:5,shift:8,lsh:30,lel:40,rsh:-70,rel:-60}),
+    P({lean:-3,shift:-6,lsh:70,lel:80,rsh:-75,rel:-75}),
+    P({shift:-10,lsh:95,lel:30,rsh:-95,rel:-30})
+  ]
+};
+
+const el = id => document.getElementById(id);
+const keys = Object.keys(D);
+const STEP = 3200;
+
+let name = "Cloud Hands", i = 0, t = 0, playing = true, speed = 1, last = 0, blend = null, cur = forms0;
+
+const ease = u => uu(3-2*u);
+const mix = (a,b,u) => { const o={}; for (const k of keys) o[k] = a[k] + (b[k]-a[k])*u; return o; };
+
+function draw(p){
+  cur = p;
+  el("root").setAttribute("transform", translate(${p.shift},0));
+  el("body").setAttribute("transform", rotate(${p.lean}));
+  el("armL").setAttribute("transform", rotate(${p.lsh}));
+  el("elbowL").setAttribute("transform", translate(0,30) rotate(${p.lel}));
+  el("armR").setAttribute("transform", rotate(${p.rsh}));
+  el("elbowR").setAttribute("transform", translate(0,30) rotate(${p.rel}));
+  el("legL").setAttribute("transform", rotate(${p.lhip}));
+  el("kneeL").setAttribute("transform", translate(0,34) rotate(${p.lkn}));
+  el("legR").setAttribute("transform", rotate(${p.rhip}));
+  el("kneeR").setAttribute("transform", translate(0,34) rotate(${p.rkn}));
 }
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --bg:#1e4a38; --grid:rgba(214,236,222,.07); --grid-strong:rgba(214,236,222,.16);
-    --ink:#f1f4ec; --muted:#a8c4b4; --panel:rgba(8,26,19,.5); --line:rgba(214,236,222,.28);
-    --mark:#f0cf4a; --blade:#ff5a3c; --btn:#f1f4ec; --btn-ink:#16301f;
+
+function loop(ts){
+  const dt = last ? ts - last : 0; last = ts;
+  const seq = forms[name];
+  if (blend) {
+    blend.u += dt * speed / 1400;
+    if (blend.u >= 1) { blend = null; draw(seq[0]); }
+    else draw(mix(blend.from, seq[0], ease(blend.u)));
+  } else {
+    if (playing) { t += dt * speed / STEP; while (t >= 1) { t -= 1; i = (i+1) % seq.length; } }
+    draw(mix(seq[i], seq[(i+1) % seq.length], ease(t)));
   }
+  el("fill").style.width = ((i + t) / seq.length * 100) + "%";
+  el("pose").textContent = ${name} · pose ${i+1}/${seq.length};
+  requestAnimationFrame(loop);
 }
-:root[data-theme="dark"]{
-  --bg:#1e4a38; --grid:rgba(214,236,222,.07); --grid-strong:rgba(214,236,222,.16);
-  --ink:#f1f4ec; --muted:#a8c4b4; --panel:rgba(8,26,19,.5); --line:rgba(214,236,222,.28);
-  --mark:#f0cf4a; --blade:#ff5a3c; --btn:#f1f4ec; --btn-ink:#16301f;
-}
-:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);}
-html{scroll-padding-top:env(safe-area-inset-top,0px);}
-*,*::before,*::after{box-sizing:inherit}
-body{
-  margin:0; color:var(--ink); background-color:var(--bg);
-  background-image:
-    linear-gradient(var(--grid-strong) 1px,transparent 1px),
-    linear-gradient(90deg,var(--grid-strong) 1px,transparent 1px),
-    linear-gradient(var(--grid) 1px,transparent 1px),
-    linear-gradient(90deg,var(--grid) 1px,transparent 1px);
-  background-size:120px 120px,120px 120px,24px 24px,24px 24px;
-  font:16px/1.5 "Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
-  -webkit-tap-highlight-color:transparent;
-}
-main{max-width:980px;margin:0 auto;padding:24px 16px 56px;}
 
-/* wordmark: cut through the middle, bottom half slid over */
-.mark{position:relative;display:inline-block;margin:0;font:800 clamp(64px,16vw,136px)/.9 "Barlow Condensed","Arial Narrow",sans-serif;letter-spacing:-.02em;}
-.mark .half{display:block;}
-.mark .top{clip-path:inset(0 0 50% 0);}
-.mark .bot{position:absolute;left:0;top:0;clip-path:inset(50% 0 0 0);transform:translateX(.07em);animation:slip .7s cubic-bezier(.2,.9,.2,1) .25s both;}
-.mark::after{content:"";position:absolute;left:-.1em;right:-.2em;top:50%;border-top:3px dashed var(--blade);}
-@keyframes slip{from{transform:translateX(0)}to{transform:translateX(.07em)}}
-.lede{max-width:52ch;color:var(--muted);margin:10px 0 0;font-size:17px;}
+const sel = el("form");
+for (const k in forms) sel.add(new Option(k, k));
+sel.onchange = e => { blend = {from: cur, u: 0}; name = e.target.value; i = 0; t = 0; };
 
-section{margin-top:22px;}
-.strip,.seq,.dice{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px;}
-.row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;}
-.row + .row, .row + .steps, .steps + .row, .wave-wrap + .row, .row + .pads{margin-top:14px;}
-.field{display:flex;flex-direction:column;gap:4px;min-width:0;}
-.grow{flex:1 1 220px;}
-.flabel{font:600 15px "Barlow Condensed","Arial Narrow",sans-serif;color:var(--muted);}
-.flabel output{color:var(--ink);font-variant-numeric:tabular-nums;}
-input[type=range]{width:100%;accent-color:var(--mark);height:32px;margin:0;}
+el("play").onclick = e => { playing = !playing; e.target.textContent = playing ? "Pause" : "Play"; };
+el("reset").onclick = () => { i = 0; t = 0; };
+el("next").onclick = () => { i = (i+1) % forms[name].length; t = 0; };
+el("prev").onclick = () => { i = (i-1+forms[name].length) % forms[name].length; t = 0; };
+el("speed").oninput = e => { speed = +e.target.value; el("rate").textContent = speed.toFixed(2) + "×"; };
 
-.btn{
-  display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:8px 16px;
-  font:600 18px "Barlow Condensed","Arial Narrow",sans-serif;color:var(--ink);background:transparent;
-  border:1.5px solid var(--ink);border-radius:4px;cursor:pointer;user-select:none;
-}
-.btn.primary{background:var(--btn);color:var(--btn-ink);border-color:var(--btn);}
-.btn.play{min-width:110px;justify-content:center;font-size:22px;}
-.btn.rec{background:var(--blade);border-color:var(--blade);color:#fff;}
-.btn.rec .dot{width:12px;height:12px;border-radius:50%;background:#fff;}
-.btn.rec[aria-pressed="true"]{animation:recblink 1s steps(1) infinite;}
-.btn.rec[aria-pressed="true"] .dot{border-radius:2px;}
-@keyframes recblink{50%{background:#7a0d0b;border-color:#7a0d0b;}}
-@media (prefers-reduced-motion:reduce){.btn.rec[aria-pressed="true"]{animation:none;}}
-:focus-visible{outline:3px solid var(--mark);outline-offset:2px;}
-.status{margin:10px 0 0;color:var(--muted);min-height:1.5em;}
+requestAnimationFrame(loop);
 
-.seg{display:inline-flex;border:1.5px solid var(--ink);border-radius:4px;overflow:hidden;flex-wrap:wrap;}
-.seg button{min-height:40px;padding:6px 12px;font:600 17px "Barlow Condensed","Arial Narrow",sans-serif;color:var(--ink);background:transparent;border:0;border-left:1.5px solid var(--line);cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
-.seg button:first-child{border-left:0;}
-.seg button[aria-pressed="true"]{background:var(--btn);color:var(--btn-ink);}
-.sw{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:3px;font:800 13px "Barlow Condensed",sans-serif;box-shadow:0 0 0 1px var(--line);}
 
-/* the vinyl strip */
-.wave-wrap{position:relative;height:clamp(120px,22vw,180px);border-radius:3px;overflow:hidden;background:var(--bg);box-shadow:inset 0 0 0 1px var(--line);touch-action:manipulation;}
-#wave{display:block;width:100%;height:100%;cursor:pointer;}
-.wave-empty{position:absolute;inset:0;display:grid;place-items:center;padding:12px;text-align:center;color:var(--muted);font:500 19px "Barlow Condensed",sans-serif;pointer-events:none;}
-.wave-empty[hidden]{display:none;}
 
-.pads{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;}
-.pads.few{grid-template-columns:repeat(4,1fr);}
-.pad{position:relative;aspect-ratio:1.35;border:0;border-radius:4px;background:var(--c);font:800 24px "Barlow Condensed",sans-serif;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15);transition:transform .06s;}
-.pad[aria-pressed="true"]{outline:3px solid var(--ink);outline-offset:2px;}
-.pad.lit{transform:scale(.93);filter:brightness(1.15);}
 
-.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
-.beat{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;}
-.step{position:relative;height:66px;border-radius:4px;border:1.5px solid transparent;cursor:pointer;font:800 24px "Barlow Condensed",sans-serif;display:flex;align-items:center;justify-content:center;padding:0;}
-.step.rest{background:transparent;border:1.5px dashed var(--line);color:var(--ink);}
-.step .n{position:absolute;top:2px;left:5px;font:600 12px "Barlow Condensed",sans-serif;opacity:.75;}
-.step.rest .n{color:var(--mark);opacity:1;}
-.step .f{position:absolute;bottom:2px;right:5px;font:600 13px "Barlow Condensed",sans-serif;}
-.step.now{box-shadow:0 0 0 3px var(--blade);}
+What's in this build
+Four forms, four keyframes each, with smooth cross-fade when you switch
+Live speed control from 0.25× to 2× that never interrupts the motion
+Play/pause, reset, and keyframe stepping
+Progress bar tracking position within the current form
 
-.chk{display:inline-flex;align-items:center;gap:8px;min-height:44px;font:500 16px "Barlow",sans-serif;cursor:pointer;}
-.chk input{width:20px;height:20px;accent-color:var(--mark);}
-.foot{color:var(--muted);font-size:14px;margin:18px 0 0;}
+Natural next steps when you want to grow it
+More keyframes per form** — 4 is enough to read as movement, 8–12 would make it look genuinely trained
+Flow mode** — chain all forms into one continuous sequence
+Depth cues** — slight scale/opacity shift on the far-side limbs to suggest rotation
+Breath pacing** — subtle vertical bob tied to the transition cycle
 
-.drop{position:fixed;inset:0;z-index:10;display:grid;place-items:center;background:color-mix(in srgb,var(--bg) 85%,transparent);border:4px dashed var(--blade);font:800 clamp(36px,8vw,72px) "Barlow Condensed",sans-serif;color:var(--ink);pointer-events:none;}
-.drop[hidden]{display:none;}
-
-@media (max-width:640px){
-  main{padding:20px calc(22px + env(safe-area-inset-right,0px)) 64px calc(22px + env(safe-area-inset-left,0px));}
-  .strip,.seq,.dice{padding:14px 12px;}
-  .steps{grid-template-columns:repeat(2,1fr);gap:10px;}
-  .pads,.pads.few{grid-template-columns:repeat(4,1fr);}
-  .step{height:58px;}
-}
-@media (prefers-reduced-motion:reduce){
-  .mark .bot{animation:none;}
-  .pad{transition:none;}
-}
-</style>
-</head>
-<body>
-<main>
-  <header>
-    <h1 class="mark" aria-label="snipchop"><span class="half top" aria-hidden="true">snipchop</span><span class="half bot" aria-hidden="true">snipchop</span></h1>
-    <p class="lede">Record a snap, drop in a sound file, or use the test sound. It gets cut into slices you can rearrange and shuffle into a beat.</p>
-  </header>
-
-  <section aria-label="Sound source">
-    <div class="row">
-      <button id="rec" class="btn rec" aria-pressed="false"><span class="dot"></span><span class="lbl">Record</span></button>
-      <label class="btn" for="file">Open file</label>
-      <input id="file" type="file" accept="audio/*" hidden>
-      <button id="demo" class="btn">Test sound</button>
-    </div>
-    <p id="status" class="status" role="status">Nothing loaded yet. You can also drop a sound file anywhere on the page.</p>
-  </section>
-
-  <section class="strip" aria-label="Slices">
-    <div class="wave-wrap">
-      <canvas id="wave" aria-label="Waveform. Tap a slice to hear it."></canvas>
-      <div id="waveEmpty" class="wave-empty">Your sound shows up here, cut into slices.</div>
-    </div>
-    <div class="row">
-      <div class="field"><span class="flabel">Slices</span>
-        <div class="seg" data-k="count"><button data-v="4">4</button><button data-v="8" aria-pressed="true">8</button><button data-v="16">16</button></div>
-      </div>
-      <div class="field"><span class="flabel">Cut</span>
-        <div class="seg" data-k="mode"><button data-v="even" aria-pressed="true">Evenly</button><button data-v="hits">At each hit</button></div>
-      </div>
-    </div>
-    <div id="pads" class="pads"></div>
-  </section>
-
-  <section class="seq" aria-label="Sequencer">
-    <div class="row">
-      <button id="play" class="btn primary play" aria-pressed="false">Play</button>
-      <div class="field grow"><label for="bpm" class="flabel">Tempo <output id="bpmOut">120</output> bpm</label><input id="bpm" type="range" min="60" max="200" step="0.5" value="120"></div>
-      <button id="fitTempo" class="btn">Tempo from sample</button>
-    </div>
-    <div class="row">
-      <div class="field grow"><label for="swing" class="flabel">Swing <output id="swingOut">0</output>%</label><input id="swing" type="range" min="0" max="60" value="0"></div>
-      <div class="field"><span class="flabel">Each slice</span>
-        <div class="seg" data-k="fit"><button data-v="chop" aria-pressed="true">Plays until cut</button><button data-v="stretch">Stretches to fit</button></div>
-      </div>
-    </div>
-    <div id="steps" class="steps"></div>
-    <div class="row">
-      <div class="field"><span class="flabel">Tapping a step will</span>
-        <div class="seg" data-k="tool"><button data-v="paint" aria-pressed="true"><span id="swatch" class="sw">1</span>Place slice</button><button data-v="rev">Reverse</button><button data-v="dbl">Double</button><button data-v="rest">Clear</button></div>
-      </div>
-    </div>
-  </section>
-
-  <section class="dice" aria-label="Randomize">
-    <div class="row">
-      <button id="shuffle" class="btn primary">Shuffle</button>
-      <button id="swap" class="btn">Swap sounds</button>
-      <button id="straight" class="btn">Straight</button>
-      <button id="clear" class="btn">Clear</button>
-    </div>
-    <div class="row">
-      <div class="field grow"><label for="chaos" class="flabel">How much Shuffle changes <output id="chaosOut">60</output>%</label><input id="chaos" type="range" min="0" max="100" value="60"></div>
-      <label class="chk"><input type="checkbox" id="keep" checked> Keep step 1 on slice 1</label>
-      <label class="chk"><input type="checkbox" id="evolve"> Nudge the pattern every bar</label>
-    </div>
-  </section>
-  <p class="foot">Space bar plays and stops. Shuffle changes rhythm and sounds; Swap sounds keeps the rhythm.</p>
-</main>
-<div id="drop" class="drop" hidden>Drop to chop</div>
-
-<script>
-(() => {
-  const $ = s => document.querySelector(s);
-  const MAXSEC = 8, DARK = '#16201a';
-  // sign-vinyl palette: [colour, text on it d=dark l=light]
-  const COLORS = [['#f2c200','d'],['#d7262e','l'],['#1f5fbf','l'],['#f07a1a','d'],['#1e9a4c','l'],['#6a3fa0','l'],['#f4f4ef','d'],['#262626','l'],
-                  ['#9cc92b','d'],['#4fb3e8','d'],['#e85d9c','d'],['#7a4a26','l'],['#c9a13b','d'],['#8a9196','d'],['#138a86','l'],['#7d1f35','l']];
-  const S = { buf:null, rev:null, mono:null, sr:44100, dur:0, slices:[], count:8, mode:'even', fit:'chop',
-              bpm:120, swing:0, chaos:.6, sel:0, tool:'paint', playing:false, keep:true, evolve:false, isStraight:true,
-              steps:Array.from({length:16}, () => ({s:-1, r:false, x:false})) };
-
-  let ctx = null, out = null;
-  function ac(){
-    if (!ctx){
-      ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -10; comp.ratio.value = 4;
-      out = ctx.createGain(); out.gain.value = .9; out.connect(comp); comp.connect(ctx.destination);
-    }
-    if (ctx.state === 'suspended') ctx.resume();
-    return ctx;
-  }
-  const status = t => { $('#status').textContent = t; };
-
-  /* ---------- loading ---------- */
-  function prep(d, sr){
-    let peak = 0; for (let i=0;i<d.length;i++){ const v=Math.abs(d[i]); if (v>peak) peak=v; }
-    if (peak < 1e-4) return null;
-    const th = peak*.03; let a=0, b=d.length-1;
-    while (a<d.length && Math.abs(d[a])<th) a++;
-    while (b>a && Math.abs(d[b])<th) b--;
-    a = Math.max(0, a-Math.floor(sr*.004)); b = Math.min(d.length, b+Math.floor(sr*.03));
-    const o = d.slice(a, Math.min(b, a+Math.floor(sr*MAXSEC)));
-    const g = .95/peak, fade = Math.min(o.length, Math.floor(sr*.005));
-    for (let i=0;i<o.length;i++) o[i]*=g;
-    for (let i=0;i<fade;i++) o[o.length-1-i] *= i/fade;
-    return o;
-  }
-  function load(d, sr, label){
-    const m = prep(d, sr);
-    if (!m){ status('That sound is silent. Try again closer to the mic, or pick another file.'); return; }
-    ac();
-    S.mono = m; S.sr = sr; S.dur = m.length/sr;
-    S.buf = ctx.createBuffer(1, m.length, sr); S.buf.getChannelData(0).set(m);
-    const r = new Float32Array(m.length); for (let i=0;i<m.length;i++) r[i]=m[m.length-1-i];
-    S.rev = ctx.createBuffer(1, m.length, sr); S.rev.getChannelData(0).set(r);
-    vis = []; S.sel = 0;
-    reslice(); straight(); fitTempo(); computePeaks();
-    $('#waveEmpty').hidden = true;
-    status(`${label}, ${S.dur.toFixed(2)} seconds.` + (d.length/sr > MAXSEC+.5 ? ` Only the first ${MAXSEC} seconds were kept.` : '') + hitNote());
-    dirty = true;
-  }
-  async function decodeAndLoad(ab, label){
-    ac();
-    const b = await new Promise((res, rej) => ctx.decodeAudioData(ab, res, rej));
-    const m = new Float32Array(b.length);
-    for (let c=0;c<b.numberOfChannels;c++){ const ch=b.getChannelData(c); for (let i=0;i<m.length;i++) m[i]+=ch[i]/b.numberOfChannels; }
-    load(m, b.sampleRate, label);
-  }
-  async function loadFile(f){
-    if (!f) return;
-    status(`Reading ${f.name}…`);
-    try { await decodeAndLoad(await f.arrayBuffer(), f.name); }
-    catch(e){ status(`Couldn’t read ${f.name}. Try a WAV, MP3, M4A or OGG file.`); }
-  }
-
-  /* mic */
-  let rec = null;
-  async function toggleRec(){
-    if (rec){ rec.finish(); return; }
-    const c = ac();
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ status('No mic access on this page. It needs HTTPS (or localhost).'); return; }
-    let stream;
-    try { stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false}}); }
-    catch(e){ status(`Microphone blocked (${e.name}). Allow it in the browser's site settings, then press Record again.`); return; }
-    // raw samples straight off the mic: no MediaRecorder, no codec, no decode step to fail
-    const src = c.createMediaStreamSource(stream), sp = c.createScriptProcessor(4096, 1, 1), z = c.createGain();
-    z.gain.value = 0; const chunks = [], max = MAXSEC * c.sampleRate; let n = 0;
-    sp.onaudioprocess = e => {
-      if (!rec) return;
-      const d = e.inputBuffer.getChannelData(0); chunks.push(new Float32Array(d)); n += d.length;
-      status(`Recording ${(n/c.sampleRate).toFixed(1)} s. Press Stop when you're done (max ${MAXSEC} s).`);
-      if (n >= max) rec.finish();
-    };
-    src.connect(sp); sp.connect(z); z.connect(c.destination);
-    rec = { finish(){
-      rec = null; recUI(false);
-      try { sp.disconnect(); src.disconnect(); } catch(_){}
-      stream.getTracks().forEach(t => t.stop());
-      const m = new Float32Array(n); let o = 0; for (const ch of chunks){ m.set(ch, o); o += ch.length; }
-      if (!n){ status('Nothing came through the mic. Check the input device and try again.'); return; }
-      load(m, c.sampleRate, 'Recording');
-    }};
-    recUI(true); status('Recording… press Stop when done.');
-  }
-  function recUI(on){ const b=$('#rec'); b.setAttribute('aria-pressed', on); b.querySelector('.lbl').textContent = on ? 'Stop' : 'Record'; }
-
-  /* test sound: a one-bar beatbox-ish loop */
-  function testSound(){
-    const sr = 44100, dur = 2, L = sr*dur, d = new Float32Array(L);
-    const put = (step, len, fn) => { const s0 = Math.round(step*dur/16*sr), n = Math.round(len*sr);
-      for (let i=0;i<n && s0+i<L;i++) d[s0+i] += fn(i/sr); };
-    const kick = () => { let ph=0; return t => { const f=45+110*Math.exp(-t*28); ph+=2*Math.PI*f/sr; return Math.sin(ph)*Math.exp(-t*7)*.9; }; };
-    const snare = t => (Math.random()*2-1)*Math.exp(-t*20)*.5 + Math.sin(2*Math.PI*190*t)*Math.exp(-t*30)*.4;
-    const hat = () => { let p=0; return t => { const n=Math.random()*2-1, v=n-p; p=n; return v*Math.exp(-t*70)*.25; }; };
-    const bap = t => { let s=0; const f0=150; for (let h=1;h<=14;h++){ const hf=h*f0;
-        const a=Math.exp(-(((hf-750)/180)**2)) + .7*Math.exp(-(((hf-1150)/220)**2)) + .25/h; s+=a*Math.sin(2*Math.PI*hf*t); }
-      return s*Math.min(1,t/.004)*Math.exp(-t*9)*.35; };
-    const blip = t => Math.sin(2*Math.PI*(500*t + 1400/12*(1-Math.exp(-12*t))))*Math.exp(-t*14)*.3;
-    [0,6,8].forEach(s=>put(s,.4,kick()));
-    [4,12].forEach(s=>put(s,.25,snare));
-    [2,10,14].forEach(s=>put(s,.07,hat()));
-    put(7,.2,bap); put(11,.14,blip); put(15,.14,blip);
-    load(d, sr, 'Test sound');
-  }
-
-  /* ---------- slicing ---------- */
-  let lastHits = 0;
-  function reslice(){
-    if (!S.mono) return;
-    const d = S.mono, sr = S.sr, n = S.count, L = d.length, b = [0];
-    if (S.mode === 'even'){
-      for (let i=1;i<n;i++) b.push(Math.round(L*i/n));
-    } else {
-      const hop = Math.max(1, Math.floor(sr*.01)), E = [];
-      for (let i=0;i+hop<=L;i+=hop){ let s=0; for (let j=i;j<i+hop;j++) s+=d[j]*d[j]; E.push(Math.sqrt(s/hop)); }
-      const F = E.map((e,i) => i ? Math.max(0, e-E[i-1]) : 0);
-      const c = []; for (let i=1;i<F.length-1;i++) if (F[i]>.02 && F[i]>=F[i-1] && F[i]>F[i+1]) c.push(i);
-      c.sort((x,y) => F[y]-F[x]);
-      const min = Math.round(.06*sr/hop), pick = [];
-      for (const i of c){ if (pick.length >= n-1) break; if (i < min) continue; if (pick.every(p => Math.abs(p-i) >= min)) pick.push(i); }
-      pick.sort((x,y)=>x-y).forEach(p => b.push(Math.max(1, Math.round((p-.5)*hop))));
-    }
-    lastHits = b.length;
-    S.slices = b.map((s,i) => ({s, e: i+1<b.length ? b[i+1] : L}));
-    if (S.sel >= S.slices.length) S.sel = 0;
-    renderPads();
-    if (S.isStraight) straight(); else paintAll();
-    dirty = true;
-  }
-  const hitNote = () => (S.mode==='hits' && lastHits < S.count) ? ` Found ${lastHits} hits.` : '';
-
-  function straight(){
-    S.steps.forEach(st => { st.s=-1; st.r=false; st.x=false; });
-    if (S.mono){
-      const L = S.mono.length;
-      S.slices.forEach((sl,i) => { let k = Math.min(15, Math.round(sl.s/L*16)); while (k<16 && S.steps[k].s>=0) k++; if (k<16) S.steps[k].s = i; });
-    }
-    S.isStraight = true; paintAll();
-  }
-  function fitTempo(){
-    if (!S.dur) return;
-    let b = 240/S.dur; while (b < 70) b*=2; while (b > 180) b/=2;
-    setBpm(Math.round(b*2)/2);
-  }
-  function setBpm(v){ S.bpm = v; $('#bpm').value = v; $('#bpmOut').textContent = (+v).toFixed(v%1 ? 1 : 0); }
-
-  /* ---------- randomize ---------- */
-  function mutate(amt){
-    const n = S.slices.length; if (!n) return;
-    S.steps.forEach((st,i) => {
-      if (S.keep && i===0){ st.s = 0; return; }
-      if (Math.random() < amt) st.s = Math.random() < .18 ? -1 : Math.floor(Math.random()*n);
-      if (st.s >= 0){
-        if (Math.random() < amt*.5) st.r = Math.random() < amt*.6;
-        if (Math.random() < amt*.5) st.x = Math.random() < amt*.45;
-      } else { st.r = st.x = false; }
-    });
-    S.isStraight = false; paintAll();
-  }
-  function swap(){
-    const n = S.slices.length; if (!n) return;
-    const p = [...Array(n).keys()];
-    for (let i=n-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [p[i],p[j]]=[p[j],p[i]]; }
-    S.steps.forEach(st => { if (st.s>=0) st.s = p[st.s % n]; });
-    if (S.keep) S.steps[0].s = 0;
-    S.isStraight = false; paintAll();
-  }
-
-  /* ---------- audio playback ---------- */
-  let cur = null, vis = [];
-  function choke(t){
-    if (cur && cur.end > t){
-      const g = cur.g.gain; g.cancelScheduledValues(t); g.setTargetAtTime(0, t, .005);
-      try { cur.src.stop(t+.05); } catch(e){}
-      cur.v.real = Math.max(0, t-cur.v.t);
-    }
-    cur = null;
-  }
-  function trigger(si, t, slot, rev){
-    const sl = S.slices[si]; if (!sl) return;
-    const len = (sl.e-sl.s)/S.sr; if (len < .002) return;
-    const src = ctx.createBufferSource(); src.buffer = rev ? S.rev : S.buf;
-    const rate = (S.fit==='stretch' && slot) ? Math.min(4, Math.max(.25, len/slot)) : 1;
-    src.playbackRate.value = rate;
-    const real = len/rate, off = rev ? (S.mono.length-sl.e)/S.sr : sl.s/S.sr;
-    const g = ctx.createGain(); src.connect(g); g.connect(out);
-    const a = .003, f = Math.min(.012, real/3);
-    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(1, t+a);
-    g.gain.setValueAtTime(1, Math.max(t+a, t+real-f)); g.gain.linearRampToValueAtTime(0, t+real);
-    src.start(t, off); src.stop(t+real+.02);
-    choke(t);
-    const v = {si, t, real, rev}; vis.push(v);
-    cur = {g, src, end:t+real, v};
-  }
-  function audition(si, rev){ if (!S.buf) return; ac(); trigger(si, ctx.currentTime+.01, null, !!rev); }
-
-  /* ---------- sequencer clock ---------- */
-  let timer = null, nextT = 0, step = 0, bars = 0, vq = [], nowStep = -1;
-  const stepDur = () => 60/S.bpm/4;
-  function start(){
-    if (!S.buf){ status('Load a sound first: record, open a file, or try the test sound.'); return; }
-    ac(); S.playing = true; step = 0; bars = 0; nextT = ctx.currentTime+.06;
-    timer = setInterval(tick, 25); tick(); playUI();
-  }
-  function stop(){
-    S.playing = false; clearInterval(timer); timer = null;
-    if (ctx) choke(ctx.currentTime);
-    vq = []; nowStep = -1; paintNow(); playUI();
-  }
-  function playUI(){ const b=$('#play'); b.textContent = S.playing ? 'Stop' : 'Play'; b.setAttribute('aria-pressed', S.playing); }
-  function tick(){
-    if (nextT < ctx.currentTime-.2) nextT = ctx.currentTime+.05;
-    while (nextT < ctx.currentTime+.12){
-      if (step===0){ if (S.evolve && bars>0) mutate(Math.max(.1, S.chaos*.35)); bars++; }
-      const sd = stepDur(), t = nextT + (step%2 ? S.swing*sd*.66 : 0);
-      sched(step, t, sd);
-      nextT += sd; step = (step+1)%16;
-    }
-  }
-  function sched(i, t, sd){
-    vq.push({i, t});
-    const st = S.steps[i], n = S.slices.length;
-    if (st.s < 0 || !n) return;
-    let gap = 1; while (gap<16 && S.steps[(i+gap)%16].s < 0) gap++;
-    const si = st.s % n;
-    if (st.x){ trigger(si, t, sd/2, st.r); trigger(si, t+sd/2, gap*sd-sd/2, st.r); }
-    else trigger(si, t, gap*sd, st.r);
-  }
-
-  /* ---------- pads & steps UI ---------- */
-  let padEls = [], stepEls = [];
-  function inkFor(c){ return c[1]==='d' ? DARK : '#fff'; }
-  function renderPads(){
-    const p = $('#pads'); p.innerHTML = '';
-    padEls = S.slices.map((sl,i) => {
-      const b = document.createElement('button'), c = COLORS[i%16];
-      b.className = 'pad'; b.style.setProperty('--c', c[0]); b.style.color = inkFor(c);
-      b.textContent = i+1; b.setAttribute('aria-label', `Slice ${i+1}`); b.setAttribute('aria-pressed', i===S.sel);
-      b.addEventListener('click', () => { select(i); audition(i); });
-      p.appendChild(b); return b;
-    });
-    p.classList.toggle('few', S.slices.length <= 4);
-    swatch();
-  }
-  function select(i){
-    S.sel = i; setSeg('tool','paint'); S.tool = 'paint';
-    padEls.forEach((b,k) => b.setAttribute('aria-pressed', k===i));
-    swatch(); dirty = true;
-  }
-  function swatch(){ const c = COLORS[S.sel%16], w = $('#swatch'); w.style.background = c[0]; w.style.color = inkFor(c); w.textContent = S.sel+1; }
-
-  function buildSteps(){
-    const wrap = $('#steps');
-    for (let g=0; g<4; g++){
-      const beat = document.createElement('div'); beat.className = 'beat';
-      for (let k=0;k<4;k++){
-        const i = g*4+k, b = document.createElement('button');
-        b.className = 'step'; b.innerHTML = `<span class="n">${i+1}</span><span class="v"></span><span class="f"></span>`;
-        b.addEventListener('click', () => tapStep(i));
-        beat.appendChild(b); stepEls.push(b);
-      }
-      wrap.appendChild(beat);
-    }
-  }
-  function paintStep(i){
-    const b = stepEls[i], st = S.steps[i], n = S.slices.length;
-    const on = st.s >= 0 && n;
-    b.classList.toggle('rest', !on);
-    if (on){ const e = st.s % n, c = COLORS[e%16]; b.style.background = c[0]; b.style.color = inkFor(c); b.querySelector('.v').textContent = e+1; }
-    else { b.style.background = ''; b.style.color = ''; b.querySelector('.v').textContent = ''; }
-    b.querySelector('.f').textContent = on ? [(st.r?'rev':''),(st.x?'×2':'')].filter(Boolean).join(' ') : '';
-    b.setAttribute('aria-label', `Step ${i+1}: ` + (on ? `slice ${st.s%n+1}${st.r?', reversed':''}${st.x?', doubled':''}` : 'empty'));
-  }
-  const paintAll = () => stepEls.forEach((_,i) => paintStep(i));
-  function paintNow(){ stepEls.forEach((b,i) => b.classList.toggle('now', i===nowStep)); }
-  function tapStep(i){
-    const st = S.steps[i];
-    if (!S.buf){ status('Load a sound first, then tap steps to place slices.'); return; }
-    if (S.tool==='paint'){ if (st.s===S.sel){ st.s=-1; st.r=st.x=false; } else st.s = S.sel; }
-    else if (S.tool==='rev'){ if (st.s>=0) st.r = !st.r; }
-    else if (S.tool==='dbl'){ if (st.s>=0) st.x = !st.x; }
-    else { st.s=-1; st.r=st.x=false; }
-    S.isStraight = false; paintStep(i);
-    if (!S.playing && st.s>=0) audition(st.s % S.slices.length, st.r);
-  }
-
-  /* ---------- waveform ---------- */
-  const cv = $('#wave'), g2 = cv.getContext('2d');
-  let W = 0, H = 0, dpr = 1, peaks = null, dirty = true, T = {};
-  function readTheme(){ const cs = getComputedStyle(document.documentElement);
-    ['ink','blade','mark','bg'].forEach(k => T[k] = cs.getPropertyValue('--'+k).trim()); dirty = true; }
-  function size(){
-    const r = cv.getBoundingClientRect(); dpr = Math.min(2, window.devicePixelRatio||1);
-    cv.width = Math.max(1, Math.round(r.width*dpr)); cv.height = Math.max(1, Math.round(r.height*dpr));
-    W = cv.width; H = cv.height; computePeaks(); dirty = true;
-  }
-  function computePeaks(){
-    if (!S.mono || !W) return;
-    const d = S.mono, per = d.length/W; peaks = new Float32Array(W*2);
-    for (let x=0;x<W;x++){
-      let lo=0, hi=0; const a=Math.floor(x*per), b=Math.min(d.length, Math.floor((x+1)*per)+1);
-      for (let i=a;i<b;i++){ const v=d[i]; if (v<lo) lo=v; if (v>hi) hi=v; }
-      peaks[2*x]=lo; peaks[2*x+1]=hi;
-    }
-  }
-  function draw(now){
-    g2.clearRect(0,0,W,H);
-    if (!S.mono || !peaks) return;
-    const L = S.mono.length, mid = H/2;
-    S.slices.forEach((sl,i) => {
-      const x0 = sl.s/L*W, x1 = sl.e/L*W;
-      g2.globalAlpha = i===S.sel ? .6 : .32; g2.fillStyle = COLORS[i%16][0]; g2.fillRect(x0,0,x1-x0,H);
-    });
-    g2.globalAlpha = 1; g2.fillStyle = T.ink;
-    for (let x=0;x<W;x++){ const lo=peaks[2*x], hi=peaks[2*x+1]; g2.fillRect(x, mid-hi*mid*.88, 1, Math.max(1,(hi-lo)*mid*.88)); }
-    g2.strokeStyle = T.blade; g2.lineWidth = 1.5*dpr; g2.setLineDash([6*dpr, 4*dpr]);
-    S.slices.forEach((sl,i) => { if (!i) return; const x = Math.round(sl.s/L*W)+.5; g2.beginPath(); g2.moveTo(x,0); g2.lineTo(x,H); g2.stroke(); });
-    g2.setLineDash([]);
-    g2.font = `600 ${13*dpr}px "Barlow Condensed", sans-serif`; g2.fillStyle = T.ink;
-    S.slices.forEach((sl,i) => { const x0 = sl.s/L*W, w = (sl.e-sl.s)/L*W; if (w > 18*dpr) g2.fillText(i+1, x0+5*dpr, 15*dpr); });
-    for (const v of vis){
-      if (now < v.t || now >= v.t+v.real) continue;
-      const sl = S.slices[v.si]; if (!sl) continue;
-      const p = (now-v.t)/v.real, pos = v.rev ? sl.e-(sl.e-sl.s)*p : sl.s+(sl.e-sl.s)*p, x = pos/L*W;
-      g2.fillStyle = T.blade; g2.fillRect(x-dpr, 0, 2*dpr, H);
-      g2.beginPath(); g2.moveTo(x-7*dpr,0); g2.lineTo(x+7*dpr,0); g2.lineTo(x,10*dpr); g2.fill();
-    }
-  }
-  cv.addEventListener('click', e => {
-    if (!S.mono) return;
-    const r = cv.getBoundingClientRect(), pos = (e.clientX-r.left)/r.width*S.mono.length;
-    const i = S.slices.findIndex(sl => pos>=sl.s && pos<sl.e);
-    if (i >= 0){ select(i); audition(i); }
-  });
-
-  let litIdx = -1;
-  function frame(){
-    const now = ctx ? ctx.currentTime : 0;
-    let changed = false;
-    while (vq.length && vq[0].t <= now){ nowStep = vq.shift().i; changed = true; }
-    if (changed) paintNow();
-    let act = -1;
-    for (const v of vis) if (now>=v.t && now<v.t+v.real) act = v.si;
-    if (act !== litIdx){ padEls.forEach((b,k) => b.classList.toggle('lit', k===act)); litIdx = act; }
-    if (vis.length || dirty){ draw(now); dirty = false; }
-    vis = vis.filter(v => v.t+v.real > now-.05);
-    if (!vis.length && act === -1 && litIdx === -1) {} // idle
-    requestAnimationFrame(frame);
-  }
-
-  /* ---------- controls ---------- */
-  function setSeg(k, v){ document.querySelectorAll(`.seg[data-k="${k}"] button`).forEach(b => b.setAttribute('aria-pressed', b.dataset.v===String(v))); }
-  document.querySelectorAll('.seg').forEach(seg => seg.addEventListener('click', e => {
-    const b = e.target.closest('button'); if (!b) return;
-    const k = seg.dataset.k, v = b.dataset.v; setSeg(k, v);
-    if (k==='count'){ S.count = +v; reslice(); if (S.mono) status(`${S.slices.length} slices.` + hitNote()); }
-    else if (k==='mode'){ S.mode = v; reslice(); if (S.mono) status(`${S.slices.length} slices.` + hitNote()); }
-    else if (k==='fit') S.fit = v;
-    else if (k==='tool') S.tool = v;
-  }));
-  $('#rec').addEventListener('click', toggleRec);
-  $('#file').addEventListener('change', e => { loadFile(e.target.files[0]); e.target.value = ''; });
-  $('#demo').addEventListener('click', testSound);
-  $('#play').addEventListener('click', () => S.playing ? stop() : start());
-  $('#bpm').addEventListener('input', e => setBpm(+e.target.value));
-  $('#fitTempo').addEventListener('click', () => { if (S.dur) fitTempo(); else status('Load a sound first.'); });
-  $('#swing').addEventListener('input', e => { S.swing = e.target.value/100; $('#swingOut').textContent = e.target.value; });
-  $('#chaos').addEventListener('input', e => { S.chaos = e.target.value/100; $('#chaosOut').textContent = e.target.value; });
-  $('#keep').addEventListener('change', e => S.keep = e.target.checked);
-  $('#evolve').addEventListener('change', e => S.evolve = e.target.checked);
-  $('#shuffle').addEventListener('click', () => S.buf ? mutate(S.chaos) : status('Load a sound first.'));
-  $('#swap').addEventListener('click', () => S.buf ? swap() : status('Load a sound first.'));
-  $('#straight').addEventListener('click', straight);
-  $('#clear').addEventListener('click', () => {
-    S.steps.forEach(st => { st.s = -1; st.r = false; st.x = false; });
-    S.isStraight = false; paintAll();
-    if (S.buf) status('Steps cleared. Pick a slice and tap steps to build a new beat.');
-  });
-
-  document.addEventListener('keydown', e => {
-    if (e.code !== 'Space') return;
-    const t = e.target; if (t.matches('input[type=text],textarea')) return;
-    e.preventDefault(); S.playing ? stop() : start();
-  });
-
-  /* drag & drop anywhere */
-  let dragDepth = 0; const drop = $('#drop');
-  addEventListener('dragenter', e => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')){ dragDepth++; drop.hidden = false; } });
-  addEventListener('dragleave', () => { dragDepth = Math.max(0, dragDepth-1); if (!dragDepth) drop.hidden = true; });
-  addEventListener('dragover', e => e.preventDefault());
-  addEventListener('drop', e => { e.preventDefault(); dragDepth = 0; drop.hidden = true; const f = e.dataTransfer.files[0]; if (f) loadFile(f); });
-
-  new ResizeObserver(size).observe(cv);
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readTheme);
-  if (document.fonts) document.fonts.ready.then(() => dirty = true);
-  buildSteps(); paintAll(); readTheme(); size(); swatch(); requestAnimationFrame(frame);
-})();
-</script>
-</body>
-</html>
+Want me to deepen the choreography next, or add the flow mode?
