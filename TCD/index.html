@@ -1,14 +1,12 @@
-Good call — here's a working first slice. One file, no libraries, everything driven by pose interpolation.
-
-
-
-
-
-
-Tai Chi Dancer
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tai Chi Dancer</title>
+<style>
   :root { --ink:#e8e4dc; --dim:#7d7a73; --bg:#15181a; --accent:#8fb3a3; }
-  { box-sizing:border-box; }
+  * { box-sizing:border-box; }
   body {
     margin:0; min-height:100vh; background:var(--bg); color:var(--ink);
     font:14px/1.5 ui-sans-serif,system-ui,sans-serif;
@@ -28,22 +26,44 @@ Tai Chi Dancer
   .bar { height:3px; background:#262c2e; border-radius:2px; overflow:hidden; }
   .bar i { display:block; height:100%; background:var(--accent); width:0; }
   .meta { display:flex; justify-content:space-between; color:var(--dim); font-size:12px; }
+</style>
+</head>
+<body>
 
+<h1>Tai Chi Dancer</h1>
 
+<svg id="stage" width="320" height="340" viewBox="-100 -150 200 212">
+  <ellipse cx="0" cy="70" rx="46" ry="6" fill="#000" opacity=".28"/>
+  <g id="root" stroke="var(--ink)" stroke-width="4.5" stroke-linecap="round" fill="none">
+    <g id="legL"><line x1="0" y1="0" x2="0" y2="34"/><g transform="translate(0,34)" id="kneeL"><line x1="0" y1="0" x2="0" y2="34"/></g></g>
+    <g id="legR"><line x1="0" y1="0" x2="0" y2="34"/><g transform="translate(0,34)" id="kneeR"><line x1="0" y1="0" x2="0" y2="34"/></g></g>
+    <g id="body">
+      <line x1="0" y1="0" x2="0" y2="-66"/>
+      <circle cx="0" cy="-84" r="12" fill="#191d1f"/>
+      <g transform="translate(0,-62)">
+        <g id="armL"><line x1="0" y1="0" x2="0" y2="30"/><g transform="translate(0,30)" id="elbowL"><line x1="0" y1="0" x2="0" y2="28"/></g></g>
+        <g id="armR"><line x1="0" y1="0" x2="0" y2="30"/><g transform="translate(0,30)" id="elbowR"><line x1="0" y1="0" x2="0" y2="28"/></g></g>
+      </g>
+    </g>
+  </g>
+</svg>
 
+<div class="panel">
+  <div class="row">
+    <select id="form"></select>
+    <button id="play">Pause</button>
+  </div>
+  <div class="row">
+    <button id="prev">◀</button>
+    <button id="next">▶</button>
+    <button id="reset">Reset</button>
+    <input id="speed" type="range" min="0.25" max="2" step="0.05" value="1">
+  </div>
+  <div class="bar"><i id="fill"></i></div>
+  <div class="meta"><span id="pose">—</span><span id="rate">1.00×</span></div>
+</div>
 
-Tai Chi Dancer
-
-    Pause
-
-    ◀
-    ▶
-    Reset
-
-  —1.00×
-
-
-
+<script>
 const D = {lean:0,shift:0,lsh:0,lel:0,rsh:0,rel:0,lhip:14,lkn:-6,rhip:-14,rkn:6};
 const P = o => Object.assign({}, D, o);
 
@@ -78,23 +98,23 @@ const el = id => document.getElementById(id);
 const keys = Object.keys(D);
 const STEP = 3200;
 
-let name = "Cloud Hands", i = 0, t = 0, playing = true, speed = 1, last = 0, blend = null, cur = forms0;
+let name = "Cloud Hands", i = 0, t = 0, playing = true, speed = 1, last = 0, blend = null, cur = forms[name][0];
 
-const ease = u => uu(3-2*u);
+const ease = u => u*u*(3-2*u);
 const mix = (a,b,u) => { const o={}; for (const k of keys) o[k] = a[k] + (b[k]-a[k])*u; return o; };
 
 function draw(p){
   cur = p;
-  el("root").setAttribute("transform", translate(${p.shift},0));
-  el("body").setAttribute("transform", rotate(${p.lean}));
-  el("armL").setAttribute("transform", rotate(${p.lsh}));
-  el("elbowL").setAttribute("transform", translate(0,30) rotate(${p.lel}));
-  el("armR").setAttribute("transform", rotate(${p.rsh}));
-  el("elbowR").setAttribute("transform", translate(0,30) rotate(${p.rel}));
-  el("legL").setAttribute("transform", rotate(${p.lhip}));
-  el("kneeL").setAttribute("transform", translate(0,34) rotate(${p.lkn}));
-  el("legR").setAttribute("transform", rotate(${p.rhip}));
-  el("kneeR").setAttribute("transform", translate(0,34) rotate(${p.rkn}));
+  el("root").setAttribute("transform", `translate(${p.shift},0)`);
+  el("body").setAttribute("transform", `rotate(${p.lean})`);
+  el("armL").setAttribute("transform", `rotate(${p.lsh})`);
+  el("elbowL").setAttribute("transform", `translate(0,30) rotate(${p.lel})`);
+  el("armR").setAttribute("transform", `rotate(${p.rsh})`);
+  el("elbowR").setAttribute("transform", `translate(0,30) rotate(${p.rel})`);
+  el("legL").setAttribute("transform", `rotate(${p.lhip})`);
+  el("kneeL").setAttribute("transform", `translate(0,34) rotate(${p.lkn})`);
+  el("legR").setAttribute("transform", `rotate(${p.rhip})`);
+  el("kneeR").setAttribute("transform", `translate(0,34) rotate(${p.rkn})`);
 }
 
 function loop(ts){
@@ -109,7 +129,7 @@ function loop(ts){
     draw(mix(seq[i], seq[(i+1) % seq.length], ease(t)));
   }
   el("fill").style.width = ((i + t) / seq.length * 100) + "%";
-  el("pose").textContent = ${name} · pose ${i+1}/${seq.length};
+  el("pose").textContent = `${name} · pose ${i+1}/${seq.length}`;
   requestAnimationFrame(loop);
 }
 
@@ -124,20 +144,6 @@ el("prev").onclick = () => { i = (i-1+forms[name].length) % forms[name].length; 
 el("speed").oninput = e => { speed = +e.target.value; el("rate").textContent = speed.toFixed(2) + "×"; };
 
 requestAnimationFrame(loop);
-
-
-
-
-What's in this build
-Four forms, four keyframes each, with smooth cross-fade when you switch
-Live speed control from 0.25× to 2× that never interrupts the motion
-Play/pause, reset, and keyframe stepping
-Progress bar tracking position within the current form
-
-Natural next steps when you want to grow it
-More keyframes per form** — 4 is enough to read as movement, 8–12 would make it look genuinely trained
-Flow mode** — chain all forms into one continuous sequence
-Depth cues** — slight scale/opacity shift on the far-side limbs to suggest rotation
-Breath pacing** — subtle vertical bob tied to the transition cycle
-
-Want me to deepen the choreography next, or add the flow mode?
+</script>
+</body>
+</html>
