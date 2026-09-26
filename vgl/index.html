@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Glitch Voice Companion</title>
+  <style>
+    body {
+      font-family: monospace;
+      background: #111;
+      color: #0f0;
+      text-align: center;
+      padding: 20px;
+      margin: 0;
+      overflow: hidden;
+    }
+    h1 { font-size: 1.5em; }
+    p { font-size: 0.9em; }
+    #status {
+      margin: 20px auto;
+      font-weight: bold;
+      font-size: 1.2em;
+    }
+    canvas {
+      width: 100%;
+      height: 100px;
+      background: #000;
+      display: block;
+      margin: 10px auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>Glitch Voice Companion</h1>
+  <p>Speak into mic — pitch drives synth</p>
+  <div id="status">Click below to start</div>
+  <canvas id="waveform"></canvas>
+
+  <script>
+    let audioContext, analyser, microphone, javascriptNode;
+    let bufferLength, dataArray;
+    let isRunning = false;
+    const canvas = document.getElementById('waveform');
+    const ctx = canvas.getContext('2d');
+    const status = document.getElementById('status');
+
+    // Start audio input and processing
+    async function initAudio() {
+      if (isRunning) return;
+      try {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 2048;
+        bufferLength = analyser.frequencyBinCount;
+        dataArray = new Uint8Array(bufferLength);
+
+        javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+        javascriptNode.connect(audioContext.destination);
+
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        microphone = audioContext.createMediaStreamSource(stream);
+        microphone.connect(analyser);
+        analyser.connect(javascriptNode);
+        javascriptNode.connect(audioContext.destination);
+
+        // Create oscillator for feedback
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+        osc.start();
+
+        // Glitchy response: modulate pitch and gain based on input
+        javascriptNode.onaudioprocess = () => {
+          analyser.getByteTimeDomainData(dataArray);
+          drawWaveform();
+
+          // Simple pitch detection (crude but fast)
+          let sum = 0;
+          for (let i = 0; i < bufferLength; i++) {
+            sum += Math.abs(dataArray[i] - 128);
+          }
+          const volume = sum / bufferLength;
+          if (volume > 5) {
+            const pitch = 100 + (volume * 5); // Map volume to rough pitch
+            osc.frequency.setValueAtTime(pitch * 3, audioContext.currentTime);
+            gain.gain.setValueAtTime(volume / 100, audioContext.currentTime);
+
+            // Random glitches
+            if (Math.random() < 0.05) {
+              osc.detune.setValueAtTime(Math.random() * 1000 - 500, audioContext.currentTime);
+              gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.05);
+            }
+          }
+        };
+
+        status.textContent = "Listening... speak now";
+        isRunning = true;
+      } catch (err) {
+        status.textContent = "Error: " + err.message;
+      }
+    }
+
+    function drawWaveform() {
+      requestAnimationFrame(drawWaveform);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.beginPath();
+      const sliceWidth = canvas.width / bufferLength;
+      let x = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        const v = dataArray[i] / 128.0;
+        const y = v * canvas.height / 2;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+        x += sliceWidth;
+      }
+      ctx.strokeStyle = '#0f0';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    // Start on user tap
+    document.body.addEventListener('click', () => {
+      if (!isRunning) initAudio();
+    });
+  </script>
+</body>
+</html>
