@@ -1,4 +1,10 @@
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>9psh0</title>
+<style>
   :root {
     --paper: #e8e4dc;
     --ink: #1a1a1a;
@@ -8,7 +14,15 @@
     --orange: #e85d04;
     --on: #1a1a1a;
   }
-  { box-sizing: border-box; }
+  :root[data-theme="dark"] {
+    --paper: #151412;
+    --ink: #ece7dc;
+    --muted: #9a938a;
+    --line: #3a3733;
+    --panel: #1e1c1a;
+    --orange: #ff7a1a;
+  }
+  * { box-sizing: border-box; }
   body {
     margin: 0;
     min-height: 100vh;
@@ -44,7 +58,7 @@
     align-items: center;
     margin-bottom: 22px;
   }
-  button, input[type="range"] { font: inherit; }
+  button, input[type="range"], select { font: inherit; }
   .btn {
     background: var(--ink);
     color: var(--paper);
@@ -71,6 +85,53 @@
     gap: 10px;
   }
   input[type="range"] { accent-color: var(--orange); width: 140px; }
+
+  /* FX panel */
+  .fx {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 26px;
+  }
+  .unit {
+    border: 1px solid var(--ink);
+    background: var(--panel);
+    padding: 10px 14px 12px;
+  }
+  .unit h2 {
+    margin: 0 0 8px;
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 6px;
+  }
+  .ctl {
+    display: grid;
+    grid-template-columns: 64px 1fr 48px;
+    align-items: center;
+    gap: 10px;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+  .ctl output { text-align: right; color: var(--ink); }
+  .ctl input[type="range"] { width: 100%; }
+  .ctl select {
+    grid-column: 2 / 4;
+    height: 26px;
+    border: 1px solid var(--ink);
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+  }
+
+  .lens { margin-bottom: 26px; }
+  .tgl { min-width: 42px; width: 42px; padding: 0; font-size: 16px; letter-spacing: 0; }
   .row {
     display: grid;
     grid-template-columns: 148px 1fr;
@@ -129,29 +190,253 @@
     line-height: 1.6;
   }
   input[type="file"] { display: none; }
+  @media (max-width: 620px) {
+    main { padding: 28px 12px 40px; }
+    .fx { grid-template-columns: 1fr; }
+    .row, .bar { grid-template-columns: 96px 1fr; gap: 8px; }
+    .steps, .nums { gap: 2px; }
+    .step { height: 48px; }
+    .pad { padding: 0 8px; }
+    .pad small { display: none; }
+    label.bpm input { width: 90px; }
+    .btn { min-width: 70px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>RMBAUM <span>16</span></h1>
+    <div style="display:flex;align-items:center;gap:14px">
+      <div class="meta">DRUM / FOUR VOICES / DELAY + REVERB</div>
+      <button class="btn ghost tgl" id="theme" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </header>
 
-    BRAUN 16
-    DRUM / FOUR VOICES
+  <div class="transport">
+    <button class="btn" id="play">PLAY</button>
+    <button class="btn ghost" id="stop">STOP</button>
+    <button class="btn ghost" id="clear">CLEAR</button>
+    <label class="bpm">BPM <span id="bpmVal">110</span>
+      <input type="range" id="bpm" min="60" max="180" value="110">
+    </label>
+  </div>
 
-    PLAY
-    STOP
-    CLEAR
-    BPM 110
+  <section class="fx">
+    <div class="unit">
+      <h2>DELAY</h2>
+      <div class="ctl"><span>MIX</span><input type="range" id="dMix" min="0" max="100" value="25"><output id="dMixV">25</output></div>
+      <div class="ctl"><span>FEEDBACK</span><input type="range" id="dFb" min="0" max="90" value="35"><output id="dFbV">35</output></div>
+      <div class="ctl"><span>TIME</span>
+        <select id="dDiv">
+          <option value="0.25">1/16</option>
+          <option value="0.5">1/8</option>
+          <option value="0.75" selected>DOTTED 1/8</option>
+          <option value="1">1/4</option>
+        </select>
+      </div>
+    </div>
+    <div class="unit">
+      <h2>REVERB</h2>
+      <div class="ctl"><span>MIX</span><input type="range" id="rMix" min="0" max="100" value="20"><output id="rMixV">20</output></div>
+      <div class="ctl"><span>SIZE</span><input type="range" id="rSize" min="2" max="60" value="18"><output id="rSizeV">1.8s</output></div>
+      <div class="ctl"><span>DAMP</span><input type="range" id="rDamp" min="1000" max="12000" value="6000" step="100"><output id="rDampV">6k</output></div>
+    </div>
+  </section>
 
+  <section class="unit lens">
+    <h2>NOTE LENGTH</h2>
+    <div class="ctl"><span>KICK</span><input type="range" id="len0" min="50" max="600" value="100"><output id="len0V">1.0x</output></div>
+    <div class="ctl"><span>SNARE</span><input type="range" id="len1" min="50" max="600" value="100"><output id="len1V">1.0x</output></div>
+    <div class="ctl"><span>HAT</span><input type="range" id="len2" min="50" max="600" value="100"><output id="len2V">1.0x</output></div>
+    <div class="ctl"><span>CLAP</span><input type="range" id="len3" min="50" max="600" value="100"><output id="len3V">1.0x</output></div>
+  </section>
+
+  <div id="grid"></div>
+
+  <div class="bar"><div></div><div class="nums" id="nums"></div></div>
+
+  <footer>
     Tap a voice to hear it. Click a square to place it on the 16-beat line.
     Load a short file onto a voice with the small mark. Space starts and stops.
+    Delay time follows the BPM.
+  </footer>
+</main>
 
-
+<script>
 const NAMES = ["KICK", "SNARE", "HAT", "CLAP"];
 const grid = Array.from({length: 4}, () => Array(16).fill(false));
 const buffers = [null, null, null, null];
-let ctx, step = 0, timer = null, playing = false;
+const lens = [1, 1, 1, 1]; // per-voice length multiplier
+let ctx, noiseBuf, step = 0, timer = null, playing = false;
+let nextTime = 0;
+const queue = [];
 const bpmEl = document.getElementById("bpm");
 const bpmVal = document.getElementById("bpmVal");
 const gridEl = document.getElementById("grid");
 const nums = document.getElementById("nums");
+const $ = (id) => document.getElementById(id);
 
-for (let i = 0; i  pad.classList.remove("hit"), 90);
+// FX graph nodes, built once the AudioContext exists
+let bus, delaySend, delayNode, delayFb, delayTone, reverbSend, convolver, reverbTone;
+let impulseTimer = null;
+
+for (let i = 0; i < 16; i++) {
+  const n = document.createElement("div");
+  n.textContent = i % 4 === 0 ? String(i + 1) : "·";
+  nums.appendChild(n);
+}
+
+// Starter pattern
+[0, 4, 8, 12].forEach(s => grid[0][s] = true);
+[4, 12].forEach(s => grid[1][s] = true);
+for (let s = 0; s < 16; s += 2) grid[2][s] = true;
+
+function buildImpulse(seconds) {
+  const len = Math.floor(ctx.sampleRate * seconds);
+  const buf = ctx.createBuffer(2, len, ctx.sampleRate);
+  for (let c = 0; c < 2; c++) {
+    const d = buf.getChannelData(c);
+    for (let i = 0; i < len; i++) {
+      d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6);
+    }
+  }
+  return buf;
+}
+
+function ensure() {
+  if (!ctx) {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+
+    // master: a gentle limiter so feedback can't bite
+    const master = ctx.createDynamicsCompressor();
+    master.threshold.value = -10;
+    master.ratio.value = 6;
+    master.connect(ctx.destination);
+
+    bus = ctx.createGain();
+    bus.connect(master);                       // dry
+
+    // delay: bus -> send -> delay (feedback loop, darkened) -> master
+    delaySend = ctx.createGain();
+    delayNode = ctx.createDelay(2);
+    delayFb = ctx.createGain();
+    delayTone = ctx.createBiquadFilter();
+    delayTone.type = "lowpass";
+    delayTone.frequency.value = 3500;
+    bus.connect(delaySend);
+    delaySend.connect(delayNode);
+    delayNode.connect(delayTone);
+    delayTone.connect(delayFb);
+    delayFb.connect(delayNode);
+    delayTone.connect(master);
+
+    // reverb: bus -> highpass (keep the kick out of the mud) -> convolver -> master
+    reverbSend = ctx.createGain();
+    const hp = ctx.createBiquadFilter();
+    hp.type = "highpass";
+    hp.frequency.value = 250;
+    convolver = ctx.createConvolver();
+    reverbTone = ctx.createBiquadFilter();
+    reverbTone.type = "lowpass";
+    bus.connect(reverbSend);
+    reverbSend.connect(hp);
+    hp.connect(convolver);
+    convolver.connect(reverbTone);
+    reverbTone.connect(master);
+
+    convolver.buffer = buildImpulse(Number($("rSize").value) / 10);
+    applyFx(true);
+  }
+  if (ctx.state === "suspended") ctx.resume();
+  return ctx;
+}
+
+function applyFx(immediate) {
+  $("dMixV").textContent = $("dMix").value;
+  $("dFbV").textContent = $("dFb").value;
+  $("rMixV").textContent = $("rMix").value;
+  $("rSizeV").textContent = (Number($("rSize").value) / 10).toFixed(1) + "s";
+  $("rDampV").textContent = (Number($("rDamp").value) / 1000).toFixed(1) + "k";
+  if (!ctx) return;
+  const t = ctx.currentTime, k = immediate ? 0.001 : 0.03;
+  delaySend.gain.setTargetAtTime(Number($("dMix").value) / 100, t, k);
+  delayFb.gain.setTargetAtTime(Number($("dFb").value) / 100, t, k);
+  delayNode.delayTime.setTargetAtTime((60 / Number(bpmEl.value)) * Number($("dDiv").value), t, 0.05);
+  reverbSend.gain.setTargetAtTime(Number($("rMix").value) / 100 * 1.5, t, k);
+  reverbTone.frequency.setTargetAtTime(Number($("rDamp").value), t, k);
+}
+
+["dMix", "dFb", "dDiv", "rMix", "rDamp"].forEach(id => $(id).addEventListener("input", () => applyFx(false)));
+$("rSize").addEventListener("input", () => {
+  applyFx(false);
+  if (!ctx) return;
+  clearTimeout(impulseTimer); // rebuilding the impulse is heavy, so wait for the slider to settle
+  impulseTimer = setTimeout(() => { convolver.buffer = buildImpulse(Number($("rSize").value) / 10); }, 150);
+});
+
+function noise(t, dur, type, freq, q, peak) {
+  const src = ctx.createBufferSource();
+  src.buffer = noiseBuf;
+  src.loop = true; // long notes can outlast the 1s noise buffer
+  const f = ctx.createBiquadFilter();
+  f.type = type; f.frequency.value = freq; f.Q.value = q;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(peak, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  src.connect(f).connect(g).connect(bus);
+  src.start(t, Math.random() * 0.5);
+  src.stop(t + dur + 0.02);
+}
+
+function tone(t, f0, f1, dur, peak) {
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.frequency.setValueAtTime(f0, t);
+  o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  g.gain.setValueAtTime(peak, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g).connect(bus);
+  o.start(t);
+  o.stop(t + dur + 0.02);
+}
+
+function voice(i, t) {
+  if (buffers[i]) {
+    const s = ctx.createBufferSource();
+    s.buffer = buffers[i];
+    s.connect(bus);
+    s.start(t);
+    return;
+  }
+  const L = lens[i];
+  if (i === 0) {
+    tone(t, 150, 42, 0.32 * L, 1);
+  } else if (i === 1) {
+    tone(t, 220, 150, 0.12 * L, 0.5);
+    noise(t, 0.18 * L, "highpass", 1800, 0.7, 0.8);
+  } else if (i === 2) {
+    noise(t, 0.05 * L, "highpass", 7500, 0.7, 0.45);
+  } else {
+    [0, 0.012, 0.024].forEach(o => noise(t + o, 0.03, "bandpass", 1500, 1.2, 0.7));
+    noise(t + 0.036, 0.16 * L, "bandpass", 1500, 1.2, 0.6);
+  }
+}
+
+function flash(i) {
+  const pad = document.querySelector(`.pad[data-i="${i}"]`);
+  if (!pad) return;
+  pad.classList.add("hit");
+  setTimeout(() => pad.classList.remove("hit"), 90);
+}
+
+function playVoice(i) {
+  const c = ensure();
+  voice(i, c.currentTime);
+  flash(i);
 }
 
 function render() {
@@ -162,7 +447,7 @@ function render() {
     const pad = document.createElement("div");
     pad.className = "pad";
     pad.dataset.i = i;
-    pad.innerHTML = ${name}FILE;
+    pad.innerHTML = `<strong>${name}</strong><small>FILE</small>`;
     pad.addEventListener("pointerdown", (e) => {
       if (e.target.tagName === "SMALL") return;
       playVoice(i);
@@ -177,15 +462,24 @@ function render() {
     file.addEventListener("change", async () => {
       const f = file.files[0];
       if (!f) return;
-      const c = ensure();
-      buffers[i] = await c.decodeAudioData(await f.arrayBuffer());
-      pad.querySelector("small").textContent = "LOADED";
+      try {
+        const c = ensure();
+        buffers[i] = await c.decodeAudioData(await f.arrayBuffer());
+        pad.querySelector("small").textContent = "LOADED";
+      } catch (err) {
+        pad.querySelector("small").textContent = "ERROR";
+      }
     });
+    pad.appendChild(file);
     const steps = document.createElement("div");
     steps.className = "steps";
-    for (let s = 0; s  {
-        grids = !grids;
-        b.classList.toggle("on", grids);
+    for (let s = 0; s < 16; s++) {
+      const b = document.createElement("div");
+      b.className = "step" + (grid[i][s] ? " on" : "");
+      b.dataset.s = s;
+      b.addEventListener("click", () => {
+        grid[i][s] = !grid[i][s];
+        b.classList.toggle("on", grid[i][s]);
       });
       steps.appendChild(b);
     }
@@ -200,30 +494,90 @@ function paintPlayhead() {
   });
 }
 
+const LOOKAHEAD = 0.12;
+const WAKE = 25;
+
 function tick() {
-  for (let i = 0; i  (60 / Number(bpmEl.value)) * 250;
-  const loop = () => {
-    if (!playing) return;
-    tick();
-    timer = setTimeout(loop, ms());
-  };
-  loop();
+  for (let i = 0; i < 4; i++) {
+    if (grid[i][step]) voice(i, nextTime);
+  }
+  queue.push({ step, time: nextTime });
+  nextTime += (60 / Number(bpmEl.value)) / 4;
+  step = (step + 1) % 16;
+}
+
+function scheduler() {
+  while (nextTime < ctx.currentTime + LOOKAHEAD) tick();
+  timer = setTimeout(scheduler, WAKE);
+}
+
+function draw() {
+  if (!playing) return;
+  let hit = null;
+  while (queue.length && queue[0].time <= ctx.currentTime) hit = queue.shift();
+  if (hit) {
+    document.querySelectorAll(".step").forEach((el) => {
+      el.classList.toggle("play", Number(el.dataset.s) === hit.step);
+    });
+    for (let i = 0; i < 4; i++) if (grid[i][hit.step]) flash(i);
+  }
+  requestAnimationFrame(draw);
+}
+
+function start() {
+  if (playing) return;
+  const c = ensure();
+  playing = true;
+  step = 0;
+  queue.length = 0;
+  nextTime = c.currentTime + 0.05;
+  $("play").textContent = "PLAYING";
+  scheduler();
+  requestAnimationFrame(draw);
 }
 
 function stop() {
   playing = false;
   clearTimeout(timer);
+  queue.length = 0;
   step = 0;
-  document.getElementById("play").textContent = "PLAY";
-  paintPlayhead();
+  $("play").textContent = "PLAY";
+  paintPlayhead(); // delay and reverb tails ring out on purpose
 }
 
-document.getElementById("play").onclick = start;
-document.getElementById("stop").onclick = stop;
-document.getElementById("clear").onclick = () => {
-  for (let i = 0; i  bpmVal.textContent = bpmEl.value;
+$("play").onclick = start;
+$("stop").onclick = stop;
+$("clear").onclick = () => {
+  for (let i = 0; i < 4; i++) grid[i].fill(false);
+  document.querySelectorAll(".step").forEach((el) => el.classList.remove("on"));
+};
+bpmEl.oninput = () => { bpmVal.textContent = bpmEl.value; applyFx(false); };
 addEventListener("keydown", (e) => {
+  if (e.target.tagName === "SELECT") return;
   if (e.code === "Space") { e.preventDefault(); playing ? stop() : start(); }
   if (["Digit1","Digit2","Digit3","Digit4"].includes(e.code)) playVoice(Number(e.code.slice(-1)) - 1);
 });
+for (let i = 0; i < 4; i++) {
+  $("len" + i).addEventListener("input", () => {
+    lens[i] = Number($("len" + i).value) / 100;
+    $("len" + i + "V").textContent = lens[i].toFixed(1) + "x";
+  });
+}
+
+// dark mode: follows the system, toggle overrides and is remembered
+const root = document.documentElement;
+function setTheme(t) {
+  root.dataset.theme = t;
+  $("theme").innerHTML = t === "dark" ? "&#9728;" : "&#9790;";
+  try { localStorage.setItem("rmb-theme", t); } catch (e) {}
+}
+let savedTheme = null;
+try { savedTheme = localStorage.getItem("rmb-theme"); } catch (e) {}
+setTheme(savedTheme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
+$("theme").onclick = () => setTheme(root.dataset.theme === "dark" ? "light" : "dark");
+
 render();
+applyFx(false);
+</script>
+</body>
+</html>
