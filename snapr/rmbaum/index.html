@@ -1,0 +1,229 @@
+
+  :root {
+    --paper: #e8e4dc;
+    --ink: #1a1a1a;
+    --muted: #6b6560;
+    --line: #c8c2b8;
+    --panel: #f4f1ea;
+    --orange: #e85d04;
+    --on: #1a1a1a;
+  }
+  { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    letter-spacing: 0.04em;
+  }
+  main {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 48px 28px 64px;
+  }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-bottom: 1px solid var(--ink);
+    padding-bottom: 16px;
+    margin-bottom: 28px;
+  }
+  h1 {
+    margin: 0;
+    font-weight: 500;
+    font-size: 22px;
+    letter-spacing: 0.28em;
+  }
+  h1 span { color: var(--orange); }
+  .meta { font-size: 11px; color: var(--muted); letter-spacing: 0.18em; }
+  .transport {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 22px;
+  }
+  button, input[type="range"] { font: inherit; }
+  .btn {
+    background: var(--ink);
+    color: var(--paper);
+    border: 0;
+    height: 42px;
+    min-width: 92px;
+    letter-spacing: 0.16em;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .btn.ghost {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--ink);
+  }
+  .btn:active { background: var(--orange); color: #fff; border-color: var(--orange); }
+  label.bpm {
+    margin-left: auto;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  input[type="range"] { accent-color: var(--orange); width: 140px; }
+  .row {
+    display: grid;
+    grid-template-columns: 148px 1fr;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .pad {
+    height: 56px;
+    border: 1px solid var(--ink);
+    background: var(--panel);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .pad strong { font-weight: 500; font-size: 13px; letter-spacing: 0.14em; }
+  .pad small { color: var(--muted); font-size: 10px; letter-spacing: 0.08em; }
+  .pad.hit { background: var(--orange); color: #fff; border-color: var(--orange); }
+  .pad.hit small { color: #fff; }
+  .steps { display: grid; grid-template-columns: repeat(16, 1fr); gap: 4px; }
+  .step {
+    height: 56px;
+    border: 1px solid var(--line);
+    background: transparent;
+    cursor: pointer;
+    position: relative;
+  }
+  .step.on { background: var(--ink); border-color: var(--ink); }
+  .step.play::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 3px;
+    background: var(--orange);
+  }
+  .bar {
+    display: grid;
+    grid-template-columns: 148px 1fr;
+    gap: 12px;
+    margin: 6px 0 18px;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+  }
+  .nums { display: grid; grid-template-columns: repeat(16, 1fr); gap: 4px; text-align: center; }
+  footer {
+    margin-top: 28px;
+    border-top: 1px solid var(--line);
+    padding-top: 14px;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    line-height: 1.6;
+  }
+  input[type="file"] { display: none; }
+
+    BRAUN 16
+    DRUM / FOUR VOICES
+
+    PLAY
+    STOP
+    CLEAR
+    BPM 110
+
+    Tap a voice to hear it. Click a square to place it on the 16-beat line.
+    Load a short file onto a voice with the small mark. Space starts and stops.
+
+
+const NAMES = ["KICK", "SNARE", "HAT", "CLAP"];
+const grid = Array.from({length: 4}, () => Array(16).fill(false));
+const buffers = [null, null, null, null];
+let ctx, step = 0, timer = null, playing = false;
+const bpmEl = document.getElementById("bpm");
+const bpmVal = document.getElementById("bpmVal");
+const gridEl = document.getElementById("grid");
+const nums = document.getElementById("nums");
+
+for (let i = 0; i  pad.classList.remove("hit"), 90);
+}
+
+function render() {
+  gridEl.innerHTML = "";
+  NAMES.forEach((name, i) => {
+    const row = document.createElement("div");
+    row.className = "row";
+    const pad = document.createElement("div");
+    pad.className = "pad";
+    pad.dataset.i = i;
+    pad.innerHTML = ${name}FILE;
+    pad.addEventListener("pointerdown", (e) => {
+      if (e.target.tagName === "SMALL") return;
+      playVoice(i);
+    });
+    const file = document.createElement("input");
+    file.type = "file";
+    file.accept = "audio/*";
+    pad.querySelector("small").addEventListener("click", (e) => {
+      e.stopPropagation();
+      file.click();
+    });
+    file.addEventListener("change", async () => {
+      const f = file.files[0];
+      if (!f) return;
+      const c = ensure();
+      buffers[i] = await c.decodeAudioData(await f.arrayBuffer());
+      pad.querySelector("small").textContent = "LOADED";
+    });
+    const steps = document.createElement("div");
+    steps.className = "steps";
+    for (let s = 0; s  {
+        grids = !grids;
+        b.classList.toggle("on", grids);
+      });
+      steps.appendChild(b);
+    }
+    row.append(pad, steps);
+    gridEl.appendChild(row);
+  });
+}
+
+function paintPlayhead() {
+  document.querySelectorAll(".step").forEach((el) => {
+    el.classList.toggle("play", playing && Number(el.dataset.s) === step);
+  });
+}
+
+function tick() {
+  for (let i = 0; i  (60 / Number(bpmEl.value)) * 250;
+  const loop = () => {
+    if (!playing) return;
+    tick();
+    timer = setTimeout(loop, ms());
+  };
+  loop();
+}
+
+function stop() {
+  playing = false;
+  clearTimeout(timer);
+  step = 0;
+  document.getElementById("play").textContent = "PLAY";
+  paintPlayhead();
+}
+
+document.getElementById("play").onclick = start;
+document.getElementById("stop").onclick = stop;
+document.getElementById("clear").onclick = () => {
+  for (let i = 0; i  bpmVal.textContent = bpmEl.value;
+addEventListener("keydown", (e) => {
+  if (e.code === "Space") { e.preventDefault(); playing ? stop() : start(); }
+  if (["Digit1","Digit2","Digit3","Digit4"].includes(e.code)) playVoice(Number(e.code.slice(-1)) - 1);
+});
+render();
