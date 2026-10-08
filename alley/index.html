@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Back Alley</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:#05060a;
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;color:#E9E4DC}
+canvas{display:block;touch-action:none}
+#vig{position:fixed;inset:0;pointer-events:none;z-index:4;
+  background:radial-gradient(ellipse at center,transparent 50%,rgba(2,3,8,.9) 100%)}
+#hint{position:fixed;left:0;right:0;bottom:max(22px,env(safe-area-inset-bottom));text-align:center;
+  font-size:12px;letter-spacing:.04em;color:#8E97BE;opacity:0;transition:opacity .6s;z-index:5;pointer-events:none}
+#hint.on{opacity:1}
+#recal{position:fixed;right:max(16px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));
+  width:46px;height:46px;border-radius:50%;border:1px solid rgba(233,228,220,.28);background:rgba(10,12,20,.55);
+  color:#E9E4DC;font-size:17px;z-index:6;display:none;align-items:center;justify-content:center}
+body.ready #recal{display:flex}
+#start{position:fixed;inset:0;z-index:10;background:#05060a;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;text-align:center;padding:30px}
+#start h1{font-size:12px;letter-spacing:.3em;color:#5C6588;font-weight:400;margin-bottom:14px}
+#start h2{font-size:30px;font-weight:200;letter-spacing:-.02em;margin-bottom:16px}
+#start p{font-size:12.5px;color:#7E88B6;line-height:1.7;max-width:320px;margin-bottom:26px}
+#start button{border:1px solid #E9E4DC;background:none;color:#E9E4DC;font:inherit;font-size:14px;
+  padding:12px 28px;cursor:pointer;border-radius:2px}
+#note{font-size:11px;color:#5C6588;margin-top:16px;max-width:280px;line-height:1.6}
+</style>
+</head>
+<body>
+
+<div id="vig"></div>
+<div id="hint">drag to look · tap ⟳ to re-centre</div>
+<button id="recal">⟳</button>
+
+<div id="start">
+  <h1>ONE-OFF TEST</h1>
+  <h2>Back Alley</h2>
+  <p>Fixed camera, no walking — just a window into a narrow night-lit alley.
+  Hold your phone up and tilt it to look around, or drag on desktop.</p>
+  <button id="go">Step in</button>
+  <div id="note"></div>
+</div>
+
+<script src="../vendor/three.min.js"></script>
+<script>
+/* ═══════════════ setup ═══════════════ */
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x05060a);
+scene.fog=new THREE.Fog(0x05060a,3,26);
+
+const camera=new THREE.PerspectiveCamera(86,innerWidth/innerHeight,0.05,60);
+camera.position.set(0,1.05,8.7);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.18;
+document.body.appendChild(renderer.domElement);
+addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+
+/* three-step toon ramp — the whole "cheap but moody" look lives here */
+const ramp=(()=>{
+  const c=new Uint8Array([32,110,255]);
+  const t=new THREE.DataTexture(c,c.length,1,THREE.LuminanceFormat);
+  t.minFilter=t.magFilter=THREE.NearestFilter;t.generateMipmaps=false;t.needsUpdate=true;
+  return t;
+})();
+const toon=hex=>new THREE.MeshToonMaterial({color:hex,gradientMap:ramp});
+const INK=new THREE.LineBasicMaterial({color:0x020309});
+function box(w,h,d,x,y,z,col,o={}){
+  const g=new THREE.BoxGeometry(w,h,d);
+  const m=new THREE.Mesh(g,toon(col));
+  m.position.set(x,y,z);scene.add(m);
+  if(o.ink!==false)m.add(new THREE.LineSegments(new THREE.EdgesGeometry(g),INK));
+  return m;
+}
+
+/* soft radial glow sprite — cheap stand-in for bloom */
+const GLOW_TEX=(()=>{
+  const c=document.createElement('canvas');c.width=c.height=128;
+  const g=c.getContext('2d'),r=g.createRadialGradient(64,64,0,64,64,64);
+  r.addColorStop(0,'rgba(255,255,255,1)');r.addColorStop(.4,'rgba(255,255,255,.35)');
+  r.addColorStop(1,'rgba(255,255,255,0)');
+  g.fillStyle=r;g.fillRect(0,0,128,128);
+  return new THREE.CanvasTexture(c);
+})();
+function glow(x,y,z,size,color,opacity=0.5,parent=scene){
+  const mat=new THREE.SpriteMaterial({map:GLOW_TEX,color,transparent:true,
+    opacity,blending:THREE.AdditiveBlending,depthWrite:false});
+  mat.toneMapped=false;
+  const s=new THREE.Sprite(mat);
+  s.position.set(x,y,z);s.scale.set(size,size,1);parent.add(s);
+  return s;
+}
+function puddle(x,z,size,color,opacity=0.35){
+  const c=document.createElement('canvas');c.width=c.height=64;
+  const g=c.getContext('2d'),r=g.createRadialGradient(32,32,0,32,32,32);
+  r.addColorStop(0,'rgba(255,255,255,.9)');r.addColorStop(1,'rgba(255,255,255,0)');
+  g.fillStyle=r;g.fillRect(0,0,64,64);
+  const mat=new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),color,transparent:true,
+    opacity,blending:THREE.AdditiveBlending,depthWrite:false});
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(size,size*1.8),mat);
+  m.rotation.x=-Math.PI/2;m.position.set(x,0.02,z);scene.add(m);
+  return m;
+}
+/* lit-window facade, floated a hair in front of the building box */
+function facade(w,h,x,y,z,ry){
+  const c=document.createElement('canvas');c.width=256;c.height=384;
+  const g=c.getContext('2d');
+  g.fillStyle='#0b0c10';g.fillRect(0,0,c.width,c.height);
+  const cols=4,rows=8;
+  const cw=c.width/cols,rh=c.height/rows;
+  for(let r=0;r<rows;r++)for(let cx=0;cx<cols;cx++){
+    const lit=Math.random()<0.3;
+    g.fillStyle=lit?(Math.random()<0.5?'rgba(255,196,110,.9)':'rgba(170,210,255,.55)'):'rgba(20,22,30,.9)';
+    g.fillRect(cx*cw+cw*0.18,r*rh+rh*0.22,cw*0.64,rh*0.56);
+  }
+  const tex=new THREE.CanvasTexture(c);
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),
+    new THREE.MeshBasicMaterial({map:tex,transparent:true}));
+  m.position.set(x,y,z);m.rotation.y=ry;scene.add(m);
+  return m;
+}
+function sign(text,x,y,z,ry,hue){
+  const c=document.createElement('canvas');c.width=320;c.height=120;
+  const g=c.getContext('2d');
+  g.textAlign='center';g.textBaseline='middle';
+  g.font='italic 800 54px "Helvetica Neue",Helvetica,Arial';
+  g.fillStyle=hue;g.shadowColor=hue;g.shadowBlur=28;
+  g.fillText(text,160,60);g.fillText(text,160,60);
+  const tex=new THREE.CanvasTexture(c);
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(2.2,0.82),
+    new THREE.MeshBasicMaterial({map:tex,transparent:true}));
+  m.position.set(x,y,z);m.rotation.y=ry;scene.add(m);
+  return m;
+}
+
+/* ═══════════════ alley ═══════════════ */
+box(7,0.08,44,0,-0.04,-10,0x14151c);                       // ground slab
+for(let i=0;i<14;i++)
+  box(0.9,0.06,0.9,(Math.random()<0.5?-1:1)*(2.0+Math.random()*1.3),
+      -0.005,-2-Math.random()*34,0x0c0d12,{ink:false});     // crate/debris clutter
+
+const LX=-3.6,RX=3.6;
+for(let z=2,i=0;z>-36;z-=(4.4+Math.random()*1.6),i++){
+  const h=5+Math.random()*7, d=4+Math.random()*1.6;
+  box(3.6,h,d,LX-1.8,h/2,z,i%2?0x23242c:0x1c1d24);
+  facade(2.6,h*0.82,LX-0.02,h*0.46,z,Math.PI/2);
+  const h2=5+Math.random()*7, d2=4+Math.random()*1.6;
+  box(3.6,h2,d2,RX+1.8,h2/2,z,i%2?0x1c1d24:0x23242c);
+  facade(2.6,h2*0.82,RX+0.02,h2*0.46,z,-Math.PI/2);
+  if(Math.random()<0.4) box(0.14,h*0.9,0.14,LX-0.4,h*0.45,z+1.2,0x0a0a0d); // fire-escape rail
+}
+
+/* the bench we're sitting on, right under the camera */
+box(1.7,0.09,0.5,0,0.42,8.7,0x4a3524);
+box(1.7,0.42,0.09,0,0.68,8.98,0x4a3524);
+box(0.08,0.42,0.5,-0.78,0.21,8.7,0x241a10);
+box(0.08,0.42,0.5,0.78,0.21,8.7,0x241a10);
+
+/* a tag on the near wall — cheap extra grime */
+sign('RUN',LX+0.04,1.7,3,Math.PI/2,'#7be36a');
+
+/* hanging cable + bulb, close over the camera */
+box(0.05,0.05,10,LX+0.6,4.6,2,0x0a0a0d);
+box(0.05,0.05,10,RX-0.6,4.0,2,0x0a0a0d);
+const bulb=box(0.1,0.16,0.1,-0.4,3.6,1.5,0xFFE2A6,{ink:false});
+const bulbLight=new THREE.PointLight(0xFFCB80,1.2,8);bulbLight.position.copy(bulb.position);scene.add(bulbLight);
+glow(bulb.position.x,bulb.position.y,bulb.position.z,0.9,0xFFCB80,0.8);
+
+sign('NOODLE',LX+0.05,3.4,-6,Math.PI/2,'#ff2fae');
+const signLight1=new THREE.PointLight(0xFF2FAE,0.9,7);signLight1.position.set(LX+0.3,3.4,-6);scene.add(signLight1);
+const puddle1=puddle(LX+1.3,-6,2.6,0xFF2FAE,0.3);
+
+sign('OPEN',RX-0.05,3.0,-16,-Math.PI/2,'#38e2ff');
+const signLight2=new THREE.PointLight(0x38E2FF,0.9,7);signLight2.position.set(RX-0.3,3.0,-16);scene.add(signLight2);
+const puddle2=puddle(RX-1.3,-16,2.6,0x38E2FF,0.3);
+
+const fillLight=new THREE.PointLight(0x4858A8,0.35,20);fillLight.position.set(0,6,-4);scene.add(fillLight);
+const hemi=new THREE.HemisphereLight(0x3c4578,0x0a0a0d,0.55);scene.add(hemi);
+glow(0,9,-30,7,0x3B4878,0.35);                               // dim sky glow at the far end
+
+/* steam + rain, so a still camera still feels alive */
+const steam=[];
+for(let i=0;i<6;i++){
+  const s=glow(LX+0.9+Math.random()*0.6,0.2,-3-Math.random()*4,0.6,0xAAB4CC,0);
+  steam.push({s,t:Math.random()*2});
+}
+const RAIN_N=220,rg=new THREE.BufferGeometry();
+const rp=new Float32Array(RAIN_N*3);
+for(let i=0;i<RAIN_N;i++){
+  rp[i*3]=-4+Math.random()*8;rp[i*3+1]=Math.random()*9;rp[i*3+2]=2-Math.random()*36;
+}
+rg.setAttribute('position',new THREE.BufferAttribute(rp,3));
+const rainTex=(()=>{
+  const c=document.createElement('canvas');c.width=4;c.height=32;
+  const g=c.getContext('2d'),gr=g.createLinearGradient(0,0,0,32);
+  gr.addColorStop(0,'rgba(200,210,230,0)');gr.addColorStop(.5,'rgba(200,210,230,.6)');gr.addColorStop(1,'rgba(200,210,230,0)');
+  g.fillStyle=gr;g.fillRect(0,0,4,32);
+  return new THREE.CanvasTexture(c);
+})();
+const rain=new THREE.Points(rg,new THREE.PointsMaterial({map:rainTex,size:0.5,transparent:true,
+  depthWrite:false,blending:THREE.AdditiveBlending,sizeAttenuation:true,color:0x9FB0D0}));
+scene.add(rain);
+
+/* ═══════════════ look controls ═══════════════ */
+const look={yaw:0,pitch:0,roll:0};
+let gyroOn=false,calib=null;
+const GYRO_GAIN=1.7;
+function onOrient(e){
+  if(e.alpha==null&&e.beta==null&&e.gamma==null)return;
+  if(!calib)calib={a:e.alpha||0,b:e.beta||0,g:e.gamma||0};
+  let da=(e.alpha||0)-calib.a;if(da>180)da-=360;if(da<-180)da+=360;
+  const db=(e.beta||0)-calib.b, dg=(e.gamma||0)-calib.g;
+  const d2r=Math.PI/180;
+  look.yaw=-da*d2r*GYRO_GAIN;
+  look.pitch=Math.max(-1.5,Math.min(1.5,db*d2r*GYRO_GAIN));
+  look.roll=Math.max(-0.55,Math.min(0.55,-dg*d2r*0.55));
+  gyroOn=true;
+}
+function recalibrate(){calib=null}
+
+let dragging=false,lastX=0,lastY=0;
+renderer.domElement.addEventListener('pointerdown',e=>{dragging=true;lastX=e.clientX;lastY=e.clientY});
+addEventListener('pointerup',()=>dragging=false);
+addEventListener('pointermove',e=>{
+  if(!dragging||gyroOn)return;
+  look.yaw-=(e.clientX-lastX)*0.0045;
+  look.pitch=Math.max(-1.3,Math.min(1.3,look.pitch-(e.clientY-lastY)*0.0045));
+  lastX=e.clientX;lastY=e.clientY;
+});
+
+document.getElementById('recal').addEventListener('click',recalibrate);
+
+/* ═══════════════ loop ═══════════════ */
+let last=performance.now(),elapsed=0,hintT=5;
+function frame(now){
+  requestAnimationFrame(frame);
+  const dt=Math.min(0.05,(now-last)/1000);last=now;elapsed+=dt;
+
+  bulbLight.intensity=1.1+Math.sin(elapsed*19)*0.05+Math.sin(elapsed*2.3)*0.04;
+  signLight1.intensity=0.75+Math.max(0,Math.sin(elapsed*31))*0.5*(Math.sin(elapsed*0.7)>0.85?0:1);
+  signLight2.intensity=0.85+Math.sin(elapsed*23)*0.08;
+  puddle1.material.opacity=0.26+Math.sin(elapsed*1.3)*0.08;
+  puddle2.material.opacity=0.26+Math.sin(elapsed*1.7+1)*0.08;
+
+  steam.forEach(p=>{
+    p.t+=dt*0.35;if(p.t>2.2)p.t=0;
+    p.s.position.y=0.2+p.t*1.4;
+    p.s.scale.setScalar(0.6+p.t*0.9);
+    p.s.material.opacity=Math.max(0,0.22*(1-p.t/2.2));
+  });
+  const pos=rg.attributes.position;
+  for(let i=0;i<RAIN_N;i++){
+    let y=pos.getY(i)-dt*11;
+    if(y<0)y=8+Math.random()*2;
+    pos.setY(i,y);
+  }
+  pos.needsUpdate=true;
+
+  camera.rotation.set(look.pitch,look.yaw,look.roll,'YXZ');
+  if(hintT>0){hintT-=dt;if(hintT<=0)document.getElementById('hint').classList.remove('on')}
+  renderer.render(scene,camera);
+}
+
+/* ═══════════════ start / permission ═══════════════ */
+const needsPerm=typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function';
+document.getElementById('go').onclick=()=>{
+  const begin=()=>{
+    document.getElementById('start').style.display='none';
+    document.body.classList.add('ready');
+    document.getElementById('hint').classList.add('on');
+    requestAnimationFrame(frame);
+  };
+  if(needsPerm){
+    DeviceOrientationEvent.requestPermission().then(state=>{
+      if(state==='granted')addEventListener('deviceorientation',onOrient);
+      begin();
+    }).catch(begin);
+  } else if('DeviceOrientationEvent' in window){
+    addEventListener('deviceorientation',onOrient);
+    begin();
+  } else begin();
+};
+</script>
+</body>
+</html>

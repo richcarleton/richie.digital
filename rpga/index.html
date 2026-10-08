@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RPGA - Procedural Synth</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #0a0a0a;
+            color: #e0e0e0;
+            font-family: 'Monaco', 'Courier New', monospace;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2em;
+            letter-spacing: 2px;
+        }
+        
+        .section {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .section h2 {
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+            color: #888;
+        }
+        
+        .keyboard {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .key {
+            aspect-ratio: 1;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8em;
+            transition: all 0.1s;
+            user-select: none;
+        }
+        
+        .key:hover {
+            background: #333;
+            border-color: #555;
+        }
+        
+        .key.active {
+            background: #00ff00;
+            color: #000;
+            border-color: #00ff00;
+        }
+        
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .control-group label {
+            font-size: 0.85em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #888;
+        }
+        
+        input[type="range"],
+        input[type="number"],
+        select {
+            background: #2a2a2a;
+            border: 1px solid #444;
+            color: #e0e0e0;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-family: 'Monaco', monospace;
+            font-size: 0.9em;
+        }
+        
+        input[type="range"] {
+            cursor: pointer;
+        }
+        
+        .button-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        button {
+            background: #2a2a2a;
+            border: 1px solid #444;
+            color: #e0e0e0;
+            padding: 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'Monaco', monospace;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.85em;
+            transition: all 0.1s;
+        }
+        
+        button:hover {
+            background: #333;
+            border-color: #555;
+        }
+        
+        button.active {
+            background: #00ff00;
+            color: #000;
+            border-color: #00ff00;
+        }
+        
+        .status {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .status-item {
+            text-align: center;
+            padding: 12px;
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 4px;
+        }
+        
+        .status-label {
+            font-size: 0.75em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .status-value {
+            font-size: 1.3em;
+            color: #00ff00;
+        }
+        
+        .feedback {
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 15px;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        
+        .info {
+            font-size: 0.85em;
+            color: #666;
+            text-align: center;
+            margin-top: 30px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>RPGA</h1>
+        
+        <div class="section">
+            <h2>Note Selection</h2>
+            <div class="keyboard" id="keyboard"></div>
+        </div>
+        
+        <div class="section">
+            <h2>Patch</h2>
+            <div class="controls">
+                <div class="control-group">
+                    <label for="patch">Current Patch</label>
+                    <select id="patch">
+                        <option value="0">Patch 1: Sine</option>
+                        <option value="1">Patch 2: Square</option>
+                        <option value="2">Patch 3: Sawtooth</option>
+                        <option value="3">Patch 4: Triangle</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="patchCycle">Cycle Patches</label>
+                    <button id="patchCycle">Auto-Cycle Off</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Timing</h2>
+            <div class="controls">
+                <div class="control-group">
+                    <label for="tempo">Tempo (BPM)</label>
+                    <input type="number" id="tempo" min="40" max="200" value="120">
+                </div>
+                <div class="control-group">
+                    <label for="measure">Measure Length</label>
+                    <input type="number" id="measure" min="1" max="32" value="8">
+                </div>
+            </div>
+            <div class="button-row">
+                <button id="tapTempo">Tap Tempo</button>
+                <button id="swingToggle">Swing: Off</button>
+            </div>
+            <div class="controls" style="margin-top: 15px;">
+                <div class="control-group">
+                    <label for="swing">Swing Amount</label>
+                    <input type="range" id="swing" min="0" max="100" value="50">
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Control</h2>
+            <div class="button-row">
+                <button id="start" class="active">Start</button>
+                <button id="stop">Stop</button>
+            </div>
+        </div>
+        
+        <div class="status">
+            <div class="status-item">
+                <div class="status-label">Current Note</div>
+                <div class="status-value" id="currentNote">—</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">Patch</div>
+                <div class="status-value" id="statusPatch">1</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">Status</div>
+                <div class="status-value" id="status">Idle</div>
+            </div>
+        </div>
+        
+        <div class="feedback" id="feedback">Ready</div>
+        
+        <div class="info">
+            <p>Click keys to select notes • Set tempo and measure length • Tap tempo button to set rhythm • Start to begin</p>
+        </div>
+    </div>
+    
+    <script>
+        const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const patches = ['Sine', 'Square', 'Sawtooth', 'Triangle'];
+        
+        let selectedNote = 'C';
+        let currentPatch = 0;
+        let isRunning = false;
+        let tempo = 120;
+        let measureLength = 8;
+        let swingEnabled = false;
+        let swingAmount = 50;
+        let autoPatches = false;
+        let lastTapTime = 0;
+        let tapCount = 0;
+        
+        // UI Elements
+        const keyboard = document.getElementById('keyboard');
+        const tempoInput = document.getElementById('tempo');
+        const measureInput = document.getElementById('measure');
+        const patchSelect = document.getElementById('patch');
+        const patchCycleBtn = document.getElementById('patchCycle');
+        const tapTempoBtn = document.getElementById('tapTempo');
+        const swingToggleBtn = document.getElementById('swingToggle');
+        const swingSlider = document.getElementById('swing');
+        const startBtn = document.getElementById('start');
+        const stopBtn = document.getElementById('stop');
+        const feedback = document.getElementById('feedback');
+        const currentNoteDisplay = document.getElementById('currentNote');
+        const statusPatchDisplay = document.getElementById('statusPatch');
+        const statusDisplay = document.getElementById('status');
+        
+        // Build keyboard
+        notes.forEach(note => {
+            const key = document.createElement('button');
+            key.className = 'key';
+            key.textContent = note;
+            key.addEventListener('click', () => selectNote(note, key));
+            keyboard.appendChild(key);
+        });
+        
+        // Select note
+        function selectNote(note, element) {
+            document.querySelectorAll('.key').forEach(k => k.classList.remove('active'));
+            selectedNote = note;
+            element.classList.add('active');
+            updateFeedback(`Note: ${note}`);
+            currentNoteDisplay.textContent = note;
+        }
+        
+        // Tempo input
+        tempoInput.addEventListener('change', (e) => {
+            tempo = parseInt(e.target.value);
+            updateFeedback(`Tempo: ${tempo} BPM`);
+        });
+        
+        // Measure length input
+        measureInput.addEventListener('change', (e) => {
+            measureLength = parseInt(e.target.value);
+            updateFeedback(`Measure: ${measureLength} steps`);
+        });
+        
+        // Patch select
+        patchSelect.addEventListener('change', (e) => {
+            currentPatch = parseInt(e.target.value);
+            statusPatchDisplay.textContent = currentPatch + 1;
+            updateFeedback(`Patch: ${patches[currentPatch]}`);
+        });
+        
+        // Patch cycle toggle
+        patchCycleBtn.addEventListener('click', () => {
+            autoPatches = !autoPatches;
+            patchCycleBtn.textContent = autoPatches ? 'Auto-Cycle On' : 'Auto-Cycle Off';
+            patchCycleBtn.classList.toggle('active');
+            updateFeedback(`Auto-patch: ${autoPatches ? 'On' : 'Off'}`);
+        });
+        
+        // Tap tempo
+        tapTempoBtn.addEventListener('click', () => {
+            const now = Date.now();
+            if (now - lastTapTime < 2000) {
+                tapCount++;
+                if (tapCount >= 2) {
+                    const interval = (now - lastTapTime) / (tapCount - 1);
+                    tempo = Math.round(60000 / interval);
+                    tempoInput.value = tempo;
+                    updateFeedback(`Tempo locked: ${tempo} BPM`);
+                    tapCount = 0;
+                }
+            } else {
+                tapCount = 1;
+            }
+            lastTapTime = now;
+            tapTempoBtn.style.background = '#00ff00';
+            tapTempoBtn.style.color = '#000';
+            setTimeout(() => {
+                tapTempoBtn.style.background = '';
+                tapTempoBtn.style.color = '';
+            }, 100);
+        });
+        
+        // Swing toggle
+        swingToggleBtn.addEventListener('click', () => {
+            swingEnabled = !swingEnabled;
+            swingToggleBtn.textContent = swingEnabled ? 'Swing: On' : 'Swing: Off';
+            swingToggleBtn.classList.toggle('active');
+            updateFeedback(`Swing: ${swingEnabled ? 'On (' + swingAmount + '%)' : 'Off'}`);
+        });
+        
+        // Swing amount
+        swingSlider.addEventListener('input', (e) => {
+            swingAmount = parseInt(e.target.value);
+            if (swingEnabled) {
+                updateFeedback(`Swing: ${swingAmount}%`);
+            }
+        });
+        
+        // Start
+        startBtn.addEventListener('click', () => {
+            isRunning = true;
+            statusDisplay.textContent = 'Running';
+            startBtn.classList.add('active');
+            stopBtn.classList.remove('active');
+            updateFeedback(`Playing: ${selectedNote}`);
+            simulatePlayback();
+        });
+        
+        // Stop
+        stopBtn.addEventListener('click', () => {
+            isRunning = false;
+            statusDisplay.textContent = 'Idle';
+            startBtn.classList.remove('active');
+            stopBtn.classList.add('active');
+            updateFeedback('Stopped');
+        });
+        
+        // Simulate playback
+        function simulatePlayback() {
+            if (!isRunning) return;
+            
+            if (autoPatches) {
+                currentPatch = (currentPatch + 1) % patches.length;
+                patchSelect.value = currentPatch;
+                statusPatchDisplay.textContent = currentPatch + 1;
+            }
+            
+            const swingOffset = swingEnabled ? (Math.random() - 0.5) * (swingAmount / 100) : 0;
+            const stepTime = (60000 / tempo / measureLength) * (1 + swingOffset);
+            
+            updateFeedback(`▶ ${selectedNote} • Patch ${currentPatch + 1} • ${tempo} BPM`);
+            
+            setTimeout(simulatePlayback, stepTime);
+        }
+        
+        // Update feedback
+        function updateFeedback(text) {
+            feedback.textContent = text;
+        }
+        
+        // Initialize
+        document.querySelector('.key').click();
+        statusPatchDisplay.textContent = '1';
+    </script>
+</body>
+</html>
