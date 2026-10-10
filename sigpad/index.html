@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SIGPAD // HID sniffer</title>
+<style>
+:root{--bg:#0b0a08;--panel:#14110c;--ink:#ffb000;--dim:#8a6a20;--line:#3a2e14;--hot:#ff5a1f;--trace:#ffcf4a;--grid:rgba(255,176,0,.07);--glow:0 0 6px rgba(255,176,0,.45)}
+:root[data-theme=light]{--bg:#f3efe6;--panel:#fffdf8;--ink:#2a2418;--dim:#7c705a;--line:#d8cfbd;--hot:#c2410c;--trace:#1c3faa;--grid:rgba(0,0,0,.06);--glow:none}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.45 ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+body{padding:16px;max-width:1100px;margin:0 auto}
+h1{font-size:18px;letter-spacing:.2em;margin:0;text-shadow:var(--glow)}
+header{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-bottom:12px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button,select,input{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:6px 10px}
+button{cursor:pointer}button:hover{border-color:var(--ink)}
+button.primary{border-color:var(--ink);text-shadow:var(--glow)}
+input[type=number]{width:64px}input.hex{width:64px}
+label{display:inline-flex;gap:6px;align-items:center;color:var(--dim)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:10px;margin-bottom:12px}
+.panel h2{font-size:11px;letter-spacing:.18em;color:var(--dim);margin:0 0 8px;font-weight:normal;text-transform:uppercase}
+#status{color:var(--dim);min-height:1.4em}#status b{color:var(--ink)}
+#padwrap{position:relative;width:100%;aspect-ratio:240/64;border:1px solid var(--line);border-radius:4px;background:var(--bg);overflow:hidden}
+#pad{width:100%;height:100%;display:block;touch-action:none}
+#readout{position:absolute;right:8px;bottom:6px;color:var(--dim);font-size:11px;pointer-events:none}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:760px){.cols{grid-template-columns:1fr}}
+#bytes{display:flex;flex-wrap:wrap;gap:3px}
+.cell{width:42px;text-align:center;border:1px solid var(--line);border-radius:2px;padding:2px 0;font-size:11px}
+.cell small{display:block;color:var(--dim);font-size:9px}
+#log{height:220px;overflow:auto;white-space:pre;font-size:11px;color:var(--dim);margin:0}
+#log .new{color:var(--ink)}
+#info{white-space:pre-wrap;font-size:11px;color:var(--dim);margin:0;max-height:220px;overflow:auto}
+.hint{color:var(--dim);font-size:11px}
+code{color:var(--ink)}
+</style>
+</head>
+<body>
+<header>
+  <h1>SIGPAD // HID SNIFFER</h1>
+  <div class="row">
+    <button class="primary" id="btnConnect">connect topaz</button>
+    <button id="btnAny">connect any HID</button>
+    <button id="btnTheme" title="toggle theme">◐</button>
+  </div>
+</header>
+
+<div id="status">not connected — pen on the strip below works as a mouse test.</div>
+
+<div class="panel">
+  <div id="padwrap"><canvas id="pad"></canvas><div id="readout">x — y — pen —</div></div>
+  <div class="row" style="margin-top:8px">
+    <button id="btnClear">clear ink</button>
+    <button id="btnRange">reset range</button>
+    <button id="btnSvg">export SVG</button>
+    <button id="btnJson">export JSON</button>
+    <button id="btnLog">export raw log</button>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>decoder</h2>
+  <div class="row">
+    <label>mode <select id="mode">
+      <option value="topazhid">topaz HID (chunked stream) ✓</option>
+      <option value="topaz7">topaz7 (sync byte + 7-bit pairs)</option>
+      <option value="le16">le16 (little-endian u16 at offsets)</option>
+      <option value="be16">be16 (big-endian u16 at offsets)</option>
+    </select></label>
+    <label>x@ <input type="number" id="ox" min="0" max="63"></label>
+    <label>y@ <input type="number" id="oy" min="0" max="63"></label>
+    <label>pen byte <input type="number" id="penByte" min="0" max="63"></label>
+    <label>mask <input class="hex" id="penMask"></label>
+    <label><input type="checkbox" id="flipY"> flip Y</label>
+    <label>pen-up ms <input type="number" id="penUpMs" min="20" max="2000"></label>
+  </div>
+  <p class="hint">topaz HID is the confirmed format: reports are 0x2N + N stream bytes, reassembled into 5-byte packets. topaz7 scans each report for a byte with bit 7 set followed by four 7-bit bytes: x = b1 | b2&lt;&lt;7, y = b3 | b4&lt;&lt;7, pen = b0 &amp; mask. Offsets only apply to le16/be16 and count from the first data byte (report ID not included). If the trace looks like noise, scribble left↔right and watch which byte cells heat up.</p>
+</div>
+
+<div class="cols">
+  <div class="panel">
+    <h2>last report · byte heat (change rate)</h2>
+    <div id="bytes"><span class="hint">no reports yet</span></div>
+  </div>
+  <div class="panel">
+    <h2>device · collections</h2>
+    <pre id="info">—</pre>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>raw input reports <label style="float:right"><input type="checkbox" id="pause"> pause</label></h2>
+  <pre id="log"></pre>
+</div>
+
+<p class="hint">Needs Chrome/Edge over https or localhost. On Linux, if the device won't open: add <code>/etc/udev/rules.d/99-topaz.rules</code> containing <code>SUBSYSTEM=="hidraw", ATTRS{idVendor}=="06a8", MODE="0666"</code>, then <code>sudo udevadm control --reload &amp;&amp; sudo udevadm trigger</code> and replug. Vendor ID unconfirmed — if "connect topaz" lists nothing, use "connect any HID" and read the ID off the device panel.</p>
+
+<script>
+(function(){
+'use strict';
+const $=s=>document.querySelector(s);
+const store={
+  get(k,d){try{const v=localStorage.getItem('sigpad.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},
+  set(k,v){try{localStorage.setItem('sigpad.'+k,JSON.stringify(v))}catch(e){}}
+};
+
+// ---- tunables (house pattern: window.EFFECT_*) ----
+// cfg2: v1 saved le16/be16 experiments — start fresh with the confirmed decoder
+const E=window.EFFECT_SIGPAD=Object.assign({
+  mode:'topazhid',ox:1,oy:3,penByte:0,penMask:1,flipY:false,penUpMs:120,lineWidth:2
+},store.get('cfg2',{}));
+const saveCfg=()=>store.set('cfg2',E);
+
+// ---- theme (dark default) ----
+const root=document.documentElement;
+function setTheme(t){if(t==='light')root.dataset.theme='light';else delete root.dataset.theme;store.set('theme',t);dirty=true}
+$('#btnTheme').onclick=()=>setTheme(root.dataset.theme==='light'?'dark':'light');
+
+// ---- state ----
+let dev=null,dirty=true,lastT=0,cur=null,reports=0,ptsWin=0,pps=0,lastPt=null;
+let strokes=[];
+const range={minX:Infinity,maxX:-Infinity,minY:Infinity,maxY:-Infinity};
+const stats={};           // reportId -> {last,changes,count}
+const logLines=[];        // ring buffer
+const LOG_MAX=400;
+const hex=b=>b.toString(16).padStart(2,'0');
+
+// ---- decoders ----
+// topazhid (confirmed on T-LBK460-HSB, 06a8:0043): each 8-byte report is a
+// serial-over-HID chunk — b[0]=0x2N, N = payload bytes (1..4). Reassemble the
+// stream, then parse 5-byte packets: [1000000p, xlo7, xhi7, ylo7, yhi7].
+let stream=[];
+function decodeStream(b){
+  const out=[];
+  if((b[0]&0xf0)===0x20){const n=Math.min(b[0]&0x0f,b.length-1);for(let i=1;i<=n;i++)stream.push(b[i])}
+  let i=0;
+  while(i+4<stream.length){
+    const s=stream;
+    if((s[i]&0x80)&&!((s[i+1]|s[i+2]|s[i+3]|s[i+4])&0x80)){
+      out.push({x:s[i+1]|(s[i+2]<<7),y:s[i+3]|(s[i+4]<<7),pen:E.penMask?!!(s[i]&E.penMask):true});
+      i+=5;
+    }else i++;
+  }
+  stream=stream.slice(i);
+  if(stream.length>64)stream=[];   // resync guard
+  return out;
+}
+function decode(b){
+  if(E.mode==='topazhid')return decodeStream(b);
+  const out=[];
+  if(E.mode==='topaz7'){
+    for(let i=0;i+4<b.length;i++){
+      if(!(b[i]&0x80))continue;
+      if((b[i+1]|b[i+2]|b[i+3]|b[i+4])&0x80)continue;
+      out.push({x:b[i+1]|(b[i+2]<<7),y:b[i+3]|(b[i+4]<<7),pen:E.penMask?!!(b[i]&E.penMask):true});
+      i+=4;
+    }
+  }else{
+    const be=E.mode==='be16';
+    const u16=o=>o+1<b.length?(be?(b[o]<<8)|b[o+1]:b[o]|(b[o+1]<<8)):null;
+    const x=u16(E.ox),y=u16(E.oy);
+    if(x!=null&&y!=null){
+      const pen=E.penMask?(E.penByte<b.length&&!!(b[E.penByte]&E.penMask)):true;
+      out.push({x,y,pen});
+    }
+  }
+  return out;
+}
+
+// ---- ink pipeline ----
+function feed(p,t){
+  lastPt=p;ptsWin++;
+  if(p.pen){
+    if(!cur){cur=[];strokes.push(cur)}
+    cur.push({t,x:p.x,y:p.y});
+    if(p.x<range.minX)range.minX=p.x;if(p.x>range.maxX)range.maxX=p.x;
+    if(p.y<range.minY)range.minY=p.y;if(p.y>range.maxY)range.maxY=p.y;
+    lastT=t;
+  }else cur=null;
+  dirty=true;
+}
+
+function onReport(e){
+  const t=performance.now();
+  const b=new Uint8Array(e.data.buffer,e.data.byteOffset,e.data.byteLength);
+  reports++;
+  let s=stats[e.reportId];
+  if(!s||s.last.length!==b.length)s=stats[e.reportId]={id:e.reportId,last:new Uint8Array(b.length),changes:new Uint32Array(b.length),count:0};
+  for(let i=0;i<b.length;i++)if(s.count&&b[i]!==s.last[i])s.changes[i]++;
+  s.last.set(b);s.count++;s.latest=t;
+  logLines.push((t/1000).toFixed(3).padStart(9)+'  #'+hex(e.reportId)+'  '+Array.from(b,hex).join(' '));
+  if(logLines.length>LOG_MAX)logLines.splice(0,logLines.length-LOG_MAX);
+  for(const p of decode(b))feed(p,t);
+  bytesDirty=logDirty=true;
+}
+
+// ---- HID ----
+const status=h=>{$('#status').innerHTML=h};
+function describe(d){
+  const L=[`${d.productName||'(unnamed)'}  vid 0x${d.vendorId.toString(16).padStart(4,'0')}  pid 0x${d.productId.toString(16).padStart(4,'0')}`];
+  for(const c of d.collections){
+    L.push(`\ncollection usagePage 0x${c.usagePage.toString(16)} usage 0x${c.usage.toString(16)}`);
+    for(const [k,arr] of [['in',c.inputReports],['out',c.outputReports],['feat',c.featureReports]])
+      for(const r of arr||[]){
+        const bits=(r.items||[]).reduce((a,i)=>a+i.reportSize*i.reportCount,0);
+        L.push(`  ${k.padEnd(4)} id ${r.reportId}  ${bits} bits (${Math.ceil(bits/8)} bytes)`);
+      }
+  }
+  $('#info').textContent=L.join('\n');
+}
+async function open(d){
+  try{
+    if(!d.opened)await d.open();
+    if(dev&&dev!==d)dev.removeEventListener('inputreport',onReport);
+    dev=d;dev.addEventListener('inputreport',onReport);
+    describe(d);
+    status(`connected: <b>${d.productName||'device'}</b> — sign something.`);
+  }catch(err){status('open failed: '+err.message+' (udev permissions? see note at bottom)')}
+}
+async function connect(any){
+  if(!('hid' in navigator)){status('WebHID unavailable — use Chrome/Edge over https or localhost.');return}
+  try{
+    const ds=await navigator.hid.requestDevice({filters:any?[]:[{vendorId:0x06a8}]});
+    if(ds.length)open(ds[0]);
+  }catch(err){status('request failed: '+err.message)}
+}
+$('#btnConnect').onclick=()=>connect(false);
+$('#btnAny').onclick=()=>connect(true);
+if('hid' in navigator){
+  navigator.hid.getDevices().then(ds=>{const d=ds.find(x=>x.vendorId===0x06a8)||ds[0];if(d)open(d)});
+  navigator.hid.addEventListener('disconnect',e=>{if(e.device===dev){dev=null;status('disconnected.')}});
+}
+
+// ---- canvas ----
+const cv=$('#pad'),ctx=cv.getContext('2d');
+const PAD=12;
+function resize(){
+  const r=cv.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
+  cv.width=Math.round(r.width*dpr);cv.height=Math.round(r.height*dpr);dirty=true;
+}
+new ResizeObserver(resize).observe(cv);
+const css=v=>getComputedStyle(root).getPropertyValue(v).trim();
+function mapper(){
+  const w=cv.width,h=cv.height,dpr=window.devicePixelRatio||1,p=PAD*dpr;
+  const has=isFinite(range.minX);
+  const rx=has?Math.max(1,range.maxX-range.minX):1,ry=has?Math.max(1,range.maxY-range.minY):1;
+  // uniform scale so signatures keep their proportions
+  const k=Math.min((w-2*p)/rx,(h-2*p)/ry);
+  const offX=(w-rx*k)/2,offY=(h-ry*k)/2;
+  return pt=>{
+    const x=offX+(pt.x-range.minX)*k;
+    let y=offY+(pt.y-range.minY)*k;
+    if(E.flipY)y=h-y;
+    return [x,y];
+  };
+}
+function draw(){
+  const w=cv.width,h=cv.height,dpr=window.devicePixelRatio||1;
+  ctx.clearRect(0,0,w,h);
+  ctx.strokeStyle=css('--grid');ctx.lineWidth=1;
+  const step=16*dpr;
+  ctx.beginPath();
+  for(let x=0;x<w;x+=step){ctx.moveTo(x,0);ctx.lineTo(x,h)}
+  for(let y=0;y<h;y+=step){ctx.moveTo(0,y);ctx.lineTo(w,y)}
+  ctx.stroke();
+  // signature line, for old times' sake
+  ctx.strokeStyle=css('--dim');ctx.setLineDash([4*dpr,4*dpr]);
+  ctx.beginPath();ctx.moveTo(PAD*dpr,h*.78);ctx.lineTo(w-PAD*dpr,h*.78);ctx.stroke();ctx.setLineDash([]);
+  if(!strokes.length)return;
+  const m=mapper();
+  ctx.strokeStyle=css('--trace');ctx.lineWidth=E.lineWidth*dpr;ctx.lineCap=ctx.lineJoin='round';
+  for(const s of strokes){
+    if(!s.length)continue;
+    ctx.beginPath();
+    const a=m(s[0]);ctx.moveTo(a[0],a[1]);
+    if(s.length===1)ctx.lineTo(a[0]+.1,a[1]);
+    for(let i=1;i<s.length;i++){const q=m(s[i]);ctx.lineTo(q[0],q[1])}
+    ctx.stroke();
+  }
+  if(cur&&cur.length){
+    const q=m(cur[cur.length-1]);
+    ctx.fillStyle=css('--hot');ctx.beginPath();ctx.arc(q[0],q[1],3*dpr,0,7);ctx.fill();
+  }
+}
+
+// ---- mouse/touch test: same pipeline, fake raw coords 0..2400 x 0..640 ----
+let simDown=false;
+function simPt(e,pen){
+  if(dev)return;
+  const r=cv.getBoundingClientRect();
+  const x=Math.round((e.clientX-r.left)/r.width*2400),y=Math.round((e.clientY-r.top)/r.height*640);
+  feed({x,y:E.flipY?640-y:y,pen},performance.now());
+}
+cv.addEventListener('pointerdown',e=>{simDown=true;cv.setPointerCapture(e.pointerId);simPt(e,true)});
+cv.addEventListener('pointermove',e=>{if(simDown)simPt(e,true)});
+cv.addEventListener('pointerup',e=>{simDown=false;simPt(e,false)});
+
+// ---- panels ----
+let bytesDirty=false,logDirty=false;
+function renderBytes(){
+  const ids=Object.keys(stats);if(!ids.length)return;
+  const s=ids.map(k=>stats[k]).sort((a,b)=>b.latest-a.latest)[0];
+  const max=Math.max(1,...s.changes);
+  let h='';
+  for(let i=0;i<s.last.length;i++){
+    const a=(s.changes[i]/max);
+    h+=`<div class="cell" style="background:color-mix(in srgb,var(--hot) ${Math.round(a*70)}%,transparent)">${hex(s.last[i])}<small>${i}</small></div>`;
+  }
+  $('#bytes').innerHTML=`<div class="hint" style="width:100%">report #${hex(s.id)} · ${s.last.length} bytes · ${s.count} seen</div>`+h;
+}
+function renderLog(){
+  if($('#pause').checked)return;
+  const el=$('#log');
+  el.textContent=logLines.slice(-150).join('\n');
+  el.scrollTop=el.scrollHeight;
+}
+
+// ---- main loop ----
+let lastPanel=0,lastSec=performance.now();
+function loop(t){
+  if(cur&&dev&&t-lastT>E.penUpMs){cur=null;dirty=true}   // pads often just stop sending on lift
+  if(t-lastSec>=1000){pps=ptsWin;ptsWin=0;lastSec=t}
+  if(dirty){draw();dirty=false;
+    $('#readout').textContent=lastPt?`x ${lastPt.x}  y ${lastPt.y}  pen ${lastPt.pen?1:0}  ·  ${pps} pts/s  ·  ${strokes.length} strokes`:'x — y — pen —';
+  }
+  if(t-lastPanel>100){lastPanel=t;if(bytesDirty){renderBytes();bytesDirty=false}if(logDirty){renderLog();logDirty=false}}
+  requestAnimationFrame(loop);
+}
+
+// ---- controls ----
+const num=['ox','oy','penByte','penUpMs'];
+$('#mode').value=E.mode;num.forEach(k=>$('#'+k).value=E[k]);
+$('#penMask').value='0x'+hex(E.penMask);$('#flipY').checked=E.flipY;
+$('#mode').onchange=e=>{E.mode=e.target.value;saveCfg()};
+num.forEach(k=>$('#'+k).onchange=e=>{E[k]=parseInt(e.target.value,10)||0;saveCfg()});
+$('#penMask').onchange=e=>{E.penMask=parseInt(e.target.value,16)&0xff;e.target.value='0x'+hex(E.penMask);saveCfg()};
+$('#flipY').onchange=e=>{E.flipY=e.target.checked;saveCfg();dirty=true};
+$('#btnClear').onclick=()=>{strokes=[];cur=null;dirty=true};
+$('#btnRange').onclick=()=>{range.minX=range.minY=Infinity;range.maxX=range.maxY=-Infinity;
+  for(const s of strokes)for(const p of s){range.minX=Math.min(range.minX,p.x);range.maxX=Math.max(range.maxX,p.x);range.minY=Math.min(range.minY,p.y);range.maxY=Math.max(range.maxY,p.y)}dirty=true};
+
+// ---- exports ----
+function dl(name,text,type){
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));
+  a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+const stamp=()=>new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+$('#btnJson').onclick=()=>dl(`sigpad-${stamp()}.json`,JSON.stringify({
+  device:dev?{vendorId:dev.vendorId,productId:dev.productId,name:dev.productName}:'mouse-test',
+  decoder:E,range,strokes},null,1),'application/json');
+$('#btnLog').onclick=()=>dl(`sigpad-raw-${stamp()}.txt`,logLines.join('\n'),'text/plain');
+$('#btnSvg').onclick=()=>{
+  if(!strokes.length)return;
+  // smoothed (midpoint quadratic) paths, normalized to 1000 wide — vinyl-cutter friendly
+  const rx=Math.max(1,range.maxX-range.minX),ry=Math.max(1,range.maxY-range.minY);
+  const k=1000/rx,W=1000,H=Math.max(1,Math.round(ry*k));
+  const P=p=>[+((p.x-range.minX)*k).toFixed(1),+(E.flipY?H-(p.y-range.minY)*k:(p.y-range.minY)*k).toFixed(1)];
+  const d=strokes.filter(s=>s.length).map(s=>{
+    const q=s.map(P);let str=`M${q[0][0]} ${q[0][1]}`;
+    if(q.length===1)return str+'h0.1';
+    for(let i=1;i<q.length-1;i++){const mx=((q[i][0]+q[i+1][0])/2).toFixed(1),my=((q[i][1]+q[i+1][1])/2).toFixed(1);str+=`Q${q[i][0]} ${q[i][1]} ${mx} ${my}`}
+    const l=q[q.length-1];return str+`L${l[0]} ${l[1]}`;
+  });
+  const pad=20;
+  dl(`signature-${stamp()}.svg`,`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-pad} ${-pad} ${W+2*pad} ${H+2*pad}"><g fill="none" stroke="#000" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">${d.map(x=>`<path d="${x}"/>`).join('')}</g></svg>`,'image/svg+xml');
+};
+
+// debug hook: replay a captured report, e.g. SIGPAD_replay(0,[0x21,0xc1,0,0,0,0,0,0])
+window.SIGPAD_replay=(id,bytes)=>onReport({reportId:id,data:new DataView(new Uint8Array(bytes).buffer)});
+$('#mode').addEventListener('change',()=>{stream=[]});
+
+setTheme(store.get('theme','dark'));
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

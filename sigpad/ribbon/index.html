@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SIGPAD // RIBBON</title>
+<style>
+:root{--bg:#0b0a08;--panel:#14110c;--ink:#ffb000;--dim:#8a6a20;--line:#3a2e14;--hot:#ff5a1f;--trace:#ffcf4a;--lane:rgba(255,176,0,.10);--root:rgba(255,176,0,.35);--glow:0 0 6px rgba(255,176,0,.45)}
+:root[data-theme=light]{--bg:#f3efe6;--panel:#fffdf8;--ink:#2a2418;--dim:#7c705a;--line:#d8cfbd;--hot:#c2410c;--trace:#1c3faa;--lane:rgba(0,0,0,.07);--root:rgba(0,0,0,.28);--glow:none}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.45 ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+body{padding:16px;max-width:1100px;margin:0 auto}
+h1{font-size:18px;letter-spacing:.2em;margin:0;text-shadow:var(--glow)}
+header{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-bottom:12px}
+.row{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
+button,select{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:6px 10px;cursor:pointer}
+button:hover{border-color:var(--ink)}button.primary{border-color:var(--ink);text-shadow:var(--glow)}
+button.armed{background:var(--ink);color:var(--bg)}
+label{display:inline-flex;gap:6px;align-items:center;color:var(--dim)}
+input[type=range]{width:110px;accent-color:var(--ink)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:10px;margin-bottom:12px}
+#status{color:var(--dim);margin-bottom:8px;min-height:1.4em}#status b{color:var(--ink)}
+#wrap{position:relative;width:100%;aspect-ratio:240/64;border:1px solid var(--line);border-radius:4px;background:var(--bg);overflow:hidden}
+#strip{width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
+#note{position:absolute;left:10px;top:6px;font-size:28px;text-shadow:var(--glow);pointer-events:none}
+#hz{position:absolute;left:12px;top:42px;color:var(--dim);font-size:11px;pointer-events:none}
+.hint{color:var(--dim);font-size:11px}
+.val{color:var(--ink);min-width:3.5em;display:inline-block}
+</style>
+</head>
+<body>
+<header>
+  <h1>SIGPAD // RIBBON</h1>
+  <div class="row">
+    <button id="btnArm">arm audio</button>
+    <button class="primary" id="btnConnect">connect pad</button>
+    <button id="btnCal">calibrate</button>
+    <button id="btnTheme" title="toggle theme">◐</button>
+  </div>
+</header>
+<div id="status">no pad — the strip below plays with mouse or finger.</div>
+
+<div class="panel">
+  <div id="wrap"><canvas id="strip"></canvas><div id="note">—</div><div id="hz"></div></div>
+</div>
+
+<div class="panel">
+  <div class="row">
+    <label>wave <select id="wave"><option>sawtooth</option><option>square</option><option>triangle</option><option>sine</option></select></label>
+    <label>scale <select id="scale">
+      <option value="off">off (fretless)</option><option value="chrom">chromatic</option>
+      <option value="maj">major</option><option value="min">minor</option>
+      <option value="pmin">minor pent</option><option value="blues">blues</option>
+    </select></label>
+    <label>root <select id="root"></select></label>
+    <label>octave <select id="oct"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
+    <label>span <select id="span"><option value="1">1 oct</option><option value="2">2 oct</option><option value="3">3 oct</option><option value="4">4 oct</option></select></label>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <label>voice <select id="voice"><option value="mono">mono</option><option value="chord">chord</option></select></label>
+    <label>chord <select id="chord">
+      <option value="dia">diatonic (follows scale)</option><option value="maj">major</option><option value="min">minor</option>
+      <option value="sus4">sus4</option><option value="pow">power (5+8)</option><option value="dim">dim</option>
+    </select></label>
+    <button id="btnDrone">drone: off</button>
+    <label>drone lvl <input type="range" id="dlvl" min="0" max="100"><span class="val" id="dlvlV"></span></label>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <label>glide <input type="range" id="glide" min="0" max="400"><span class="val" id="glideV"></span></label>
+    <label>detune <input type="range" id="detune" min="0" max="40"><span class="val" id="detuneV"></span></label>
+    <label>reso <input type="range" id="q" min="0" max="20" step=".5"><span class="val" id="qV"></span></label>
+    <label>release <input type="range" id="rel" min="10" max="1500"><span class="val" id="relV"></span></label>
+    <label>delay <input type="range" id="dmix" min="0" max="100"><span class="val" id="dmixV"></span></label>
+    <label>time <input type="range" id="dtime" min="60" max="900"><span class="val" id="dtimeV"></span></label>
+    <label>vol <input type="range" id="vol" min="0" max="100"><span class="val" id="volV"></span></label>
+  </div>
+  <p class="hint">X = pitch, Y = filter (top bright, bottom dark). Pen down plays, lift releases. Chord: the pen drags a triad — diatonic picks major/minor/dim from the scale as you move. Drone (<b>D</b> key): root + fifth under the strip (floored at C2), held until you toggle it off — solo over it. Calibrate: hit it, then sweep the pen into all four corners. Glide 0 + a scale = keyboard; scale off + glide = theremin-on-a-stick.</p>
+</div>
+
+<script>
+(function(){
+'use strict';
+const $=s=>document.querySelector(s);
+const store={
+  get(k,d){try{const v=localStorage.getItem('ribbon.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},
+  set(k,v){try{localStorage.setItem('ribbon.'+k,JSON.stringify(v))}catch(e){}}
+};
+
+// ---- tunables ----
+const E=window.EFFECT_RIBBON=Object.assign({
+  wave:'sawtooth',scale:'off',root:0,oct:2,span:3,glide:40,detune:9,q:6,rel:250,dmix:25,dtime:330,vol:70,
+  voice:'mono',chord:'dia',drone:false,dlvl:40
+},store.get('cfg',{}));
+const save=()=>store.set('cfg',E);
+E.drone=false;   // never come back droning on reload
+// raw pad range — seeded from Mark's first capture, refined by calibrate
+const cal=store.get('cal',{minX:400,maxX:2300,minY:420,maxY:1000});
+
+// ---- theme ----
+const rootEl=document.documentElement;
+function setTheme(t){if(t==='light')rootEl.dataset.theme='light';else delete rootEl.dataset.theme;store.set('theme',t)}
+$('#btnTheme').onclick=()=>setTheme(rootEl.dataset.theme==='light'?'dark':'light');
+setTheme(store.get('theme','dark'));
+
+// ---- music math ----
+const NAMES=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const SCALES={chrom:[0,1,2,3,4,5,6,7,8,9,10,11],maj:[0,2,4,5,7,9,11],min:[0,2,3,5,7,8,10],pmin:[0,3,5,7,10],blues:[0,3,5,6,7,10]};
+const baseMidi=()=>12*(E.oct+1)+E.root;              // C2 = 36 when oct=2
+const mtof=m=>440*Math.pow(2,(m-69)/12);
+function quantize(semi){
+  if(E.scale==='off')return semi;
+  const sc=SCALES[E.scale],o=Math.floor(semi/12),r=semi-o*12;
+  let best=sc[0],bd=99;
+  for(const d of [...sc,12]){const dd=Math.abs(r-d);if(dd<bd){bd=dd;best=d}}
+  return o*12+best;
+}
+// chord tones as semitone offsets above the played note
+const FIXED={maj:[4,7],min:[3,7],sus4:[5,7],pow:[7,12],dim:[3,6]};
+function chordIv(semi){
+  const sc=SCALES[E.scale];
+  if(E.chord!=='dia'||!sc||E.scale==='chrom')return FIXED[E.chord]||FIXED.maj;
+  // stack scale degrees +2 and +4 from wherever the pen landed
+  const o=Math.floor(semi/12),r=((Math.round(semi)%12)+12)%12;
+  let i=sc.indexOf(r);if(i<0)return FIXED.maj;
+  const at=k=>{const j=i+k;return sc[j%sc.length]+12*Math.floor(j/sc.length)-r};
+  return [at(2),at(4)];
+}
+const QUAL={'4,7':'maj','3,7':'min','3,6':'dim','4,8':'aug','5,7':'sus4','7,12':'5','2,7':'sus2'};
+const qualOf=iv=>QUAL[iv.join(',')]||('+'+iv.join('/'));
+const nameOf=m=>{const r=Math.round(m);return NAMES[((r%12)+12)%12]+(Math.floor(r/12)-1)+(Math.abs(m-r)>.08?(m>r?'↑':'↓'):'')};
+
+// ---- audio ----
+let ac=null,o1,o2,o3,o4,chordG,d1,d2,droneF,droneG,filt,vca,master,dly,fb,wet;
+function initAudio(){
+  if(ac){ac.resume();return}
+  ac=new (window.AudioContext||window.webkitAudioContext)();
+  o1=ac.createOscillator();o2=ac.createOscillator();
+  const mix=ac.createGain();mix.gain.value=.5;
+  filt=ac.createBiquadFilter();filt.type='lowpass';
+  vca=ac.createGain();vca.gain.value=0;
+  master=ac.createGain();
+  dly=ac.createDelay(1.5);fb=ac.createGain();wet=ac.createGain();
+  const comp=ac.createDynamicsCompressor();
+  // chord voices: two more oscillators riding the same filter + VCA
+  o3=ac.createOscillator();o4=ac.createOscillator();chordG=ac.createGain();chordG.gain.value=0;
+  o3.connect(chordG);o4.connect(chordG);chordG.connect(mix);o3.start();o4.start();
+  // drone: root + fifth, own dark filter, bypasses the VCA so it sustains
+  d1=ac.createOscillator();d2=ac.createOscillator();droneF=ac.createBiquadFilter();droneF.type='lowpass';droneF.frequency.value=600;droneF.Q.value=.7;
+  droneG=ac.createGain();droneG.gain.value=0;
+  d1.connect(droneF);d2.connect(droneF);droneF.connect(droneG);d1.start();d2.start();
+  o1.connect(mix);o2.connect(mix);mix.connect(filt);filt.connect(vca);vca.connect(master);
+  master.connect(comp);master.connect(dly);dly.connect(fb);fb.connect(dly);dly.connect(wet);wet.connect(comp);
+  droneG.connect(comp);   // dry: skips the delay so it doesn't pulse
+  comp.connect(ac.destination);
+  analyser=ac.createAnalyser();analyser.fftSize=1024;comp.connect(analyser);
+  scope=new Uint8Array(analyser.fftSize);
+  o1.start();o2.start();
+  applyAudio();
+  $('#btnArm').classList.add('armed');$('#btnArm').textContent='audio armed';
+}
+function applyAudio(){
+  if(!ac)return;
+  o1.type=o2.type=o3.type=o4.type=E.wave;
+  o2.detune.value=E.detune;o1.detune.value=-E.detune*.3;
+  o3.detune.value=E.detune*.5;o4.detune.value=-E.detune*.5;
+  const t=ac.currentTime;
+  chordG.gain.setTargetAtTime(E.voice==='chord'?.8:0,t,.02);
+  let dm=baseMidi()-12;
+  while(mtof(dm)<62)dm+=12;   // below ~C2 a saw is a click train on small speakers
+  d1.type=d2.type=E.wave==='sine'?'sine':'sawtooth';
+  d1.frequency.setTargetAtTime(mtof(dm),t,.05);d2.frequency.setTargetAtTime(mtof(dm+7),t,.05);
+  d2.detune.value=4;
+  droneG.gain.setTargetAtTime(E.drone?E.dlvl/100*.35*E.vol/100:0,t,E.drone?.25:.15);   // slow swell in, slower fade
+  filt.Q.value=E.q;
+  master.gain.value=E.vol/100*.6;
+  dly.delayTime.setTargetAtTime(E.dtime/1000,ac.currentTime,.05);
+  fb.gain.value=.25+E.dmix/100*.35;wet.gain.value=E.dmix/100*.8;
+}
+let analyser=null,scope=null;
+
+// ---- the instrument ----
+let gate=false,cur={nx:.5,ny:.5,midi:48},trail=[];
+function play(nx,ny,pen){
+  nx=Math.min(1,Math.max(0,nx));ny=Math.min(1,Math.max(0,ny));
+  const semi=quantize(nx*E.span*12),midi=baseMidi()+semi;
+  const iv=E.voice==='chord'?chordIv(semi):null;
+  cur={nx,ny,midi,semi,iv};
+  if(pen)trail.push({nx,ny,t:performance.now()});
+  if(!ac)return;
+  const t=ac.currentTime,f=mtof(midi);
+  // chord voices: jump on note-on, glide while dragging (same feel as the lead)
+  if(iv){
+    const f3=mtof(midi+iv[0]),f4=mtof(midi+iv[1]);
+    if(pen&&!gate){o3.frequency.cancelScheduledValues(t);o4.frequency.cancelScheduledValues(t);o3.frequency.setValueAtTime(f3,t);o4.frequency.setValueAtTime(f4,t)}
+    else if(pen){const tc=Math.max(.002,E.glide/1000/3);o3.frequency.setTargetAtTime(f3,t,tc);o4.frequency.setTargetAtTime(f4,t,tc)}
+  }
+  const cutoff=180*Math.pow(2,(1-ny)*6.2);           // ~180 Hz .. ~13 kHz
+  if(pen&&!gate){                                     // note on: jump, no glide from last note
+    o1.frequency.cancelScheduledValues(t);o2.frequency.cancelScheduledValues(t);
+    o1.frequency.setValueAtTime(f,t);o2.frequency.setValueAtTime(f,t);
+    filt.frequency.setValueAtTime(cutoff,t);
+    vca.gain.cancelScheduledValues(t);vca.gain.setValueAtTime(vca.gain.value,t);vca.gain.linearRampToValueAtTime(.8,t+.008);
+    gate=true;
+  }else if(pen){
+    const tc=Math.max(.002,E.glide/1000/3);
+    o1.frequency.setTargetAtTime(f,t,tc);o2.frequency.setTargetAtTime(f,t,tc);
+    filt.frequency.setTargetAtTime(cutoff,t,.015);
+  }
+  if(!pen&&gate)release();
+}
+function release(){
+  gate=false;
+  if(!ac)return;
+  const t=ac.currentTime;
+  vca.gain.cancelScheduledValues(t);vca.gain.setValueAtTime(vca.gain.value,t);
+  vca.gain.setTargetAtTime(0,t,E.rel/1000/4);
+}
+
+// ---- pad: topaz HID (06a8:0043) — 0x2N chunk + N stream bytes, 5-byte packets ----
+let dev=null,stream=[],lastPen=0,calibrating=false;
+const norm=(x,y)=>[(x-cal.minX)/Math.max(1,cal.maxX-cal.minX),(y-cal.minY)/Math.max(1,cal.maxY-cal.minY)];
+function onReport(e){
+  const b=new Uint8Array(e.data.buffer,e.data.byteOffset,e.data.byteLength);
+  if((b[0]&0xf0)===0x20){const n=Math.min(b[0]&15,b.length-1);for(let i=1;i<=n;i++)stream.push(b[i])}
+  let i=0;
+  while(i+4<stream.length){
+    const s=stream;
+    if((s[i]&0x80)&&!((s[i+1]|s[i+2]|s[i+3]|s[i+4])&0x80)){
+      const pen=!!(s[i]&1),x=s[i+1]|(s[i+2]<<7),y=s[i+3]|(s[i+4]<<7);
+      if(pen){
+        lastPen=performance.now();
+        if(calibrating){cal.minX=Math.min(cal.minX,x);cal.maxX=Math.max(cal.maxX,x);cal.minY=Math.min(cal.minY,y);cal.maxY=Math.max(cal.maxY,y);store.set('cal',cal)}
+      }
+      const [nx,ny]=norm(x,y);play(nx,ny,pen);
+      i+=5;
+    }else i++;
+  }
+  stream=stream.slice(i);if(stream.length>64)stream=[];
+}
+const status=h=>{$('#status').innerHTML=h};
+async function open(d){
+  try{
+    if(!d.opened)await d.open();
+    dev=d;d.addEventListener('inputreport',onReport);
+    status(`pad: <b>${d.productName}</b>${ac?'':' — hit <b>arm audio</b> (browsers need one click before sound)'}`);
+  }catch(err){status('open failed: '+err.message+' — udev rule? see /sigpad/')}
+}
+$('#btnConnect').onclick=async()=>{
+  initAudio();
+  if(!('hid' in navigator)){status('WebHID unavailable — Chrome/Edge over https or localhost.');return}
+  try{const ds=await navigator.hid.requestDevice({filters:[{vendorId:0x06a8}]});if(ds.length)open(ds[0])}
+  catch(err){status('request failed: '+err.message)}
+};
+if('hid' in navigator){
+  navigator.hid.getDevices().then(ds=>{const d=ds.find(x=>x.vendorId===0x06a8);if(d)open(d)});
+  navigator.hid.addEventListener('disconnect',e=>{if(e.device===dev){dev=null;release();status('pad disconnected.')}});
+}
+$('#btnArm').onclick=()=>{initAudio();if(dev)status(`pad: <b>${dev.productName}</b> — play.`)};
+$('#btnCal').onclick=()=>{
+  calibrating=!calibrating;
+  if(calibrating){cal.minX=cal.minY=Infinity;cal.maxX=cal.maxY=-Infinity;$('#btnCal').classList.add('armed');status('calibrating — sweep the pen into all four corners, then hit calibrate again.')}
+  else{$('#btnCal').classList.remove('armed');
+    if(!isFinite(cal.minX)){Object.assign(cal,{minX:400,maxX:2300,minY:420,maxY:1000})}
+    store.set('cal',cal);status(`calibrated: x ${cal.minX}–${cal.maxX}, y ${cal.minY}–${cal.maxY}`)}
+};
+
+// ---- mouse/touch fallback ----
+const cv=$('#strip'),ctx=cv.getContext('2d');
+let mdown=false;
+function mpos(e){const r=cv.getBoundingClientRect();return[(e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height]}
+cv.addEventListener('pointerdown',e=>{initAudio();mdown=true;cv.setPointerCapture(e.pointerId);const[x,y]=mpos(e);play(x,y,true)});
+cv.addEventListener('pointermove',e=>{if(mdown){const[x,y]=mpos(e);play(x,y,true)}});
+const up=e=>{if(!mdown)return;mdown=false;const[x,y]=mpos(e);play(x,y,false)};
+cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+
+// ---- render ----
+function resize(){const r=cv.getBoundingClientRect(),d=window.devicePixelRatio||1;cv.width=Math.round(r.width*d);cv.height=Math.round(r.height*d)}
+new ResizeObserver(resize).observe(cv);
+const css=v=>getComputedStyle(rootEl).getPropertyValue(v).trim();
+function draw(now){
+  // pen-lift fallback: pad usually sends c0, but if packets just stop, release
+  if(dev&&gate&&!mdown&&now-lastPen>150)release();
+  const w=cv.width,h=cv.height,d=window.devicePixelRatio||1;
+  ctx.clearRect(0,0,w,h);
+  // scope behind everything
+  if(analyser){
+    analyser.getByteTimeDomainData(scope);
+    ctx.strokeStyle=css('--lane');ctx.lineWidth=1.5*d;ctx.beginPath();
+    for(let i=0;i<scope.length;i++){const x=i/(scope.length-1)*w,y=h/2+(scope[i]-128)/128*h*.45;i?ctx.lineTo(x,y):ctx.moveTo(x,y)}
+    ctx.stroke();
+  }
+  // note lanes
+  const semis=E.span*12,sc=E.scale==='off'?SCALES.chrom:SCALES[E.scale];
+  ctx.font=`${10*d}px ui-monospace,monospace`;ctx.textAlign='center';
+  for(let s=0;s<=semis;s++){
+    const pc=((s%12)+12)%12;if(!sc.includes(pc))continue;
+    const x=s/semis*w,isRoot=pc===0;
+    ctx.strokeStyle=isRoot?css('--root'):css('--lane');ctx.lineWidth=(isRoot?2:1)*d;
+    ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();
+    if(isRoot){ctx.fillStyle=css('--dim');ctx.fillText(nameOf(baseMidi()+s),Math.min(w-14*d,Math.max(14*d,x)),h-6*d)}
+  }
+  // fading trail
+  trail=trail.filter(p=>now-p.t<700);
+  ctx.lineCap='round';
+  for(let i=1;i<trail.length;i++){
+    const a=trail[i-1],b=trail[i];if(b.t-a.t>80)continue;
+    ctx.globalAlpha=1-(now-b.t)/700;ctx.strokeStyle=css('--trace');ctx.lineWidth=3*d;
+    ctx.beginPath();ctx.moveTo(a.nx*w,a.ny*h);ctx.lineTo(b.nx*w,b.ny*h);ctx.stroke();
+  }
+  ctx.globalAlpha=1;
+  // chord tones: ghost cursors where the other two voices sit
+  if(gate&&cur.iv){
+    ctx.strokeStyle=css('--hot');ctx.globalAlpha=.45;ctx.lineWidth=2*d;ctx.setLineDash([3*d,4*d]);
+    for(const i of cur.iv){const s=cur.semi+i;if(s>semis)continue;const x=s/semis*w;ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}
+    ctx.setLineDash([]);ctx.globalAlpha=1;
+  }
+  // cursor
+  const cx=cur.nx*w,cy=cur.ny*h;
+  ctx.strokeStyle=gate?css('--hot'):css('--dim');ctx.lineWidth=1*d;
+  ctx.beginPath();ctx.moveTo(cx,0);ctx.lineTo(cx,h);ctx.stroke();
+  ctx.fillStyle=gate?css('--hot'):css('--dim');ctx.beginPath();ctx.arc(cx,cy,(gate?7:4)*d,0,7);ctx.fill();
+  $('#note').textContent=gate?nameOf(cur.midi)+(cur.iv?' '+qualOf(cur.iv):''):(E.drone?'drone':'—');
+  $('#hz').textContent=gate?mtof(cur.midi).toFixed(1)+' Hz':'';
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+
+// ---- controls ----
+const rs=$('#root');NAMES.forEach((n,i)=>rs.add(new Option(n,i)));
+const fmt={glide:v=>v+'ms',detune:v=>v+'¢',q:v=>v,rel:v=>v+'ms',dmix:v=>v+'%',dtime:v=>v+'ms',vol:v=>v+'%',dlvl:v=>v+'%'};
+const droneBtn=$('#btnDrone');
+function setDrone(on){E.drone=on;save();droneBtn.textContent='drone: '+(on?'on':'off');droneBtn.classList.toggle('armed',on);if(on)initAudio();applyAudio()}
+droneBtn.onclick=()=>setDrone(!E.drone);
+document.addEventListener('keydown',e=>{if((e.key==='d'||e.key==='D')&&!/INPUT|SELECT/.test(e.target.tagName))setDrone(!E.drone)});
+droneBtn.textContent='drone: '+(E.drone?'on':'off');droneBtn.classList.toggle('armed',E.drone);
+['wave','scale','root','oct','span','voice','chord'].forEach(k=>{const el=$('#'+k);el.value=E[k];el.onchange=()=>{E[k]=isNaN(+el.value)?el.value:+el.value;save();applyAudio()}});
+Object.keys(fmt).forEach(k=>{const el=$('#'+k),v=$('#'+k+'V');el.value=E[k];v.textContent=fmt[k](E[k]);
+  el.oninput=()=>{E[k]=+el.value;v.textContent=fmt[k](E[k]);save();applyAudio()}});
+
+// debug: replay captured reports — SIGPAD_replay(0,[0x21,0xc1,0,0,0,0,0,0])
+window.SIGPAD_replay=(id,bytes)=>onReport({reportId:id,data:new DataView(new Uint8Array(bytes).buffer)});
+})();
+</script>
+</body>
+</html>
