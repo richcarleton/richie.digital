@@ -38,6 +38,9 @@
   canvas { display: block; width: 100%; height: auto; cursor: pointer; touch-action: manipulation; }
   .presets { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-top: 16px; }
   .actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px; }
+  .customs { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; margin-top: 16px; }
+  .customs:empty { display: none; }
+  .customs button { font-size: 14px; }
   button {
     background: var(--panel);
     border: 1px solid var(--line);
@@ -72,9 +75,11 @@
     <button data-chord="B">B</button>
   </div>
 
+  <div class="customs" id="customs"></div>
+
   <div class="actions">
     <button class="play" id="play">Play</button>
-    <button class="clear" id="mute">Mute all</button>
+    <button class="clear" id="add">Add</button>
     <button class="clear" id="clear">Clear</button>
   </div>
 
@@ -298,9 +303,13 @@ document.querySelectorAll('[data-chord]').forEach(btn => {
 });
 
 document.getElementById('play').addEventListener('click', play);
-document.getElementById('mute').addEventListener('click', () => {
-  state = state.map(() => -1);
-  draw();
+document.getElementById('add').addEventListener('click', () => {
+  if (state.every(f => f < 0)) return;
+  const answer = prompt('Name this chord:');
+  const name = ((answer || '').trim()) || ('C' + (customs.length + 1));
+  customs.push({ name: name.slice(0, 6), shape: [...state] });
+  saveCustoms(customs);
+  renderCustoms();
 });
 document.getElementById('clear').addEventListener('click', () => {
   state = [-1, -1, -1, -1, -1, -1];
@@ -308,6 +317,33 @@ document.getElementById('clear').addEventListener('click', () => {
 });
 
 window.addEventListener('resize', resize);
+
+const CUSTOM_KEY = 'chordDrawer.custom';
+let customs = loadCustoms();
+function loadCustoms() {
+  try { return JSON.parse(localStorage.getItem(CUSTOM_KEY)) || []; } catch (e) { return []; }
+}
+function saveCustoms(list) {
+  try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(list)); } catch (e) {}
+}
+function renderCustoms() {
+  const box = document.getElementById('customs');
+  box.innerHTML = '';
+  customs.forEach((c, idx) => {
+    const b = document.createElement('button');
+    b.textContent = c.name;
+    b.title = 'Double-tap to delete';
+    b.addEventListener('click', () => { state = [...c.shape]; draw(); play(); });
+    b.addEventListener('dblclick', () => {
+      customs.splice(idx, 1);
+      saveCustoms(customs);
+      renderCustoms();
+    });
+    box.appendChild(b);
+  });
+}
+renderCustoms();
+
 resize();
 </script>
 </body>
