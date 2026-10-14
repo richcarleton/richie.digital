@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Chord Drawer</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0b0d12;
+    --panel: #151923;
+    --line: #2a3142;
+    --text: #e6e8ee;
+    --muted: #7a8296;
+    --accent: #5aa9ff;
+    --open: #7fd6a4;
+    --mute: #d46a6a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+  }
+  .wrap { width: 100%; max-width: 640px; }
+  h1 { font-size: 18px; font-weight: 500; letter-spacing: 1px; text-align: center; margin-bottom: 18px; color: var(--muted); }
+  .board {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow-x: auto;
+  }
+  canvas { display: block; width: 100%; height: auto; cursor: pointer; touch-action: manipulation; }
+  .presets { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-top: 16px; }
+  .actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px; }
+  button {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    color: var(--text);
+    padding: 12px 0;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  button:hover { border-color: var(--accent); }
+  button:active { background: #1d2433; }
+  button.play { background: #16331f; border-color: #2c6a40; }
+  button.play:hover { border-color: var(--open); }
+  button.clear { color: var(--muted); }
+  .hint { margin-top: 14px; font-size: 12px; color: var(--muted); text-align: center; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>CHORD DRAWER</h1>
+  <div class="board"><canvas id="fb"></canvas></div>
+
+  <div class="presets">
+    <button data-chord="E">E</button>
+    <button data-chord="A">A</button>
+    <button data-chord="D">D</button>
+    <button data-chord="C">C</button>
+    <button data-chord="F">F</button>
+    <button data-chord="G">G</button>
+    <button data-chord="B">B</button>
+  </div>
+
+  <div class="actions">
+    <button class="play" id="play">Play</button>
+    <button class="clear" id="mute">Mute all</button>
+    <button class="clear" id="clear">Clear</button>
+  </div>
+
+  <p class="hint">Tap a string at a fret to place a finger. Tap the same spot to remove it. Tap the open-string ring to toggle open or muted.</p>
+</div>
+
+<script>
+const canvas = document.getElementById('fb');
+const ctx = canvas.getContext('2d');
+
+const STRINGS = 6;
+const FRETS = 12;
+// Low E to high E
+const OPEN_HZ = [82.41, 110.00, 146.83, 196.00, 246.94, 329.63];
+const NAMES = ['E', 'A', 'D', 'G', 'B', 'E'];
+
+// Per string: fret number, -1 = muted (x), 0 = open, >0 = fretted
+const CHORDS = {
+  E: [0, 2, 2, 1, 0, 0],
+  A: [-1, 0, 2, 2, 2, 0],
+  D: [-1, -1, 0, 2, 3, 2],
+  C: [-1, 3, 2, 0, 1, 0],
+  F: [1, 3, 3, 2, 1, 1],
+  G: [3, 2, 0, 0, 0, 3],
+  B: [-1, 2, 4, 4, 4, 2]
+};
+
+let state = [-1, -1, -1, -1, -1, -1];
+let layout = {};
+
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = canvas.clientWidth;
+  const cssH = Math.round(cssW * 0.5);
+  canvas.width = cssW * dpr;
+  canvas.height = cssH * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  layout = {
+    w: cssW, h: cssH,
+    left: 36, right: 14, top: 34, bottom: 18
+  };
+  layout.fretW = (cssW - layout.left - layout.right) / FRETS;
+  layout.strGap = (cssH - layout.top - layout.bottom) / (STRINGS - 1);
+  draw();
+}
+
+function strY(i) { return layout.top + i * layout.strGap; }
+function fretX(f) { return f === 0 ? layout.left - 10 : layout.left + (f - 0.5) * layout.fretW; }
+
+function draw() {
+  const { w, h, left, top } = layout;
+  ctx.clearRect(0, 0, w, h);
+
+  // Fret lines
+  ctx.strokeStyle = '#2f3749';
+  ctx.lineWidth = 1;
+  for (let f = 0; f <= FRETS; f++) {
+    const x = left + f * layout.fretW;
+    ctx.beginPath();
+    ctx.moveTo(x, top);
+    ctx.lineTo(x, strY(STRINGS - 1));
+    ctx.stroke();
+  }
+
+  // Inlay dots
+  ctx.fillStyle = '#232a3a';
+  [3, 5, 7, 9, 12].forEach(f => {
+    const x = left + (f - 0.5) * layout.fretW;
+    const y = (strY(2) + strY(3)) / 2;
+    if (f === 12) {
+      ctx.beginPath(); ctx.arc(x, strY(1) + layout.strGap * 0.5 + 0, 0, 0, 7); ctx.fill();
+    }
+    ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+  });
+
+  // Strings (thicker for low strings)
+  for (let i = 0; i < STRINGS; i++) {
+    ctx.strokeStyle = '#8a92a6';
+    ctx.lineWidth = 1 + (STRINGS - 1 - i) * 0.35;
+    ctx.beginPath();
+    ctx.moveTo(left, strY(i));
+    ctx.lineTo(w - layout.right, strY(i));
+    ctx.stroke();
+  }
+
+  // Nut
+  ctx.fillStyle = '#c8cdd9';
+  ctx.fillRect(left - 3, top, 3, strY(STRINGS - 1) - top);
+
+  // String labels and fret numbers
+  ctx.fillStyle = '#7a8296';
+  ctx.font = '11px ui-monospace, Menlo, monospace';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  for (let i = 0; i < STRINGS; i++) {
+    ctx.fillText(NAMES[i], left - 12, strY(i));
+  }
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  [3, 5, 7, 9, 12].forEach(f => {
+    ctx.fillText(String(f), left + (f - 0.5) * layout.fretW, top - 12);
+  });
+
+  // Fingers and open/muted markers
+  for (let i = 0; i < STRINGS; i++) {
+    const f = state[i];
+    const y = strY(i);
+    if (f > 0) {
+      const x = left + (f - 0.5) * layout.fretW;
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--accent') || '#5aa9ff';
+      ctx.beginPath();
+      ctx.arc(x, y, Math.min(9, layout.strGap * 0.42), 0, Math.PI * 2);
+      ctx.fill();
+    } else if (f === 0) {
+      ctx.strokeStyle = '#7fd6a4';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(left - 10, y, 6, 0, Math.PI * 2);
+      ctx.stroke();
+    } else {
+      ctx.strokeStyle = '#d46a6a';
+      ctx.lineWidth = 2;
+      const x = left - 10, s = 5;
+      ctx.beginPath();
+      ctx.moveTo(x - s, y - s); ctx.lineTo(x + s, y + s);
+      ctx.moveTo(x + s, y - s); ctx.lineTo(x - s, y + s);
+      ctx.stroke();
+    }
+  }
+}
+
+function pitchFor(stringIdx, fret) {
+  return OPEN_HZ[stringIdx] * Math.pow(2, fret / 12);
+}
+
+function pluck(freq, when, gainLevel) {
+  const actx = audioCtx();
+  const osc = actx.createOscillator();
+  const osc2 = actx.createOscillator();
+  const gain = actx.createGain();
+  const filter = actx.createBiquadFilter();
+
+  osc.type = 'triangle';
+  osc.frequency.value = freq;
+  osc2.type = 'sine';
+  osc2.frequency.value = freq * 2;
+
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(freq * 8, when);
+  filter.frequency.exponentialRampToValueAtTime(freq * 1.5, when + 1.6);
+
+  gain.gain.setValueAtTime(0.0001, when);
+  gain.gain.exponentialRampToValueAtTime(gainLevel, when + 0.005);
+  gain.gain.exponentialRampToValueAtTime(0.0001, when + 2.2);
+
+  const mix = actx.createGain();
+  mix.gain.value = 0.7;
+  osc2.connect(mix);
+  osc.connect(mix);
+  mix.connect(filter);
+  filter.connect(gain);
+  gain.connect(actx.destination);
+
+  osc.start(when); osc2.start(when);
+  osc.stop(when + 2.3); osc2.stop(when + 2.3);
+}
+
+let _ctx = null;
+function audioCtx() {
+  if (!_ctx) _ctx = new (window.AudioContext || window.webkitAudioContext)();
+  if (_ctx.state === 'suspended') _ctx.resume();
+  return _ctx;
+}
+
+function play() {
+  const actx = audioCtx();
+  const t0 = actx.currentTime + 0.02;
+  const strum = 0.035;
+  let k = 0;
+  for (let i = 0; i < STRINGS; i++) {
+    const f = state[i];
+    if (f < 0) continue;
+    pluck(pitchFor(i, f), t0 + k * strum, 0.18);
+    k++;
+  }
+}
+
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  // String: nearest by y
+  let s = 0, best = Infinity;
+  for (let i = 0; i < STRINGS; i++) {
+    const d = Math.abs(y - strY(i));
+    if (d < best) { best = d; s = i; }
+  }
+  if (best > layout.strGap * 0.5) return;
+
+  // Open/muted ring region
+  if (x < layout.left - 2) {
+    state[s] = state[s] === 0 ? -1 : 0;
+    draw();
+    return;
+  }
+
+  // Fret: which cell were we in
+  const fret = Math.min(FRETS, Math.max(1, Math.floor((x - layout.left) / layout.fretW) + 1));
+  state[s] = state[s] === fret ? -1 : fret;
+  draw();
+  pluck(pitchFor(s, state[s] < 0 ? 0 : state[s]), audioCtx().currentTime, 0.12);
+});
+
+document.querySelectorAll('[data-chord]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    state = [...CHORDS[btn.dataset.chord]];
+    draw();
+    play();
+  });
+});
+
+document.getElementById('play').addEventListener('click', play);
+document.getElementById('mute').addEventListener('click', () => {
+  state = state.map(() => -1);
+  draw();
+});
+document.getElementById('clear').addEventListener('click', () => {
+  state = [-1, -1, -1, -1, -1, -1];
+  draw();
+});
+
+window.addEventListener('resize', resize);
+resize();
+</script>
+</body>
+</html>
