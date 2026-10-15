@@ -3,17 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gleam Queen | Printable Handbills v3</title>
+<title>Gleam Queen | Printable Handbills v5</title>
 <style>
   @page { size: letter portrait; margin: 0; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
-  html, body {
-    background: #fff;
-    color: #000;
-    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-    line-height: 1.2;
+  :root {
+    --serif: "Didot", "Bodoni 72", "Playfair Display", Georgia, "Times New Roman", serif;
+    --sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
   }
+
+  html, body { background: #fff; color: #000; font-family: var(--sans); line-height: 1.2; }
 
   /* 0.4in inset keeps the sheet inside typical laser printer margins */
   .page {
@@ -28,73 +28,132 @@
     overflow: hidden;
   }
 
+  /* Cells sit flush. Dashed cut lines come from each card's border. */
   .card {
-    border: 1px dashed #000;
-    margin: 0;
-    padding: 0.2in 0.26in 0.22in;
+    border: 0.75px dashed #000;
+    padding: 0.18in 0.22in 0.2in;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    align-items: center;
     text-align: center;
   }
 
-  .crown { font-size: 18pt; line-height: 1; display: block; margin-bottom: 2pt; }
-  .brand { font-size: 22pt; font-weight: 900; letter-spacing: 0.02em; text-transform: uppercase; line-height: 1.1; }
-  .tagline { font-size: 8pt; font-style: italic; margin-top: 3pt; }
+  .crown { font-family: var(--serif); font-size: 17pt; line-height: 1; display: block; }
 
-  .rule { border: 0; border-top: 1.5px solid #000; margin: 6pt auto; width: 70%; }
+  /* Name: both words share one style. Serif, capitals, same weight, no italics. */
+  .brand {
+    font-family: var(--serif);
+    font-size: 19pt;
+    font-weight: 400;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    line-height: 1.05;
+    margin-top: 4pt;
+  }
+
+  .tagline {
+    font-family: var(--serif);
+    font-size: 8.5pt;
+    font-style: italic;
+    margin-top: 4pt;
+  }
+
+  /* Double hairline rule, classic stationery */
+  .rule {
+    width: 60%;
+    border: 0;
+    border-top: 0.5pt solid #000;
+    border-bottom: 0.5pt solid #000;
+    height: 3pt;
+    margin: 6pt auto;
+  }
 
   .services {
     list-style: none;
-    font-size: 7.5pt;
-    line-height: 1.45;
+    font-family: var(--serif);
+    font-size: 8pt;
+    line-height: 1.5;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
   }
-  .services li + li::before { content: "\2022  "; }
+  .services li + li::before { content: "\2014\00a0"; }
 
-  .qr-code { width: 0.68in; height: 0.68in; display: block; margin: 6pt auto; }
+  .qr-code { width: 0.66in; height: 0.66in; display: block; }
 
-  .area { font-size: 6pt; letter-spacing: 0.07em; text-transform: uppercase; }
+  .area {
+    font-family: var(--serif);
+    font-size: 6pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
 
   .contact {
-    border-top: 1px solid #000;
+    width: 100%;
+    border-top: 0.5pt solid #000;
     padding-top: 5pt;
-    margin-top: 4pt;
-    font-size: 8.5pt;
-    font-weight: 700;
+    font-family: var(--serif);
+    font-size: 9pt;
+    letter-spacing: 0.04em;
     line-height: 1.35;
   }
-  .contact .small { font-size: 7pt; font-weight: 400; margin-top: 2pt; }
+  .contact .small {
+    font-family: var(--sans);
+    font-size: 6.5pt;
+    letter-spacing: 0.1em;
+    margin-top: 2pt;
+  }
 
   /* Poster */
   .poster {
     width: 8.5in;
     height: 11in;
-    padding: 0.55in;
+    padding: 0.5in;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: space-between;
     text-align: center;
-    border: 6px solid #000;
   }
-  .poster .crown-big { font-size: 96pt; line-height: 1; }
-  .poster .p-brand { font-size: 54pt; font-weight: 900; text-transform: uppercase; line-height: 1.1; margin-top: 10pt; }
-  .poster .p-line { font-size: 21pt; font-style: italic; margin-top: 12pt; }
-  .poster .p-services {
-    font-size: 12pt;
-    text-transform: uppercase;
-    letter-spacing: 0.09em;
-    line-height: 1.6;
-    border-top: 3px solid #000;
-    border-bottom: 3px solid #000;
-    padding: 10pt 0;
+  .poster-frame {
     width: 100%;
+    height: 100%;
+    border: 1.5pt solid #000;
+    padding: 0.35in 0.4in;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+  }
+  .poster-frame::before {
+    content: "";
+    position: absolute;
+    inset: 5pt;
+    border: 0.5pt solid #000;
+    pointer-events: none;
+  }
+  .poster .crown-big { font-family: var(--serif); font-size: 80pt; line-height: 1; }
+  .poster .p-brand {
+    font-family: var(--serif);
+    font-size: 54pt;
+    font-weight: 400;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    line-height: 1.1;
+  }
+  .poster .p-line { font-family: var(--serif); font-size: 22pt; font-style: italic; }
+  .poster .p-rule { width: 40%; border-top: 0.5pt solid #000; border-bottom: 0.5pt solid #000; height: 3pt; }
+  .poster .p-services {
+    font-family: var(--serif);
+    font-size: 11pt;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    line-height: 1.8;
   }
   .poster .p-qr { width: 1.2in; height: 1.2in; display: block; margin: 0 auto; }
-  .poster .p-contact { font-size: 15pt; font-weight: 700; line-height: 1.4; }
-  .poster .p-contact .small { font-size: 11pt; font-weight: 400; margin-top: 4pt; }
+  .poster .p-contact { font-family: var(--serif); font-size: 15pt; letter-spacing: 0.04em; line-height: 1.4; }
+  .poster .p-contact .small { font-family: var(--serif); font-style: italic; font-size: 11pt; margin-top: 4pt; }
 
   @media screen {
     body { background: #ddd; padding: 20px 0; }
@@ -110,18 +169,21 @@
 <section class="page" id="sheet"></section>
 
 <section class="poster">
-  <div class="crown-big">&#9819;</div>
-  <div class="p-brand">Gleam<br>Queen</div>
-  <div class="p-line">A spotless space starts with us.</div>
-  <div class="p-services">
-    Deep Cleaning &nbsp;&bull;&nbsp; Move-In &nbsp;&bull;&nbsp; Move-Out<br>
-    Eco-Friendly Products &nbsp;&bull;&nbsp; Greater Vancouver, BC
-  </div>
-  <img class="p-qr" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https%3A%2F%2Fgleamqueen.ca" alt="QR code to gleamqueen.ca">
-  <div class="p-contact">
-    778-680-2319<br>
-    gleamqueen.ca
-    <div class="small">3350 Findlay St, Vancouver, BC</div>
+  <div class="poster-frame">
+    <div class="crown-big">&#9819;</div>
+    <div class="p-brand">Gleam<br>Queen</div>
+    <div class="p-line">A spotless space starts with us.</div>
+    <div class="p-rule"></div>
+    <div class="p-services">
+      Deep Cleaning &nbsp;&middot;&nbsp; Move-In &nbsp;&middot;&nbsp; Move-Out<br>
+      Eco-Friendly Products &nbsp;&middot;&nbsp; Greater Vancouver
+    </div>
+    <img class="p-qr" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https%3A%2F%2Fgleamqueen.ca" alt="QR code to gleamqueen.ca">
+    <div class="p-contact">
+      778-680-2319<br>
+      gleamqueen.ca
+      <div class="small">3350 Findlay Street, Vancouver, BC</div>
+    </div>
   </div>
 </section>
 
@@ -131,7 +193,7 @@
     <div class="card">
       <div>
         <span class="crown">&#9819;</span>
-        <div class="brand">Gleam Queen</div>
+        <div class="brand">Gleam<br>Queen</div>
         <div class="tagline">Let your space shine.</div>
       </div>
       <hr class="rule">
@@ -139,13 +201,11 @@
         <li>Deep Cleaning</li>
         <li>Move-In</li>
         <li>Move-Out</li>
-        <li>Eco-Friendly Products</li>
+        <li>Eco-Friendly</li>
       </ul>
       <img class="qr-code" src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https%3A%2F%2Fgleamqueen.ca" alt="QR code to gleamqueen.ca">
-      <div>
-        <div class="area">Greater Vancouver, BC</div>
-        <div class="contact">778-680-2319<div class="small">gleamqueen.ca</div></div>
-      </div>
+      <div class="area">Greater Vancouver, BC</div>
+      <div class="contact">778-680-2319<div class="small">gleamqueen.ca</div></div>
     </div>`;
   document.getElementById('sheet').innerHTML = card.repeat(6);
 </script>
