@@ -3,10 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gleam Queen | Printable Handbills</title>
+<title>Gleam Queen | Printable Handbills v3</title>
 <style>
   @page { size: letter portrait; margin: 0; }
-
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   html, body {
@@ -16,182 +15,91 @@
     line-height: 1.2;
   }
 
+  /* 0.4in inset keeps the sheet inside typical laser printer margins */
   .page {
     width: 8.5in;
     height: 11in;
-    padding: 0.5in;
+    padding: 0.4in;
     display: grid;
     grid-template-columns: 1fr 1fr;
     grid-template-rows: repeat(3, 1fr);
     page-break-after: always;
     break-after: page;
-    position: relative;
+    overflow: hidden;
   }
-  .page:last-child { page-break-after: auto; break-after: auto; }
 
-  /* One handbill card */
   .card {
     border: 1px dashed #000;
-    margin: 0.08in;
-    padding: 0.24in 0.28in;
+    margin: 0.06in;
+    padding: 0.2in 0.26in 0.22in;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-  }
-
-  .card-top {
     text-align: center;
   }
 
-  .crown { 
-    font-size: 20pt; 
-    line-height: 1;
-    display: block;
-    margin-bottom: 3pt;
-  }
+  .crown { font-size: 18pt; line-height: 1; display: block; margin-bottom: 2pt; }
+  .brand { font-size: 22pt; font-weight: 900; letter-spacing: 0.02em; text-transform: uppercase; line-height: 1.1; }
+  .tagline { font-size: 8pt; font-style: italic; margin-top: 3pt; }
 
-  .brand {
-    font-size: 24pt;
-    font-weight: 900;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-    line-height: 1.1;
-  }
-
-  .tagline {
-    font-size: 8.5pt;
-    font-style: italic;
-    margin-top: 4pt;
-    line-height: 1.2;
-  }
-
-  .rule {
-    border: 0;
-    border-top: 1.5px solid #000;
-    margin: 8pt auto;
-    width: 70%;
-  }
+  .rule { border: 0; border-top: 1.5px solid #000; margin: 6pt auto; width: 70%; }
 
   .services {
     list-style: none;
-    font-size: 8pt;
-    line-height: 1.4;
+    font-size: 7.5pt;
+    line-height: 1.45;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    text-align: center;
-    margin-bottom: 6pt;
   }
-
   .services li + li::before { content: "\2022  "; }
 
-  .qr-section {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4pt;
-    margin-bottom: 6pt;
-  }
+  .qr-code { width: 0.68in; height: 0.68in; display: block; margin: 6pt auto; }
 
-  .qr-code {
-    width: 0.7in;
-    height: 0.7in;
-  }
-
-  .area {
-    font-size: 6.5pt;
-    letter-spacing: 0.07em;
-    text-transform: uppercase;
-    text-align: center;
-    margin-bottom: 6pt;
-  }
+  .area { font-size: 6pt; letter-spacing: 0.07em; text-transform: uppercase; }
 
   .contact {
     border-top: 1px solid #000;
     padding-top: 5pt;
-    font-size: 9pt;
+    margin-top: 4pt;
+    font-size: 8.5pt;
     font-weight: 700;
-    line-height: 1.3;
-    text-align: center;
+    line-height: 1.35;
   }
-
-  .contact .small {
-    font-size: 7pt;
-    font-weight: 400;
-    margin-top: 2pt;
-  }
+  .contact .small { font-size: 7pt; font-weight: 400; margin-top: 2pt; }
 
   /* Poster */
   .poster {
     width: 8.5in;
     height: 11in;
-    padding: 0.6in;
+    padding: 0.55in;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: space-between;
     text-align: center;
     border: 6px solid #000;
-    page-break-after: auto;
-    line-height: 1.3;
   }
-
-  .poster .crown-big { 
-    font-size: 100pt; 
-    line-height: 1;
-    display: block;
-  }
-
-  .poster .p-brand {
-    font-size: 56pt;
-    font-weight: 900;
-    text-transform: uppercase;
-    line-height: 1.1;
-    letter-spacing: 0.01em;
-    margin-top: 12pt;
-  }
-
-  .poster .p-line {
-    font-size: 22pt;
-    font-style: italic;
-    margin-top: 14pt;
-    line-height: 1.3;
-  }
-
+  .poster .crown-big { font-size: 96pt; line-height: 1; }
+  .poster .p-brand { font-size: 54pt; font-weight: 900; text-transform: uppercase; line-height: 1.1; margin-top: 10pt; }
+  .poster .p-line { font-size: 21pt; font-style: italic; margin-top: 12pt; }
   .poster .p-services {
-    font-size: 13pt;
+    font-size: 12pt;
     text-transform: uppercase;
     letter-spacing: 0.09em;
     line-height: 1.6;
     border-top: 3px solid #000;
     border-bottom: 3px solid #000;
-    padding: 12pt 0;
+    padding: 10pt 0;
     width: 100%;
-    margin: 16pt 0;
   }
-
-  .poster .p-qr {
-    width: 1.2in;
-    height: 1.2in;
-    margin: 12pt 0;
-  }
-
-  .poster .p-contact {
-    font-size: 15pt;
-    font-weight: 700;
-    line-height: 1.4;
-  }
-
-  .poster .p-contact .small { 
-    font-size: 11pt; 
-    font-weight: 400;
-    margin-top: 4pt;
-  }
+  .poster .p-qr { width: 1.2in; height: 1.2in; display: block; margin: 0 auto; }
+  .poster .p-contact { font-size: 15pt; font-weight: 700; line-height: 1.4; }
+  .poster .p-contact .small { font-size: 11pt; font-weight: 400; margin-top: 4pt; }
 
   @media screen {
     body { background: #ddd; padding: 20px 0; }
     .page, .poster { margin: 0 auto 24px; background: #fff; box-shadow: 0 2px 12px rgba(0,0,0,.2); }
   }
-
   @media print {
     .page, .poster { box-shadow: none; margin: 0; }
   }
@@ -199,159 +107,48 @@
 </head>
 <body>
 
-<!-- SHEET 1: 6 handbills, cut along dashed lines -->
-<section class="page">
+<section class="page" id="sheet"></section>
 
-  <div class="card">
-    <div class="card-top">
-      <span class="crown">&#9819;</span>
-      <div class="brand">Gleam Queen</div>
-      <div class="tagline">Let your space shine.</div>
-    </div>
-    <hr class="rule">
-    <ul class="services">
-      <li>Deep Cleaning</li>
-      <li>Move-In</li>
-      <li>Move-Out</li>
-    </ul>
-    <div class="qr-section">
-      <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=https%3A%2F%2Fgleamqueen.ca" alt="QR Code" class="qr-code">
-    </div>
-    <div class="area">Greater Vancouver, BC</div>
-    <div class="contact">
-      778-680-2319
-      <div class="small">gleamqueen.ca</div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-top">
-      <span class="crown">&#9819;</span>
-      <div class="brand">Gleam Queen</div>
-      <div class="tagline">Let your space shine.</div>
-    </div>
-    <hr class="rule">
-    <ul class="services">
-      <li>Deep Cleaning</li>
-      <li>Move-In</li>
-      <li>Move-Out</li>
-    </ul>
-    <div class="qr-section">
-      <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=https%3A%2F%2Fgleamqueen.ca" alt="QR Code" class="qr-code">
-    </div>
-    <div class="area">Greater Vancouver, BC</div>
-    <div class="contact">
-      778-680-2319
-      <div class="small">gleamqueen.ca</div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-top">
-      <span class="crown">&#9819;</span>
-      <div class="brand">Gleam Queen</div>
-      <div class="tagline">Let your space shine.</div>
-    </div>
-    <hr class="rule">
-    <ul class="services">
-      <li>Deep Cleaning</li>
-      <li>Move-In</li>
-      <li>Move-Out</li>
-    </ul>
-    <div class="qr-section">
-      <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=https%3A%2F%2Fgleamqueen.ca" alt="QR Code" class="qr-code">
-    </div>
-    <div class="area">Greater Vancouver, BC</div>
-    <div class="contact">
-      778-680-2319
-      <div class="small">gleamqueen.ca</div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-top">
-      <span class="crown">&#9819;</span>
-      <div class="brand">Gleam Queen</div>
-      <div class="tagline">Let your space shine.</div>
-    </div>
-    <hr class="rule">
-    <ul class="services">
-      <li>Deep Cleaning</li>
-      <li>Move-In</li>
-      <li>Move-Out</li>
-    </ul>
-    <div class="qr-section">
-      <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=https%3A%2F%2Fgleamqueen.ca" alt="QR Code" class="qr-code">
-    </div>
-    <div class="area">Greater Vancouver, BC</div>
-    <div class="contact">
-      778-680-2319
-      <div class="small">gleamqueen.ca</div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-top">
-      <span class="crown">&#9819;</span>
-      <div class="brand">Gleam Queen</div>
-      <div class="tagline">Let your space shine.</div>
-    </div>
-    <hr class="rule">
-    <ul class="services">
-      <li>Deep Cleaning</li>
-      <li>Move-In</li>
-      <li>Move-Out</li>
-    </ul>
-    <div class="qr-section">
-      <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=https%3A%2F%2Fgleamqueen.ca" alt="QR Code" class="qr-code">
-    </div>
-    <div class="area">Greater Vancouver, BC</div>
-    <div class="contact">
-      778-680-2319
-      <div class="small">gleamqueen.ca</div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-top">
-      <span class="crown">&#9819;</span>
-      <div class="brand">Gleam Queen</div>
-      <div class="tagline">Let your space shine.</div>
-    </div>
-    <hr class="rule">
-    <ul class="services">
-      <li>Deep Cleaning</li>
-      <li>Move-In</li>
-      <li>Move-Out</li>
-    </ul>
-    <div class="qr-section">
-      <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=https%3A%2F%2Fgleamqueen.ca" alt="QR Code" class="qr-code">
-    </div>
-    <div class="area">Greater Vancouver, BC</div>
-    <div class="contact">
-      778-680-2319
-      <div class="small">gleamqueen.ca</div>
-    </div>
-  </div>
-
-</section>
-
-<!-- POSTER -->
 <section class="poster">
   <div class="crown-big">&#9819;</div>
   <div class="p-brand">Gleam<br>Queen</div>
   <div class="p-line">A spotless space starts with us.</div>
   <div class="p-services">
     Deep Cleaning &nbsp;&bull;&nbsp; Move-In &nbsp;&bull;&nbsp; Move-Out<br>
-    Greater Vancouver, BC
+    Eco-Friendly Products &nbsp;&bull;&nbsp; Greater Vancouver, BC
   </div>
-  <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https%3A%2F%2Fgleamqueen.ca" alt="QR Code" class="p-qr">
+  <img class="p-qr" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https%3A%2F%2Fgleamqueen.ca" alt="QR code to gleamqueen.ca">
   <div class="p-contact">
     778-680-2319<br>
     gleamqueen.ca
     <div class="small">3350 Findlay St, Vancouver, BC</div>
   </div>
 </section>
+
+<script>
+  // Build the 6 handbills so the markup stays in one place
+  const card = `
+    <div class="card">
+      <div>
+        <span class="crown">&#9819;</span>
+        <div class="brand">Gleam Queen</div>
+        <div class="tagline">Let your space shine.</div>
+      </div>
+      <hr class="rule">
+      <ul class="services">
+        <li>Deep Cleaning</li>
+        <li>Move-In</li>
+        <li>Move-Out</li>
+        <li>Eco-Friendly Products</li>
+      </ul>
+      <img class="qr-code" src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https%3A%2F%2Fgleamqueen.ca" alt="QR code to gleamqueen.ca">
+      <div>
+        <div class="area">Greater Vancouver, BC</div>
+        <div class="contact">778-680-2319<div class="small">gleamqueen.ca</div></div>
+      </div>
+    </div>`;
+  document.getElementById('sheet').innerHTML = card.repeat(6);
+</script>
 
 </body>
 </html>
