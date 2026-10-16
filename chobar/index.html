@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chord Bar</title>
+<style>
+:root { color-scheme: dark; --bar-h: 116px; }
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; height: 100%; overflow: hidden;
+  background: #05060a; color: #cfd6e4;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+canvas#scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+#hint {
+  position: fixed; top: 14px; left: 0; right: 0; text-align: center;
+  font-size: 12px; letter-spacing: .08em; opacity: .45; pointer-events: none;
+}
+#harp {
+  position: fixed; left: 12px; right: 12px;
+  bottom: calc(var(--bar-h) + env(safe-area-inset-bottom, 0px) + 4px);
+  height: 96px; touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.string {
+  position: absolute; top: 0; bottom: 0; width: 1px; transform: translateX(-50%);
+  background: linear-gradient(transparent, rgba(255,255,255,.5), transparent);
+}
+.string.ring { animation: ring .8s ease-out; }
+@keyframes ring {
+  0% { width: 3px; box-shadow: 0 0 14px var(--glow); }
+  100% { width: 1px; box-shadow: 0 0 0 transparent; }
+}
+#bar {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  height: calc(var(--bar-h) + env(safe-area-inset-bottom, 0px));
+  padding: 0 10px env(safe-area-inset-bottom, 0px);
+  background: linear-gradient(transparent, rgba(5,6,10,.9) 45%);
+  touch-action: none; user-select: none; -webkit-user-select: none;
+  display: flex; align-items: flex-end;
+}
+#track { position: relative; display: flex; gap: 6px; width: 100%; height: 72px; margin-bottom: 14px; }
+.cell {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border-radius: 10px; border: 1px solid rgba(255,255,255,.08);
+  background: rgba(255,255,255,.035); font-size: 12px; letter-spacing: .05em;
+  transition: background .3s, box-shadow .3s, color .3s, transform .15s;
+}
+.cell small { font-size: 9px; opacity: .55; margin-top: 3px; }
+.cell.active { color: #fff; transform: translateY(-3px); box-shadow: 0 0 22px var(--glow); background: rgba(255,255,255,.08); }
+#cursor {
+  position: absolute; top: -6px; bottom: -6px; width: 2px; left: 0;
+  background: rgba(255,255,255,.5); border-radius: 2px; pointer-events: none;
+  transition: transform .08s ease-out; opacity: 0;
+}
+</style>
+</head>
+<body>
+
+<canvas id="scene"></canvas>
+<div id="hint">drag along the bar</div>
+
+<div id="harp"></div>
+
+<div id="bar">
+  <div id="track"><div id="cursor"></div></div>
+</div>
+
+<script>
+// ---------- chords ----------
+const CHORDS = [
+  { name: 'C',    sub: 'major',  mood: 'sun',   notes: [261.63, 329.63, 392.00], glow: 'rgba(255,190,80,.7)',  wave: 'triangle', attack: .04, release: 1.4 },
+  { name: 'Bb',   sub: 'lift',   mood: 'sun',   notes: [233.08, 293.66, 349.23, 440.00], glow: 'rgba(255,220,130,.6)', wave: 'triangle', attack: .05, release: 1.6 },
+  { name: 'F',    sub: 'add9',   mood: 'moon',  notes: [174.61, 220.00, 261.63, 392.00], glow: 'rgba(140,170,255,.55)', wave: 'sine', attack: .08, release: 2.2 },
+  { name: 'Am',   sub: 'minor',  mood: 'moon',  notes: [220.00, 261.63, 329.63], glow: 'rgba(110,130,220,.6)', wave: 'sine', attack: .1, release: 2.6 },
+  { name: 'Dsus2',sub: 'drift',  mood: 'space', notes: [146.83, 220.00, 329.63, 440.00], glow: 'rgba(170,110,255,.6)', wave: 'sawtooth', attack: .6, release: 4.5, filter: 900 },
+  { name: 'Gsus4',sub: 'expanse',mood: 'space', notes: [196.00, 261.63, 392.00, 523.25], glow: 'rgba(90,200,255,.55)', wave: 'sawtooth', attack: .9, release: 5.5, filter: 1100 },
+];
+
+const MOODS = ['sun', 'moon', 'space'];
+const blend = { sun: 0, moon: 0, space: 0 };
+const target = { sun: 0, moon: 0, space: 0 };
+
+// ---------- DOM ----------
+const track = document.getElementById('track');
+const cursor = document.getElementById('cursor');
+const hint = document.getElementById('hint');
+const cells = CHORDS.map((c) => {
+  const el = document.createElement('div');
+  el.className = 'cell';
+  el.innerHTML = `${c.name}<small>${c.sub}</small>`;
+  el.style.setProperty('--glow', c.glow);
+  track.insertBefore(el, cursor);
+  return el;
+});
+
+// ---------- audio ----------
+let ctx = null, master = null;
+const voices = [];
+function ensureAudio() {
+  if (ctx) return;
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  master = ctx.createGain();
+  master.gain.value = 0.22;
+  const comp = ctx.createDynamicsCompressor();
+  master.connect(comp).connect(ctx.destination);
+}
+function playChord(c) {
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  voices.splice(0).forEach(v => {
+    v.g.gain.cancelScheduledValues(now);
+    v.g.gain.setTargetAtTime(0, now, .08);
+    v.nodes.forEach(n => n.stop(now + .6));
+  });
+  const filt = ctx.createBiquadFilter();
+  filt.type = 'lowpass';
+  filt.frequency.value = c.filter || 3200;
+  filt.connect(master);
+  const g = ctx.createGain();
+  g.gain.value = 0;
+  g.connect(filt);
+  const nodes = c.notes.map((f, i) => {
+    const o = ctx.createOscillator();
+    o.type = c.wave;
+    o.frequency.value = f;
+    o.detune.value = (i - 1) * 4;
+    o.connect(g);
+    o.start(now);
+    return o;
+  });
+  g.gain.setValueAtTime(0, now);
+  g.gain.linearRampToValueAtTime(0.35 / Math.sqrt(c.notes.length), now + c.attack);
+  g.gain.setTargetAtTime(0.22 / Math.sqrt(c.notes.length), now + c.attack, c.release / 3);
+  voices.push({ g, nodes });
+}
+
+// ---------- chord bar interaction ----------
+let activeIdx = -1, dragging = false;
+function indexFromX(clientX) {
+  const r = track.getBoundingClientRect();
+  const x = Math.min(Math.max(clientX - r.left, 0), r.width - 1);
+  return Math.floor(x / (r.width / CHORDS.length));
+}
+function setActive(i) {
+  if (i === activeIdx) return;
+  activeIdx = i;
+  cells.forEach((el, j) => el.classList.toggle('active', j === i));
+  const c = CHORDS[i];
+  MOODS.forEach(m => target[m] = m === c.mood ? 1 : 0);
+  ensureAudio();
+  if (ctx.state === 'suspended') ctx.resume();
+  playChord(c);
+  const r = track.getBoundingClientRect();
+  cursor.style.opacity = 1;
+  cursor.style.transform = `translateX(${(i + .5) * (r.width / CHORDS.length) - 1}px)`;
+  hint.style.opacity = 0;
+}
+const bar = document.getElementById('bar');
+bar.addEventListener('pointerdown', e => {
+  dragging = true;
+  bar.setPointerCapture(e.pointerId);
+  setActive(indexFromX(e.clientX));
+});
+bar.addEventListener('pointermove', e => { if (dragging) setActive(indexFromX(e.clientX)); });
+const end = () => { dragging = false; };
+bar.addEventListener('pointerup', end);
+bar.addEventListener('pointercancel', end);
+
+// ---------- harp strip ----------
+// Strings cluster toward the edges (cosine spacing), so the outer ones sit tight.
+const harp = document.getElementById('harp');
+const N = 9;
+const strings = [];
+for (let i = 0; i < N; i++) {
+  const u = (i + .5) / N;
+  const s = document.createElement('div');
+  s.className = 'string';
+  s.style.left = ((1 - Math.cos(Math.PI * u)) / 2 * 100) + '%';
+  harp.appendChild(s);
+  strings.push(s);
+}
+
+// Strict pitch set: the active chord's tones across three octaves, sorted.
+// Vertical position steps through this set one tone at a time. No continuous bend.
+function pitchSet(c) {
+  const out = [];
+  for (const oct of [-1, 0, 1]) for (const f of c.notes) out.push(f * Math.pow(2, oct));
+  return out.sort((a, b) => a - b);
+}
+let harpStep = 0, lastX = null, harpDown = false;
+function stepFromY(y) {
+  // top third up, bottom third down, middle holds
+  const s = Math.round((0.5 - y) * 6);
+  return Math.max(-3, Math.min(3, s));
+}
+function pluck(i) {
+  ensureAudio();
+  if (ctx.state === 'suspended') ctx.resume();
+  const c = activeIdx >= 0 ? CHORDS[activeIdx] : CHORDS[0];
+  const set = pitchSet(c);
+  const base = Math.floor(set.length / 2) - Math.floor(N / 2);
+  const idx = Math.max(0, Math.min(set.length - 1, base + i + harpStep));
+  const freq = set[idx];
+  const now = ctx.currentTime;
+  const o = ctx.createOscillator();
+  o.type = 'triangle';
+  o.frequency.value = freq;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, now);
+  g.gain.exponentialRampToValueAtTime(0.35, now + .005);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + 2.4);
+  const f = ctx.createBiquadFilter();
+  f.type = 'lowpass';
+  f.frequency.value = 4000;
+  o.connect(g).connect(f).connect(master);
+  o.start(now);
+  o.stop(now + 2.5);
+  const s = strings[i];
+  s.style.setProperty('--glow', c.glow);
+  s.classList.remove('ring');
+  void s.offsetWidth;
+  s.classList.add('ring');
+}
+function strumTo(e) {
+  const r = harp.getBoundingClientRect();
+  const x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+  const y = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
+  harpStep = stepFromY(y);
+  if (lastX !== null) {
+    const lo = Math.min(lastX, x), hi = Math.max(lastX, x);
+    for (let i = 0; i < N; i++) {
+      const cx = (1 - Math.cos(Math.PI * (i + .5) / N)) / 2;
+      if (cx > lo && cx <= hi) pluck(i);
+    }
+  }
+  lastX = x;
+}
+harp.addEventListener('pointerdown', e => {
+  harpDown = true;
+  harp.setPointerCapture(e.pointerId);
+  const r = harp.getBoundingClientRect();
+  lastX = (e.clientX - r.left) / r.width;
+  harpStep = stepFromY((e.clientY - r.top) / r.height);
+});
+harp.addEventListener('pointermove', e => { if (harpDown) strumTo(e); });
+const endHarp = () => { harpDown = false; lastX = null; };
+harp.addEventListener('pointerup', endHarp);
+harp.addEventListener('pointercancel', endHarp);
+
+// ---------- scene ----------
+const canvas = document.getElementById('scene');
+const g2 = canvas.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = canvas.clientWidth; H = canvas.clientHeight;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  g2.setTransform(DPR, 0, 0, DPR, 0, 0);
+  initStars();
+}
+window.addEventListener('resize', resize);
+
+let moonStars = [], spaceStars = [];
+function initStars() {
+  moonStars = Array.from({ length: 90 }, () => ({ x: Math.random() * W, y: Math.random() * H * .7, r: Math.random() * 1.2 + .3, p: Math.random() * 6.28 }));
+  spaceStars = Array.from({ length: 160 }, () => randStar());
+}
+function randStar() {
+  return { a: Math.random() * 6.28, d: Math.random() * 40, v: .3 + Math.random() * 1.6 };
+}
+
+let t0 = performance.now();
+function frame(now) {
+  const t = (now - t0) / 1000;
+  const k = 0.035;
+  MOODS.forEach(m => blend[m] += (target[m] - blend[m]) * k);
+
+  g2.globalCompositeOperation = 'source-over';
+  g2.fillStyle = '#05060a';
+  g2.fillRect(0, 0, W, H);
+  g2.globalCompositeOperation = 'lighter';
+
+  if (blend.sun > .002) drawSun(t, blend.sun);
+  if (blend.moon > .002) drawMoon(t, blend.moon);
+  if (blend.space > .002) drawSpace(t, blend.space);
+
+  requestAnimationFrame(frame);
+}
+
+function drawSun(t, a) {
+  const cx = W * .5, cy = H * .28, pulse = 1 + Math.sin(t * .9) * .03;
+  for (const [r, alpha] of [[W * .9, .25], [W * .45, .35], [W * .18, .55]]) {
+    const grd = g2.createRadialGradient(cx, cy, 0, cx, cy, r * pulse);
+    grd.addColorStop(0, `rgba(255,214,140,${alpha * a})`);
+    grd.addColorStop(.35, `rgba(255,160,70,${alpha * .5 * a})`);
+    grd.addColorStop(1, 'rgba(255,120,40,0)');
+    g2.fillStyle = grd;
+    g2.fillRect(0, 0, W, H);
+  }
+}
+
+function drawMoon(t, a) {
+  const cx = W * .78, cy = H * .22, r = Math.min(W, H) * .07;
+  const halo = g2.createRadialGradient(cx, cy, r * .5, cx, cy, r * 4);
+  halo.addColorStop(0, `rgba(160,185,255,${.35 * a})`);
+  halo.addColorStop(1, 'rgba(90,110,220,0)');
+  g2.fillStyle = halo;
+  g2.fillRect(0, 0, W, H);
+  g2.fillStyle = `rgba(215,225,255,${.85 * a})`;
+  g2.beginPath(); g2.arc(cx, cy, r, 0, 6.283); g2.fill();
+  for (const s of moonStars) {
+    const tw = .5 + .5 * Math.sin(t * 1.4 + s.p);
+    g2.fillStyle = `rgba(200,215,255,${(.2 + .6 * tw) * a})`;
+    g2.beginPath(); g2.arc(s.x, s.y, s.r, 0, 6.283); g2.fill();
+  }
+}
+
+function drawSpace(t, a) {
+  const cx = W * .5, cy = H * .42;
+  const neb = g2.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * .7);
+  neb.addColorStop(0, `rgba(150,80,220,${.28 * a})`);
+  neb.addColorStop(.5, `rgba(40,120,200,${.12 * a})`);
+  neb.addColorStop(1, 'rgba(0,0,0,0)');
+  g2.fillStyle = neb;
+  g2.fillRect(0, 0, W, H);
+  g2.lineWidth = 1.2;
+  for (const s of spaceStars) {
+    s.d += s.v * (1 + 2 * a) * .6;
+    if (s.d > Math.max(W, H)) Object.assign(s, randStar(), { d: 2 });
+    const x = cx + Math.cos(s.a) * s.d, y = cy + Math.sin(s.a) * s.d;
+    const x0 = cx + Math.cos(s.a) * s.d * .85, y0 = cy + Math.sin(s.a) * s.d * .85;
+    g2.strokeStyle = `rgba(210,200,255,${Math.min(1, s.d / 220) * a})`;
+    g2.beginPath(); g2.moveTo(x0, y0); g2.lineTo(x, y); g2.stroke();
+  }
+}
+
+resize();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
